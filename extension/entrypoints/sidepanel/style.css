@@ -16,6 +16,8 @@
   --highlight: #f4ff3a;
   --on-highlight: #111111;
   --miss: #c41f17;
+  /* pink on paper is under 3:1, so the focus ring is ink on paper and pink only on black stock */
+  --focus: var(--ink);
 
   --background: var(--paper);
   --foreground: var(--ink);
@@ -45,6 +47,7 @@
     --toner-2: #a29f96;
     --toner-3: #3b3a36;
     --miss: #ff6a5e;
+    --focus: var(--pink);
   }
 }
 
@@ -91,9 +94,11 @@
     -webkit-font-smoothing: antialiased;
     font-variant-numeric: tabular-nums;
   }
-  ::selection { background: var(--highlight); color: var(--on-highlight); }
-  :focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+  /* yellow means "in your cart" and nothing else, so selection stays toner grey */
+  ::selection { background: var(--toner-3); color: var(--ink); }
+  :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   a { text-underline-offset: 3px; }
+  p { text-wrap: pretty; }
   * { scrollbar-width: thin; scrollbar-color: var(--toner-3) transparent; }
 }
 

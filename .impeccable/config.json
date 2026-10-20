@@ -1,0 +1,26 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/assigned.html"
+        ],
+        "createdAt": "2026-10-20T15:02:36.542Z",
+        "reason": "Claude: archived decision-round sketch, kept as the record of the options the user chose between; never shipped"
+      },
+      {
+        "rule": "cream-palette",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/model-pick.html"
+        ],
+        "createdAt": "2026-10-20T15:02:36.562Z",
+        "reason": "Claude: archived decision-round sketch, kept as the record of the options the user chose between; never shipped"
+      }
+    ]
+  }
+}

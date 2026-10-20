@@ -17,7 +17,7 @@ OWN-WORLD: Photocopy toner black on off-white paper (black flyer stock in dark m
 
 STORY: The DJ sees at a glance what played, how sure each ID is, and what is already in the cart; they act once (send to cart) and leave with links and a file.
 
-FIRST VIEWPORT: Pink header band with source and the mix title in heavy condensed type, then one status line with the single primary action, then the lineup list: time, artist, track name at a size set by confidence, status at right. Footer holds Open cart links and Export.
+FIRST VIEWPORT: Pink header band with the mix title in heavy condensed type and a meta line (site, duration, track count, tracklist source), then one status line with the single primary action, then the lineup: confirmed tracks billed large, then a "Plus N unconfirmed" line with the single-hit IDs set small. Each row: tick, time, artist with status at right, track name, store links. Footer holds Export and Start over. In the done state the primary action is opening the cart, so Open cart lives in the status line, not the footer (decided at finish review: it is the one thing left to do).
 
 FORM: Photocopied club flyer, position 4 of 7 on the grounded list. Signature move: confidence sets type size (lineup billing), and carting draws a highlighter swipe across the track name. seed:3eca86c2ac10a73f
 

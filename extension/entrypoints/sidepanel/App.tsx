@@ -109,6 +109,7 @@ export default function App() {
   }
 
   const selected = job.rows.filter((r) => r.selected);
+  const unconfirmed = job.rows.filter((r) => r.track.hits < 2).length;
   const carted = job.rows.filter((r) => r.status === 'carted');
   const busy = job.phase === 'identifying' || job.phase === 'carting';
   const stores = STORE_PLANS.find((p) => p.id === plan)!.stores;
@@ -118,9 +119,9 @@ export default function App() {
   return (
     <main className="flex h-full flex-col">
       <header className="bg-pink px-4 pt-4 pb-3.5 text-on-pink">
-        <p className="text-[13px] font-medium">{source}</p>
-        <h1 className="mt-1 line-clamp-3 text-[34px] leading-[0.95] font-black tracking-[-0.01em] [font-stretch:62%]">{job.mix.title}</h1>
+        <h1 className="line-clamp-3 text-[34px] leading-[0.95] font-black tracking-[-0.01em] [font-stretch:62%]">{job.mix.title}</h1>
         <p className="mt-2 flex flex-wrap gap-x-3.5 text-[13px] font-semibold">
+          {source && <span>{source}</span>}
           {job.mix.duration ? <span>{clock(job.mix.duration)}</span> : null}
           {job.rows.length > 0 && <span>{job.rows.length} tracks</span>}
           <span>{job.tracklistFound ? 'From the description' : job.rows.length ? 'Identified by listening' : ''}</span>
@@ -205,10 +206,22 @@ export default function App() {
         </div>
       )}
 
-      <ol className="flex-1 overflow-y-auto px-4 pb-4">
-        {job.rows.map((row, i) => <TrackRow key={`${row.track.artist}|${row.track.title}`} row={row} index={i} locked={busy} />)}
-        {job.phase === 'identifying' && !job.rows.length && <li className="py-6 text-[14px] text-toner-2">Tracks appear here as they are recognized.</li>}
-      </ol>
+      <div className="flex-1 overflow-y-auto px-4 pb-4">
+        {/* Billed like a flyer: confirmed tracks are the lineup, single-hit IDs go on the "plus" line */}
+        <ol>
+          {job.rows.map((row, i) => row.track.hits >= 2 && <TrackRow key={`${row.track.artist}|${row.track.title}`} row={row} index={i} locked={busy} />)}
+        </ol>
+        {unconfirmed > 0 && (
+          <>
+            <h2 className="mt-5 border-b-2 border-ink pb-1.5 text-[19px] font-black [font-stretch:75%]">Plus {unconfirmed} unconfirmed</h2>
+            <p className="pt-1.5 text-[12px] text-toner-2">Each heard in one clip only. Often a sample or a blend, so they start unticked.</p>
+            <ol>
+              {job.rows.map((row, i) => row.track.hits < 2 && <TrackRow key={`${row.track.artist}|${row.track.title}`} row={row} index={i} locked={busy} />)}
+            </ol>
+          </>
+        )}
+        {job.phase === 'identifying' && !job.rows.length && <p className="py-6 text-[14px] text-toner-2">Tracks appear here as they are recognized.</p>}
+      </div>
 
       {job.rows.length > 0 && (
         <footer className="flex items-center gap-2 border-t-2 border-ink px-4 py-3">
@@ -249,17 +262,16 @@ function TrackRow({ row, index, locked }: { row: Row; index: number; locked: boo
   return (
     // Status shares the artist line so the track name, notes and links get the full width
     <li className="grid grid-cols-[22px_42px_minmax(0,1fr)] gap-x-2 border-b border-toner-3 py-2.5">
-      <Checkbox id={id} checked={row.selected} disabled={locked} onCheckedChange={() => send({ type: 'panel:toggle', index })} className="mt-0.5 border-ink data-[state=checked]:bg-ink" />
+      <Checkbox id={id} checked={row.selected} disabled={locked} onCheckedChange={() => send({ type: 'panel:toggle', index })} className="mt-1 border-ink data-[state=checked]:bg-ink" />
       <span className="pt-0.5 text-[12px] font-semibold text-toner-2">{clock(row.track.at)}</span>
       <div className="min-w-0">
         <div className="flex items-baseline justify-between gap-3">
           <label htmlFor={id} className="min-w-0 cursor-pointer truncate text-[13px] font-semibold text-toner-1">{row.track.artist}</label>
           {status && <span className={cn('shrink-0 text-[13px] font-bold', miss ? 'text-miss' : row.status === 'searching' ? 'text-toner-2' : '')}>{status}</span>}
         </div>
-        <label htmlFor={id} className={cn('block cursor-pointer leading-[1.08]', confirmed ? 'text-[21px] font-[850] [font-stretch:68%]' : 'text-[16px] font-bold [font-stretch:85%]')}>
+        <label htmlFor={id} className={cn('block cursor-pointer leading-[1.08]', confirmed ? 'text-[23px] font-black [font-stretch:64%]' : 'text-[15px] font-semibold [font-stretch:90%]')}>
           <span className={row.status === 'carted' ? 'highlighter' : undefined}>{row.track.title}</span>
         </label>
-        {!confirmed && <p className="mt-0.5 text-[12px] text-toner-2">Heard once, so unconfirmed</p>}
         {row.status === 'version-missing' && row.alternatives?.length ? (
           <p className="mt-0.5 text-[12px] text-toner-1">Available: {[...new Set(row.alternatives.map((a) => a.version || 'Original'))].join(', ')}</p>
         ) : null}
