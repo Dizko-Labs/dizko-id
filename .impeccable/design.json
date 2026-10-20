@@ -1,0 +1,468 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-20T15:10:05+00:00",
+  "title": "Design System: Mix to Cart",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Flyer Paper",
+        "canonical": "oklch(95.5% 0.008 91.5)",
+        "tonalRamp": [
+          "#0c0b07",
+          "#262521",
+          "#43423d",
+          "#63615c",
+          "#84827d",
+          "#a7a59f",
+          "#cbc9c3",
+          "#f0eee8"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Toner Ink",
+        "canonical": "oklch(17.8% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#a5a5a5",
+          "#c9c9c9",
+          "#eeeeee"
+        ]
+      },
+      "toner-1": {
+        "role": "neutral",
+        "displayName": "Heavy Toner",
+        "canonical": "oklch(34.7% 0.005 106.7)",
+        "tonalRamp": [
+          "#0b0b09",
+          "#252522",
+          "#42423f",
+          "#61615e",
+          "#82827f",
+          "#a5a5a2",
+          "#c9c9c6",
+          "#efefeb"
+        ]
+      },
+      "toner-2": {
+        "role": "neutral",
+        "displayName": "Mid Toner",
+        "canonical": "oklch(50.6% 0.009 99.0)",
+        "tonalRamp": [
+          "#0c0b07",
+          "#262520",
+          "#43423d",
+          "#62615b",
+          "#83827c",
+          "#a6a59f",
+          "#cac9c2",
+          "#f0efe8"
+        ]
+      },
+      "toner-3": {
+        "role": "neutral",
+        "displayName": "Light Toner",
+        "canonical": "oklch(82.6% 0.013 91.5)",
+        "tonalRamp": [
+          "#0d0b06",
+          "#27251e",
+          "#44423a",
+          "#646159",
+          "#85827a",
+          "#a8a59c",
+          "#ccc9c0",
+          "#f1eee5"
+        ]
+      },
+      "pink": {
+        "role": "primary",
+        "displayName": "Day-Glo Pink",
+        "canonical": "oklch(67.3% 0.233 1.9)",
+        "tonalRamp": [
+          "#410005",
+          "#6a001c",
+          "#940038",
+          "#bd0057",
+          "#e71d78",
+          "#ff509a",
+          "#ff79be",
+          "#ffa1e2"
+        ]
+      },
+      "highlight": {
+        "role": "secondary",
+        "displayName": "Highlighter Yellow",
+        "canonical": "oklch(96.1% 0.200 112.9)",
+        "tonalRamp": [
+          "#120b00",
+          "#2b2700",
+          "#474700",
+          "#656800",
+          "#868b00",
+          "#a8af00",
+          "#ccd500",
+          "#f0fb34"
+        ]
+      },
+      "miss": {
+        "role": "tertiary",
+        "displayName": "Miss Red",
+        "canonical": "oklch(52.8% 0.199 29.0)",
+        "tonalRamp": [
+          "#3f0000",
+          "#670000",
+          "#8f0000",
+          "#b80706",
+          "#e14033",
+          "#ff6857",
+          "#ff8e7a",
+          "#ffb59e"
+        ]
+      },
+      "paper-black-stock": {
+        "role": "neutral",
+        "displayName": "Flyer Paper, black stock",
+        "canonical": "oklch(18.2% 0.002 106.6)",
+        "tonalRamp": [
+          "#0b0b0a",
+          "#252524",
+          "#424241",
+          "#616160",
+          "#828281",
+          "#a5a5a4",
+          "#c9c9c8",
+          "#eeeeed"
+        ]
+      },
+      "ink-black-stock": {
+        "role": "neutral",
+        "displayName": "Toner Ink, black stock",
+        "canonical": "oklch(95.2% 0.010 93.6)",
+        "tonalRamp": [
+          "#0c0b07",
+          "#272520",
+          "#44423c",
+          "#63615b",
+          "#84827c",
+          "#a7a59e",
+          "#cbc9c2",
+          "#f0eee7"
+        ]
+      },
+      "toner-1-black-stock": {
+        "role": "neutral",
+        "displayName": "Heavy Toner, black stock",
+        "canonical": "oklch(85.7% 0.013 91.5)",
+        "tonalRamp": [
+          "#0d0b06",
+          "#27251e",
+          "#44423a",
+          "#646159",
+          "#85827a",
+          "#a8a59c",
+          "#ccc9c0",
+          "#f1eee5"
+        ]
+      },
+      "toner-2-black-stock": {
+        "role": "neutral",
+        "displayName": "Mid Toner, black stock",
+        "canonical": "oklch(70.2% 0.013 91.6)",
+        "tonalRamp": [
+          "#0d0b05",
+          "#27251e",
+          "#44423a",
+          "#646159",
+          "#858279",
+          "#a8a59c",
+          "#ccc9c0",
+          "#f2eee5"
+        ]
+      },
+      "toner-3-black-stock": {
+        "role": "neutral",
+        "displayName": "Light Toner, black stock",
+        "canonical": "oklch(34.8% 0.007 95.3)",
+        "tonalRamp": [
+          "#0c0b08",
+          "#262521",
+          "#43423e",
+          "#62615d",
+          "#83827e",
+          "#a6a5a0",
+          "#cac9c4",
+          "#f0eee9"
+        ]
+      },
+      "miss-black-stock": {
+        "role": "tertiary",
+        "displayName": "Miss Red, black stock",
+        "canonical": "oklch(70.8% 0.184 27.3)",
+        "tonalRamp": [
+          "#3c0000",
+          "#630000",
+          "#8a0000",
+          "#b21c1c",
+          "#db4840",
+          "#ff6e62",
+          "#ff9485",
+          "#ffbaa9"
+        ]
+      },
+      "on-pink": {
+        "role": "neutral",
+        "displayName": "On-Pink Ink",
+        "canonical": "#111111",
+        "note": "Fixed in both themes."
+      },
+      "on-highlight": {
+        "role": "neutral",
+        "displayName": "On-Highlight Ink",
+        "canonical": "#111111",
+        "note": "Fixed in both themes."
+      },
+      "press-tint": {
+        "role": "neutral",
+        "displayName": "Press Tint",
+        "canonical": "color-mix(in oklab, var(--ink) 8%, var(--paper))",
+        "note": "Recomputes per theme from ink and paper."
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Mix title in the pink header band."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Confirmed track names in the lineup."
+      },
+      "figure": {
+        "displayName": "Figure",
+        "purpose": "Running counter in long statuses."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "The Plus N unconfirmed line."
+      },
+      "title-small": {
+        "displayName": "Title Small",
+        "purpose": "Unconfirmed track names."
+      },
+      "action": {
+        "displayName": "Action",
+        "purpose": "Primary button labels."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Status sentences and empty state."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Header meta, artist names, row status, secondary buttons."
+      },
+      "caption": {
+        "displayName": "Caption",
+        "purpose": "Timestamps, store links, notes."
+      }
+    },
+    "shadows": [],
+    "focus": {
+      "value": "2px solid, offset 2px",
+      "light": "ink",
+      "dark": "pink",
+      "purpose": "Pink on paper is 2.93:1, so the ring is ink on paper and pink only on black stock."
+    },
+    "rules": [
+      {
+        "name": "structural",
+        "value": "2px solid ink",
+        "purpose": "Breaks between sections that change job, the Plus line, the menu border."
+      },
+      {
+        "name": "hairline",
+        "value": "1px solid toner-3",
+        "purpose": "Between track rows and under the selection bar."
+      }
+    ],
+    "motion": [
+      {
+        "name": "highlighter-swipe",
+        "value": "420ms cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Highlighter draws left to right when a track is carted; none under reduced motion."
+      }
+    ],
+    "themes": [
+      {
+        "name": "paper",
+        "trigger": "prefers-color-scheme: light"
+      },
+      {
+        "name": "black-stock",
+        "trigger": "prefers-color-scheme: dark",
+        "swaps": [
+          "paper",
+          "ink",
+          "toner-1",
+          "toner-2",
+          "toner-3",
+          "miss",
+          "focus"
+        ]
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Header Band",
+      "kind": "custom",
+      "refersTo": "header-band",
+      "description": "Pink masthead with the mix title in condensed black and a meta line.",
+      "html": "<header class=\"ds-band\"><h1 class=\"ds-band-title\">Honey Dijon Boiler Room Sugar Mountain Melbourne DJ Set</h1><p class=\"ds-band-meta\"><span>YouTube</span><span>1:54:12</span><span>19 tracks</span><span>Identified by listening</span></p></header>",
+      "css": ".ds-band{background:var(--pink,#ff3d8b);color:#111111;padding:16px 16px 14px;font-family:'Archivo Variable',system-ui,sans-serif;} .ds-band-title{margin:0;font-size:34px;line-height:0.95;font-weight:900;font-stretch:62%;letter-spacing:-0.01em;} .ds-band-meta{margin:8px 0 0;display:flex;flex-wrap:wrap;column-gap:14px;font-size:13px;font-weight:600;}"
+    },
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one ink-filled action per state.",
+      "html": "<button class=\"ds-btn-primary\">Add 16 to cart</button>",
+      "css": ".ds-btn-primary{font-family:'Archivo Variable',system-ui,sans-serif;height:40px;padding:0 16px;border:0;border-radius:6px;background:var(--ink,#111111);color:var(--paper,#f2f0ea);font-size:15px;font-weight:800;cursor:pointer;} .ds-btn-primary:hover{background:color-mix(in oklab,var(--ink,#111111) 90%,transparent);} .ds-btn-primary:focus-visible{outline:2px solid var(--focus,#111111);outline-offset:2px;} .ds-btn-primary:disabled{opacity:0.5;pointer-events:none;}"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Stop, store chooser and Export: an ink frame on paper.",
+      "html": "<button class=\"ds-btn-outline\">Export tracklist<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"m6 9 6 6 6-6\"/></svg></button>",
+      "css": ".ds-btn-outline{font-family:'Archivo Variable',system-ui,sans-serif;display:inline-flex;align-items:center;gap:4px;height:36px;padding:0 16px;border:1px solid var(--ink,#111111);border-radius:6px;background:transparent;color:var(--ink,#111111);font-size:14px;font-weight:600;cursor:pointer;} .ds-btn-outline:hover{background:color-mix(in oklab,var(--ink,#111111) 8%,var(--paper,#f2f0ea));} .ds-btn-outline:focus-visible{outline:2px solid var(--focus,#111111);outline-offset:2px;}"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Quiet secondary actions such as Start over.",
+      "html": "<button class=\"ds-btn-ghost\">Start over</button>",
+      "css": ".ds-btn-ghost{font-family:'Archivo Variable',system-ui,sans-serif;height:36px;padding:0 8px;border:0;border-radius:6px;background:transparent;color:var(--toner-2,#66655f);font-size:13px;font-weight:500;cursor:pointer;} .ds-btn-ghost:hover{background:color-mix(in oklab,var(--ink,#111111) 8%,var(--paper,#f2f0ea));color:var(--ink,#111111);} .ds-btn-ghost:focus-visible{outline:2px solid var(--focus,#111111);outline-offset:2px;}"
+    },
+    {
+      "name": "Checkbox",
+      "kind": "input",
+      "refersTo": "checkbox",
+      "description": "Ink tick box; stays full ink when locked during a job.",
+      "html": "<button role=\"checkbox\" aria-checked=\"true\" class=\"ds-check\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg></button>",
+      "css": ".ds-check{width:16px;height:16px;padding:0;display:grid;place-content:center;border:1px solid var(--ink,#111111);border-radius:4px;background:transparent;color:var(--paper,#f2f0ea);cursor:pointer;} .ds-check[aria-checked=true]{background:var(--ink,#111111);} .ds-check:focus-visible{outline:2px solid var(--focus,#111111);outline-offset:2px;}"
+    },
+    {
+      "name": "Dropdown Menu",
+      "kind": "custom",
+      "refersTo": "dropdown-menu",
+      "description": "Store chooser and export menu: 2px ink border, no shadow.",
+      "html": "<div role=\"menu\" class=\"ds-menu\"><div role=\"menuitemradio\" aria-checked=\"true\" tabindex=\"0\" class=\"ds-menu-item\"><span class=\"ds-menu-dot\"></span>Beatport, then Bandcamp</div><div role=\"menuitemradio\" aria-checked=\"false\" tabindex=\"0\" class=\"ds-menu-item\">Beatport only</div><div role=\"menuitemradio\" aria-checked=\"false\" tabindex=\"0\" class=\"ds-menu-item\">Bandcamp only</div></div>",
+      "css": ".ds-menu{font-family:'Archivo Variable',system-ui,sans-serif;display:inline-block;min-width:8rem;padding:4px;border:2px solid var(--ink,#111111);border-radius:6px;background:var(--paper,#f2f0ea);color:var(--ink,#111111);} .ds-menu-item{position:relative;padding:6px 8px 6px 32px;border-radius:4px;font-size:14px;cursor:default;outline:none;} .ds-menu-item:hover,.ds-menu-item:focus-visible{background:color-mix(in oklab,var(--ink,#111111) 8%,var(--paper,#f2f0ea));} .ds-menu-dot{position:absolute;left:13px;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:9999px;background:currentColor;}"
+    },
+    {
+      "name": "Track Row, confirmed and carted",
+      "kind": "custom",
+      "refersTo": "track-title-confirmed",
+      "description": "Lineup billing with the highlighter swipe on a carted name.",
+      "html": "<ol class=\"ds-lineup\"><li class=\"ds-row\"><span class=\"ds-row-tick\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg></span><span class=\"ds-row-time\">1:00</span><div class=\"ds-row-body\"><div class=\"ds-row-top\"><span class=\"ds-row-artist\">Block &amp; Crown</span><span class=\"ds-row-status\">$1.49</span></div><div class=\"ds-row-title\"><span class=\"ds-highlighter\">Wish for Disco (Nu Disco Mix)</span></div><p class=\"ds-row-links\"><a href=\"#\">Beatport</a><a href=\"#\">Bandcamp</a><a href=\"#\">Spotify</a><a href=\"#\">YouTube</a></p></div></li><li class=\"ds-row\"><span class=\"ds-row-tick\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><path d=\"M20 6 9 17l-5-5\"/></svg></span><span class=\"ds-row-time\">8:00</span><div class=\"ds-row-body\"><div class=\"ds-row-top\"><span class=\"ds-row-artist\">Robbie Rivera</span><span class=\"ds-row-status ds-miss\">Not found</span></div><div class=\"ds-row-title\">It's Midnight</div><p class=\"ds-row-links\"><a href=\"#\">Beatport</a><a href=\"#\">Bandcamp</a></p></div></li></ol>",
+      "css": ".ds-lineup{font-family:'Archivo Variable',system-ui,sans-serif;list-style:none;margin:0;padding:0 16px;background:var(--paper,#f2f0ea);color:var(--ink,#111111);} .ds-row{display:grid;grid-template-columns:22px 42px minmax(0,1fr);column-gap:8px;padding:10px 0;border-bottom:1px solid var(--toner-3,#c9c6bd);} .ds-row-tick{margin-top:4px;width:16px;height:16px;display:grid;place-content:center;border-radius:4px;background:var(--ink,#111111);color:var(--paper,#f2f0ea);} .ds-row-time{padding-top:2px;font-size:12px;font-weight:600;color:var(--toner-2,#66655f);font-variant-numeric:tabular-nums;} .ds-row-body{min-width:0;} .ds-row-top{display:flex;align-items:baseline;justify-content:space-between;gap:12px;} .ds-row-artist{font-size:13px;font-weight:600;color:var(--toner-1,#3a3a37);} .ds-row-status{font-size:13px;font-weight:700;} .ds-miss{color:var(--miss,#c41f17);} .ds-row-title{font-size:23px;line-height:1.08;font-weight:900;font-stretch:64%;} .ds-row-links{margin:4px 0 0;display:flex;flex-wrap:wrap;column-gap:12px;font-size:12px;font-weight:500;} .ds-row-links a{color:inherit;text-decoration:underline;text-decoration-color:var(--toner-3,#c9c6bd);text-underline-offset:3px;} .ds-row-links a:hover{text-decoration-color:var(--ink,#111111);} .ds-row-links a:focus-visible{outline:2px solid var(--focus,#111111);outline-offset:2px;} .ds-highlighter{background-image:linear-gradient(transparent 16%,var(--highlight,#f4ff3a) 16%,var(--highlight,#f4ff3a) 88%,transparent 88%);background-repeat:no-repeat;background-size:100% 100%;color:#111111;box-decoration-break:clone;-webkit-box-decoration-break:clone;padding:0 2px;margin:0 -2px;animation:ds-swipe 420ms cubic-bezier(0.16,1,0.3,1);} @keyframes ds-swipe{from{background-size:0% 100%;}} @media (prefers-reduced-motion:reduce){.ds-highlighter{animation:none;}}"
+    },
+    {
+      "name": "Plus Line",
+      "kind": "custom",
+      "refersTo": "track-title-unconfirmed",
+      "description": "The flyer's small-print billing for single-clip IDs.",
+      "html": "<section class=\"ds-plus\"><h2 class=\"ds-plus-head\">Plus 3 unconfirmed</h2><p class=\"ds-plus-note\">Each heard in one clip only. Often a sample or a blend, so they start unticked.</p><p class=\"ds-plus-title\">Can You Feel It (Instrumental)</p></section>",
+      "css": ".ds-plus{font-family:'Archivo Variable',system-ui,sans-serif;padding:0 16px;background:var(--paper,#f2f0ea);color:var(--ink,#111111);} .ds-plus-head{margin:20px 0 0;padding-bottom:6px;border-bottom:2px solid var(--ink,#111111);font-size:19px;font-weight:900;font-stretch:75%;} .ds-plus-note{margin:0;padding-top:6px;font-size:12px;color:var(--toner-2,#66655f);} .ds-plus-title{margin:10px 0 0;font-size:15px;line-height:1.08;font-weight:600;font-stretch:90%;}"
+    },
+    {
+      "name": "Progress Status",
+      "kind": "custom",
+      "refersTo": "progress",
+      "description": "Long-running status: label, figure counter and a thin ink bar.",
+      "html": "<div class=\"ds-prog\"><div class=\"ds-prog-top\"><span>Listening</span><span class=\"ds-prog-fig\">38%</span></div><div class=\"ds-prog-track\"><div class=\"ds-prog-fill\" style=\"width:38%\"></div></div></div>",
+      "css": ".ds-prog{font-family:'Archivo Variable',system-ui,sans-serif;padding:12px 16px;color:var(--ink,#111111);} .ds-prog-top{display:flex;align-items:baseline;justify-content:space-between;font-size:14px;font-weight:600;} .ds-prog-fig{font-size:20px;font-weight:900;font-stretch:75%;font-variant-numeric:tabular-nums;} .ds-prog-track{margin-top:8px;height:6px;border-radius:9999px;overflow:hidden;background:var(--toner-3,#c9c6bd);} .ds-prog-fill{height:100%;background:var(--ink,#111111);}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Photocopied Club Flyer",
+    "overview": "The side panel reads like a flyer pasted on a club wall: toner black on off-white paper, one band of Day-Glo pink across the top, and the lineup set in heavy condensed type. The tracklist is billed the way a promoter bills a lineup. Tracks confirmed by more than one clip are set large and narrow; tracks heard only once drop to a small \"Plus N unconfirmed\" line beneath them. When a track lands in the cart, a fluoro highlighter swipes across its name.\n\nDensity is high and flat. Everything sits on one sheet of paper, divided by plain rules: a fine toner hairline between rows, a heavy ink rule wherever the sheet changes job (status to lineup, lineup to footer, the \"Plus\" line). There are no cards, no shadows and no tinted panels. Dark mode is the same flyer printed on black stock: paper and ink swap, the toner ramp inverts, and the pink band, highlighter and on-colour ink stay exactly as they are.",
+    "keyCharacteristics": [
+      "One self-hosted variable face, Archivo, worked across its width axis (62% to 100%) and weight (400 to 900); upright only.",
+      "Type size carries confidence: confirmed tracks are billed large, unconfirmed ones small.",
+      "Colour is semantic and scarce: pink is the header band, yellow means in your cart, red means a miss.",
+      "Structure comes from rules, never from containers or elevation.",
+      "Light paper and black stock follow the system colour scheme; no in-panel theme switch."
+    ],
+    "rules": [
+      {
+        "name": "The Highlighter Means Cart Rule",
+        "body": "Yellow appears only as the swipe on a carted track's name. Text selection is Light Toner, not yellow, so the mark never means anything else.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Band Rule",
+        "body": "Pink is the header band. It never fills a button, colours text or tints a row. Its single other job is the focus ring on black stock, where ink would vanish.",
+        "section": "colors"
+      },
+      {
+        "name": "The Toner Only Rule",
+        "body": "Every neutral is paper, ink or one of the three toner steps. No other greys enter the panel.",
+        "section": "colors"
+      },
+      {
+        "name": "The Red Is a Miss Rule",
+        "body": "Red marks something that did not make it into the cart, or an error. It never decorates.",
+        "section": "colors"
+      },
+      {
+        "name": "The Billing Rule",
+        "body": "Confidence sets size. A confirmed track is Headline; an unconfirmed track is Title Small under the \"Plus\" line. Never bill an unconfirmed ID at headline size.",
+        "section": "typography"
+      },
+      {
+        "name": "The Narrow Names Rule",
+        "body": "Condensed widths (62% to 90%) belong to names and figures: the mix title, track names, the counter, the \"Plus\" line. Metadata, buttons and sentences stay at normal width.",
+        "section": "typography"
+      },
+      {
+        "name": "The Upright Only Rule",
+        "body": "No italic or oblique anywhere. Emphasis comes from weight, width and size. Labels and headings are sentence case.",
+        "section": "typography"
+      },
+      {
+        "name": "The Rules Not Boxes Rule",
+        "body": "Rows are separated by a 1px Light Toner hairline. Sections that change job are separated by a 2px ink rule. Content is never grouped into cards, tiles or tinted panels.",
+        "section": "layout"
+      },
+      {
+        "name": "The Photocopy Is Flat Rule",
+        "body": "A photocopier cannot print a shadow. Overlays get a 2px ink border; nothing gets box-shadow, glow or blur.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** bill confirmed tracks at Headline (900, 23px, width 64%) and unconfirmed ones at Title Small (600, 15px, width 90%) under a \"Plus N unconfirmed\" line.",
+      "**Do** separate rows with a 1px Light Toner hairline and sections with a 2px ink rule.",
+      "**Do** keep exactly one ink-filled primary button per state, in the status section.",
+      "**Do** use the 2px focus outline with 2px offset: ink on paper, pink on black stock.",
+      "**Do** keep On-Pink and On-Highlight text near-black (#111111) in both themes.",
+      "**Do** keep disabled checkboxes at full ink while a job runs."
+    ],
+    "donts": [
+      "**Don't** use yellow for anything except the carted-track highlighter, including text selection.",
+      "**Don't** use pink outside the header band and the black-stock focus ring; pink on paper is under 3:1 (2.93:1), so it never carries text or focus there.",
+      "**Don't** add box-shadow, glow or blur to anything, menus included.",
+      "**Don't** group tracks or settings into cards, tiles or tinted panels.",
+      "**Don't** introduce greys outside the three toner steps.",
+      "**Don't** set italic or oblique type, all-caps labels, or a label above a heading."
+    ]
+  }
+}
