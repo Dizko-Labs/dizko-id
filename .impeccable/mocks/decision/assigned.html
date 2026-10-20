@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#f2f0ea;--ink:#111;--g1:#3a3a38;--g2:#6e6d69;--g3:#c9c7c0;--pink:#ff3d8b;--hi:#f4ff3a;--red:#d7261e}
+*{box-sizing:border-box;margin:0}
+body{width:400px;height:800px;overflow:hidden;background:var(--paper);color:var(--ink);font-family:Archivo,sans-serif;font-stretch:100%}
+header{background:var(--pink);padding:18px 18px 16px}
+.src{font-size:13px;font-weight:500;color:var(--ink)}
+h1{font-stretch:62%;font-weight:900;font-size:40px;line-height:.95;letter-spacing:-.5px;margin-top:6px}
+.meta{display:flex;gap:14px;margin-top:10px;font-size:13px;font-weight:600}
+.status{display:flex;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:2px solid var(--ink);font-size:14px;font-weight:600}
+.status b{font-stretch:75%;font-weight:900;font-size:20px}
+.now{padding:10px 18px;border-bottom:1px solid var(--g3);font-size:13px;color:var(--g1)}
+.now strong{color:var(--ink)}
+ol{list-style:none;padding:0 18px}
+li{display:grid;grid-template-columns:42px 1fr auto;gap:8px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--g3)}
+.t{font-size:12px;font-weight:600;color:var(--g2);font-variant-numeric:tabular-nums}
+.a{font-size:13px;font-weight:600;color:var(--g1)}
+.n{font-stretch:68%;font-weight:850;font-size:22px;line-height:1.05}
+.n mark{background:linear-gradient(transparent 18%,var(--hi) 18%,var(--hi) 88%,transparent 88%);color:inherit;padding:0 2px}
+.s{font-size:13px;font-weight:700;white-space:nowrap}
+.s.miss{color:var(--red)}
+.s.wait{color:var(--g2)}
+.plus{padding:14px 18px 6px;font-stretch:75%;font-weight:900;font-size:18px}
+.low li{grid-template-columns:24px 42px 1fr}
+.low .n{font-size:15px;font-stretch:85%;font-weight:700}
+.box{width:18px;height:18px;border:2px solid var(--ink);border-radius:3px}
+footer{position:absolute;bottom:0;left:0;width:400px;padding:14px 18px;background:var(--paper);border-top:2px solid var(--ink);display:flex;gap:10px;align-items:center}
+.btn{flex:1;background:var(--ink);color:var(--paper);border:0;border-radius:6px;padding:12px;font:800 15px Archivo,sans-serif}
+.btn2{background:transparent;border:2px solid var(--ink);border-radius:6px;padding:10px 12px;font:700 14px Archivo,sans-serif}
+</style></head><body>
+<header>
+  <div class="src">YouTube · Boiler Room</div>
+  <h1>Honey Dijon Boiler Room Melbourne</h1>
+  <div class="meta"><span>1:54:12</span><span>38 tracks found</span><span>Tracklist from Shazam</span></div>
+</header>
+<div class="status"><span>Adding to Beatport cart</span><b>14 of 31</b></div>
+<div class="now">Now: <strong>Marco Lys, The Story Continues</strong> · next: Robbie Rivera, It's Midnight</div>
+<ol>
+  <li><span class="t">1:00</span><div><div class="a">Block &amp; Crown</div><div class="n"><mark>Wish for Disco (Nu Disco Mix)</mark></div></div><span class="s">$1.49</span></li>
+  <li><span class="t">2:00</span><div><div class="a">Erick Morillo &amp; Harry Romero</div><div class="n"><mark>Bang (Harry &amp; Erick Bang In Your Face Mix)</mark></div></div><span class="s">$1.99</span></li>
+  <li><span class="t">8:00</span><div><div class="a">Robbie Rivera</div><div class="n">It's Midnight</div></div><span class="s wait">Searching</span></li>
+  <li><span class="t">12:30</span><div><div class="a">Marco Lys</div><div class="n">The Story Continues</div></div><span class="s wait">Queued</span></li>
+  <li><span class="t">11:00</span><div><div class="a">Energy 52</div><div class="n">Café Del Mar (Three 'n One Remix)</div></div><span class="s miss">Remix not found</span></li>
+</ol>
+<div class="plus">Plus 7 unconfirmed</div>
+<ol class="low">
+  <li><span class="box"></span><span class="t">8:30</span><div class="n">The Prince Karma, Later Bitches</div></li>
+  <li><span class="box"></span><span class="t">9:30</span><div class="n">Gigi D'Agostino, Bla Bla Bla</div></li>
+</ol>
+<footer><button class="btn">Open Beatport cart · $21.86</button><button class="btn2">Pause</button></footer>
+</body></html>

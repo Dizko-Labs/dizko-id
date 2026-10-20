@@ -1,0 +1,117 @@
+@import "tailwindcss" source(none);
+@source "../../entrypoints/sidepanel";
+@source "../../components";
+@import "@fontsource-variable/archivo/wdth.css";
+
+/* Photocopied club flyer: toner on paper, one Day-Glo pink band, highlighter for "in your cart". */
+:root {
+  --paper: #f2f0ea;
+  --ink: #111111;
+  /* the only neutrals: a three-step toner ramp */
+  --toner-1: #3a3a37;
+  --toner-2: #66655f;
+  --toner-3: #c9c6bd;
+  --pink: #ff3d8b;
+  --on-pink: #111111;
+  --highlight: #f4ff3a;
+  --on-highlight: #111111;
+  --miss: #c41f17;
+
+  --background: var(--paper);
+  --foreground: var(--ink);
+  --primary: var(--ink);
+  --primary-foreground: var(--paper);
+  --secondary: transparent;
+  --secondary-foreground: var(--ink);
+  --muted: var(--toner-3);
+  --muted-foreground: var(--toner-2);
+  --accent: color-mix(in oklab, var(--ink) 8%, var(--paper));
+  --accent-foreground: var(--ink);
+  --popover: var(--paper);
+  --popover-foreground: var(--ink);
+  --border: var(--toner-3);
+  --input: var(--ink);
+  --ring: var(--pink);
+  --destructive: var(--miss);
+  --radius: 0.375rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  /* black flyer stock */
+  :root {
+    --paper: #121211;
+    --ink: #f1efe8;
+    --toner-1: #d3d0c7;
+    --toner-2: #a29f96;
+    --toner-3: #3b3a36;
+    --miss: #ff6a5e;
+  }
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-destructive: var(--destructive);
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-toner-1: var(--toner-1);
+  --color-toner-2: var(--toner-2);
+  --color-toner-3: var(--toner-3);
+  --color-pink: var(--pink);
+  --color-on-pink: var(--on-pink);
+  --color-highlight: var(--highlight);
+  --color-miss: var(--miss);
+  --font-sans: "Archivo Variable", system-ui, sans-serif;
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+}
+
+@layer base {
+  * { border-color: var(--border); }
+  html, body { height: 100%; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+    font-variant-numeric: tabular-nums;
+  }
+  ::selection { background: var(--highlight); color: var(--on-highlight); }
+  :focus-visible { outline: 2px solid var(--pink); outline-offset: 2px; }
+  a { text-underline-offset: 3px; }
+  * { scrollbar-width: thin; scrollbar-color: var(--toner-3) transparent; }
+}
+
+/* The signature move: a carted track gets a highlighter swipe across its name. */
+.highlighter {
+  background-image: linear-gradient(transparent 16%, var(--highlight) 16%, var(--highlight) 88%, transparent 88%);
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  color: var(--on-highlight);
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+  padding: 0 2px;
+  margin: 0 -2px;
+  animation: swipe 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes swipe {
+  from { background-size: 0% 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .highlighter { animation: none; }
+}

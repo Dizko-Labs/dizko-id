@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400..800&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0e1b3d;--ink:#f5f3ee;--dim:#9aa3bd;--line:#e2363c;--blue:#2f6fdc;--amber:#f2a71b;--green:#2fa66a}
+*{box-sizing:border-box;margin:0}
+body{width:400px;height:800px;overflow:hidden;background:var(--bg);color:var(--ink);font-family:"Source Sans 3",sans-serif}
+header{padding:20px 20px 14px}
+h1{font-size:22px;font-weight:700;line-height:1.15}
+.meta{font-size:13px;color:var(--dim);margin-top:4px}
+.legend{display:flex;gap:14px;padding:0 20px 14px;font-size:12px;color:var(--dim)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.map{position:relative;padding:4px 20px 0 20px}
+.map:before{content:"";position:absolute;left:48px;top:0;bottom:-400px;width:6px;background:var(--line);border-radius:3px}
+.st{position:relative;display:grid;grid-template-columns:40px 22px 1fr auto;gap:8px;align-items:center;padding:9px 0}
+.t{font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums;text-align:right}
+.dot{width:18px;height:18px;border-radius:50%;border:4px solid var(--ink);background:var(--bg);margin-left:4px;z-index:1}
+.dot.ok{background:var(--green);border-color:var(--ink)}
+.dot.now{background:var(--amber)}
+.dot.miss{border-color:var(--dim);background:var(--bg)}
+.a{font-size:12px;color:var(--dim)}
+.n{font-size:15px;font-weight:600}
+.s{font-size:12px;font-weight:600}
+.s.ok{color:var(--green)}.s.now{color:var(--amber)}.s.miss{color:var(--dim)}
+.branch{margin:10px 20px 0 64px;padding:10px 0 0;border-top:1px solid #2a3a66;font-size:13px;font-weight:700}
+.branch li{list-style:none;display:grid;grid-template-columns:20px 40px 1fr;gap:6px;font-weight:400;padding:6px 0;font-size:14px}
+.box{width:15px;height:15px;border:1.5px solid var(--ink);border-radius:3px}
+footer{position:absolute;bottom:0;width:400px;padding:14px 20px;background:var(--bg);border-top:1px solid #2a3a66;display:flex;gap:10px}
+.btn{flex:1;background:var(--ink);color:var(--bg);border:0;border-radius:6px;padding:12px;font:700 15px "Source Sans 3",sans-serif}
+.btn2{background:none;color:var(--ink);border:1.5px solid var(--ink);border-radius:6px;padding:10px 14px;font:600 14px "Source Sans 3",sans-serif}
+</style></head><body>
+<header><h1>Honey Dijon Boiler Room Melbourne</h1><div class="meta">YouTube · 1:54:12 · 14 of 31 in Beatport cart</div></header>
+<div class="legend"><span><i style="background:var(--green)"></i>In cart</span><span><i style="background:var(--amber)"></i>Searching</span><span><i style="border:2px solid var(--dim)"></i>Not found</span></div>
+<div class="map">
+  <div class="st"><span class="t">1:00</span><span class="dot ok"></span><div><div class="a">Block &amp; Crown</div><div class="n">Wish for Disco (Nu Disco Mix)</div></div><span class="s ok">$1.49</span></div>
+  <div class="st"><span class="t">2:00</span><span class="dot ok"></span><div><div class="a">Erick Morillo &amp; Harry Romero</div><div class="n">Bang (In Your Face Mix)</div></div><span class="s ok">$1.99</span></div>
+  <div class="st"><span class="t">8:00</span><span class="dot now"></span><div><div class="a">Robbie Rivera</div><div class="n">It's Midnight</div></div><span class="s now">Searching</span></div>
+  <div class="st"><span class="t">11:00</span><span class="dot miss"></span><div><div class="a">Energy 52</div><div class="n">Café Del Mar (Three 'n One Remix)</div></div><span class="s miss">Not found</span></div>
+  <div class="st"><span class="t">12:30</span><span class="dot"></span><div><div class="a">Marco Lys</div><div class="n">The Story Continues</div></div><span class="s miss">Queued</span></div>
+</div>
+<div class="branch">7 unconfirmed, heard once
+  <li><span class="box"></span><span>8:30</span>The Prince Karma, Later Bitches</li>
+  <li><span class="box"></span><span>9:30</span>Gigi D'Agostino, Bla Bla Bla</li>
+</div>
+<footer><button class="btn">Open Beatport cart · $21.86</button><button class="btn2">Pause</button></footer>
+</body></html>

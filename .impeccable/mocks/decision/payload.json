@@ -1,0 +1,240 @@
+{
+ "title": "Choose the visual world",
+ "question": "The roll assigned the photocopied club flyer. Keep it, take an alternate, or re-roll.",
+ "options": [
+  {
+   "id": "assigned",
+   "kind": "assigned",
+   "label": "Photocopied club flyer",
+   "kicker": "THE ROLL",
+   "lineage": "90s Chicago and Detroit party flyers, xeroxed on fluoro stock",
+   "thesis": "The mix's tracklist set like a flyer's lineup: who played, how sure we are, what's in your bag.",
+   "palette": [
+    "#f2f0ea",
+    "#111111",
+    "#ff3d8b",
+    "#f4ff3a",
+    "#d7261e"
+   ],
+   "materials": [
+    "photocopy toner on off-white",
+    "Day-Glo pink header stock",
+    "highlighter marks"
+   ],
+   "viewport": "Pink flyer-stock header with the mix name in heavy condensed type; below, the tracklist as a lineup where confirmed tracks are set large and unconfirmed ones small under 'plus'.",
+   "risk": "Condensed heavy type can crowd a 400 px panel if the scale is not disciplined.",
+   "raised": [
+    {
+     "from": "challenger-darkroom",
+     "raise": "One quantized grey ramp is the only neutral set; no ad hoc greys."
+    },
+    {
+     "from": "challenger-star-atlas",
+     "raise": "Confidence is carried by one ranked variable, type size, and nothing else."
+    },
+    {
+     "from": "challenger-feed",
+     "raise": "While carting, the current track and the next one are both visible."
+    },
+    {
+     "from": "challenger-folio",
+     "raise": "Every row keeps the same geometry in every state, so states compare at a glance."
+    },
+    {
+     "from": "challenger-metro",
+     "raise": "No card chrome: rows are type on the ground, separated by plain rules."
+    }
+   ],
+   "html": ".impeccable/mocks/decision/assigned.html",
+   "htmlFrame": "400x800"
+  },
+  {
+   "id": "model-pick",
+   "kind": "pick",
+   "label": "White label",
+   "kicker": "IMPECCABLE’S PICK",
+   "lineage": "hand-stamped white-label 12-inch centre labels and test pressings",
+   "thesis": "Each track you cart gets stamped, like a promo copy marked for the bag.",
+   "palette": [
+    "#ede8dc",
+    "#161616",
+    "#2b3a8c",
+    "#c8c1b0"
+   ],
+   "materials": [
+    "uncoated label paper",
+    "rubber-stamp blue ink"
+   ],
+   "viewport": "Off-white panel, the mix name and duration like a label's side A text; each carted row takes a blue stamp with the store and price.",
+   "risk": "Quiet and tasteful, close to where most runs for music tools land.",
+   "html": ".impeccable/mocks/decision/model-pick.html",
+   "htmlFrame": "400x800"
+  },
+  {
+   "id": "challenger-transit",
+   "kind": "challenger",
+   "catalogId": "wayfinding-cartography-signage-midnight-transit-diagram",
+   "label": "Mix as a transit line",
+   "verdict": "competitive",
+   "lineage": "metropolitan rail diagrams",
+   "thesis": "The mix runs as one line; each track is a station at its timestamp.",
+   "palette": [
+    "#0e1b3d",
+    "#f5f3ee",
+    "#e2363c",
+    "#2f6fdc",
+    "#f2a71b",
+    "#2fa66a"
+   ],
+   "materials": [
+    "enamel ground",
+    "porcelain station ticks"
+   ],
+   "viewport": "A vertical line down the left with stations at 1:00, 2:00, 8:00; each station's state (carted, searching, not found) reads as its marker.",
+   "case": "Strongest on clarity of progress through the mix; DJs do not see their own world in it.",
+   "risk": "Reads as a transport app if the line is not clearly the mix.",
+   "html": ".impeccable/mocks/decision/challenger-transit.html",
+   "htmlFrame": "400x800"
+  },
+  {
+   "id": "challenger-darkroom",
+   "kind": "challenger",
+   "catalogId": "operate-b-exposure-record-zone-sheets",
+   "label": "Darkroom exposure record",
+   "verdict": "declined",
+   "lineage": "printer's exposure record cards",
+   "thesis": "Translucent sheets over a zone ramp.",
+   "palette": [
+    "#e9e7e1",
+    "#5a5853",
+    "#1d1c1a",
+    "#c2185b"
+   ],
+   "materials": [
+    "tracing paper",
+    "backlit zone ramp"
+   ],
+   "viewport": "Stacked sheets per track.",
+   "case": "Neither DJs nor the cart task live here.",
+   "risk": "Costume on a working screen.",
+   "kept": "One quantized grey ramp as the only neutrals."
+  },
+  {
+   "id": "challenger-feed",
+   "kind": "challenger",
+   "catalogId": "pop-culture-shelf-vertical-video-feed-surface",
+   "label": "Vertical feed",
+   "verdict": "declined",
+   "lineage": "short-video feeds",
+   "thesis": "One track fills the panel at a time.",
+   "palette": [
+    "#000000",
+    "#ffffff"
+   ],
+   "materials": [
+    "full-bleed media",
+    "glyph rail"
+   ],
+   "viewport": "One track per screen, snap to next.",
+   "case": "Hides the list a DJ needs to scan.",
+   "risk": "Slow for 38 tracks.",
+   "kept": "The next track is always already visible."
+  },
+  {
+   "id": "challenger-metro",
+   "kind": "challenger",
+   "catalogId": "digital-design-canon-metro-typographic-tiles",
+   "label": "Metro tiles",
+   "verdict": "declined",
+   "lineage": "typographic tile interfaces",
+   "thesis": "Giant cropped type, flat colour tiles.",
+   "palette": [
+    "#000000",
+    "#00aba9",
+    "#ffffff"
+   ],
+   "materials": [
+    "flat colour",
+    "cropped type"
+   ],
+   "viewport": "Tile per track.",
+   "case": "Tiles waste a narrow panel.",
+   "risk": "Dated platform echo.",
+   "kept": "No container chrome; type and rules carry the structure."
+  },
+  {
+   "id": "challenger-folio",
+   "kind": "challenger",
+   "catalogId": "editorial-sequence-montage-botanical-folio-season",
+   "label": "Botanical folio",
+   "verdict": "declined",
+   "lineage": "seasonal botanical plates",
+   "thesis": "Fixed-scale plates through stages.",
+   "palette": [
+    "#f3ecdc",
+    "#3d6b3a",
+    "#b3261e"
+   ],
+   "materials": [
+    "cream plates",
+    "sepia hairlines"
+   ],
+   "viewport": "Plates per stage.",
+   "case": "No tie to DJs or carts.",
+   "risk": "Ornamental.",
+   "kept": "Identical row geometry across every state."
+  },
+  {
+   "id": "challenger-star-atlas",
+   "kind": "challenger",
+   "catalogId": "notation-diagram-systems-star-atlas",
+   "label": "Star atlas",
+   "verdict": "declined",
+   "lineage": "celestial charts",
+   "thesis": "Magnitude as dot size.",
+   "palette": [
+    "#0f1a33",
+    "#f4f1e8",
+    "#d0442c"
+   ],
+   "materials": [
+    "chart ground",
+    "inked dots"
+   ],
+   "viewport": "Tracks as stars.",
+   "case": "Pretty, unrelated, hard to scan.",
+   "risk": "Decoration over task.",
+   "kept": "One ranked variable carries confidence."
+  }
+ ],
+ "reroll": {
+  "registers": [
+   "safer",
+   "bolder"
+  ]
+ },
+ "buildPath": {
+  "value": "code"
+ },
+ "canon": true,
+ "canonCard": {
+  "kind": "canon",
+  "label": "The category standard",
+  "thesis": "A clean extension panel like 1Password or Raindrop, done well.",
+  "palette": [
+   "#ffffff",
+   "#111827",
+   "#6b7280",
+   "#2563eb"
+  ],
+  "materials": [
+   "system type",
+   "checkbox list"
+  ],
+  "viewport": "Header with the mix name, a checkbox list of tracks, one primary 'Add to cart' button.",
+  "risk": "Indistinguishable from every other extension by design.",
+  "html": ".impeccable/mocks/decision/canon.html",
+  "htmlFrame": "400x800"
+ },
+ "steer": true
+}

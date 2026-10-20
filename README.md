@@ -1,5 +1,12 @@
 # mix-to-cart
 
+Two ways to turn a DJ mix into a filled Beatport or Bandcamp cart:
+
+- **[Chrome extension](extension/):** open a mix on YouTube, SoundCloud or Mixcloud, click the icon, tick the tracks, add them to your cart. Exports the tracklist with Beatport, Bandcamp, Spotify and YouTube links.
+- **Agent skill** (below): ask Claude to cart the tracks from a mix link.
+
+## The skill
+
 An agent skill (Claude Code, or any tool that reads `SKILL.md`) that turns a DJ mix into a filled shopping cart.
 
 Give it a SoundCloud, Mixcloud or YouTube link. It identifies every track with Shazam, shows you the list, then adds each confirmed track to your Beatport cart in your own browser, falling back to Bandcamp. You review the carts and press Buy yourself; the skill never checks out.
