@@ -364,6 +364,10 @@ async function tryBandcamp(worker: number, track: Track): Promise<{ status: Row[
 
 const CARTABLE = BEATPORT_CARTABLE;
 
+/** A miss names the store, so the row can say "Not on Beatport" rather than a bare "Not found". */
+const missing = (row: Row | undefined, store: Store, status: Row['status']): Partial<Row> =>
+  status === 'not-found' || status === 'version-missing' ? { missingFrom: [...new Set([...(row?.missingFrom ?? []), store])] } : {};
+
 async function openTab(url: string): Promise<number> {
   const id = (await browser.tabs.create({ url: 'about:blank', active: false })).id!;
   await load(id, url);
@@ -469,7 +473,7 @@ async function cart(stores: Store[]) {
         } else {
           if (m.alternatives?.length) tried.set(key, m.alternatives);
           if (stores.includes('bandcamp')) toBandcamp.push(key);
-          else await patchRow(key, { status: m.status, alternatives: m.alternatives?.slice(0, 4) });
+          else await patchRow(key, { status: m.status, alternatives: m.alternatives?.slice(0, 4), ...missing(row, 'beatport', m.status) });
         }
       }
       if (matched.length && !stopCarting) {
@@ -500,7 +504,7 @@ async function cart(stores: Store[]) {
       const result = await tryBandcamp(bandcampTab, row.track);
       const alternatives = [...(tried.get(key) ?? []), ...(result.alternatives ?? [])];
       if (result.status === 'carted') carts.bandcamp = result.offer!.url;
-      await patchRow(key, { status: result.status, offer: result.offer, alternatives: alternatives.length ? alternatives.slice(0, 4) : undefined });
+      await patchRow(key, { status: result.status, offer: result.offer, alternatives: alternatives.length ? alternatives.slice(0, 4) : undefined, ...missing(row, 'bandcamp', result.status) });
       await new Promise((r) => setTimeout(r, 800)); // human pace between tracks
     }
   } finally {
@@ -538,7 +542,7 @@ async function follow(tab: number) {
         const key = keyOf(row.track);
         const m = await matchBeatport(tab, row.track);
         if (m.offer) matched.push({ key, offer: m.offer });
-        else await patchRow(key, { status: m.status, alternatives: m.alternatives?.slice(0, 4) });
+        else await patchRow(key, { status: m.status, alternatives: m.alternatives?.slice(0, 4), ...missing(row, 'beatport', m.status) });
       }
       if (matched.length && (await fillPlaylist(tab, (await getJob())!, matched.map((m) => m.offer.id)))) {
         for (const m of matched) await patchRow(m.key, { status: 'in-playlist', offer: m.offer });

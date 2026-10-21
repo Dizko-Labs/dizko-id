@@ -51,6 +51,8 @@ export interface Row {
   /** other versions seen, so a version-missing row can say what does exist */
   alternatives?: Offer[];
   note?: string;
+  /** stores that were searched and did not have it (or not this version) */
+  missingFrom?: Store[];
 }
 
 import type { Artist } from './dizko';

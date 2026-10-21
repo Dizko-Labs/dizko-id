@@ -11,6 +11,9 @@ describe('splitTitle', () => {
   it('drops feat. and keeps the named remix', () => {
     expect(splitTitle('Ultimately (feat. Coby Sey) [Amotik Remix]')).toEqual({ base: 'Ultimately', version: 'Amotik Remix' });
   });
+  it('drops a DJ-mix compilation marker and keeps the remix', () => {
+    expect(splitTitle('Love and Happiness (Melé Remix) [Mixed]')).toEqual({ base: 'Love and Happiness', version: 'Melé Remix' });
+  });
   it('collapses a duplicated bracket and keeps a non-version bracket in the title', () => {
     expect(splitTitle("Marea (we've lost dancing) (we've lost dancing)")).toEqual({ base: "Marea (we've lost dancing)", version: '' });
     expect(splitTitle('One Day (Vandaag)')).toEqual({ base: 'One Day (Vandaag)', version: '' });

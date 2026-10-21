@@ -540,10 +540,17 @@ const STATUS_TEXT: Partial<Record<Row['status'], string>> = {
   failed: 'Could not add',
 };
 
+const STORE_NAME: Record<Store, string> = { beatport: 'Beatport', bandcamp: 'Bandcamp' };
+
 function TrackRow({ row, index, locked }: { row: Row; index: number; locked: boolean }) {
   const confirmed = row.track.hits >= 2;
-  const status = STATUS_TEXT[row.status];
-  const miss = ['version-missing', 'album-only', 'not-found', 'failed', 'login-needed'].includes(row.status);
+  const where = row.missingFrom?.length ? row.missingFrom.map((s) => STORE_NAME[s]).join(' or ') : '';
+  const status =
+    row.status === 'not-found' && where ? `Not on ${where}`
+    : row.status === 'version-missing' && where ? `Version not on ${where}`
+    : STATUS_TEXT[row.status];
+  // a store not having a record is information, not an error; only failures are red
+  const miss = ['failed', 'login-needed'].includes(row.status);
   const id = `track-${index}`;
   return (
     // Status shares the artist line so the track name, notes and links get the full width
@@ -553,7 +560,7 @@ function TrackRow({ row, index, locked }: { row: Row; index: number; locked: boo
       <div className="min-w-0">
         <div className="flex items-baseline justify-between gap-3">
           <label htmlFor={id} className="min-w-0 cursor-pointer truncate text-[13px] font-semibold text-toner-1">{row.track.artist}</label>
-          {status && <span className={cn('shrink-0 text-[12px] font-bold', miss ? 'text-miss' : row.status === 'searching' ? 'text-toner-2' : '')}>{status}</span>}
+          {status && <span className={cn('shrink-0 text-[12px] font-bold', miss ? 'text-miss' : row.status === 'carted' || row.status === 'in-playlist' ? '' : 'text-toner-2')}>{status}</span>}
         </div>
         <label htmlFor={id} className={cn('block cursor-pointer leading-[1.08]', confirmed ? 'text-[23px] font-black [font-stretch:64%]' : 'text-[15px] font-semibold [font-stretch:90%]')}>
           <span className={row.status === 'carted' ? 'highlighter' : undefined}>{row.track.title}</span>

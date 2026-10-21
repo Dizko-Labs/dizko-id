@@ -26,6 +26,7 @@ export function splitTitle(title: string): { base: string; version: string } {
   const base = t.replace(/\s*([([])([^)\]]*)[)\]]/g, (whole, _open: string, v: string) => {
     const key = norm(v);
     if (seen.has(key)) return ' '; // "Marea (we've lost dancing) (we've lost dancing)"
+    if (/^\s*(mixed|continuous mix)\s*$/i.test(v)) return ' '; // a DJ-mix compilation's marker, not part of the record
     seen.add(key);
     if (VERSION_WORD.test(v)) {
       versions.push(v.trim());
