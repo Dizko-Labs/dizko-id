@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, ChevronDown, ChevronLeft } from 'lucide-react';
 import { DizkoMark } from '@/components/DizkoMark';
+import { UsageSetting } from './Consent';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -582,6 +583,7 @@ export default function App() {
           <p className="px-4 py-5 text-[15px] leading-snug text-toner-1">Open a DJ mix on YouTube, SoundCloud or Mixcloud, and its tracklist appears here. Every mix you open is saved to your library.</p>
         )}
         {error && <p className="px-4 pb-3 text-[13px] text-miss">{error}</p>}
+        {!onMixPage && <UsageSetting />}
       </main>
     );
   }

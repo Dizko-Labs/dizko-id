@@ -28,6 +28,8 @@ export default defineConfig({
       'https://api-v2.soundcloud.com/*',
       // cover art for tracks saved without it
       'https://itunes.apple.com/*',
+      // anonymous usage events, only after the DJ agrees
+      'https://us.i.posthog.com/*',
     ],
     action: { default_title: 'Dizko ID' },
     side_panel: { default_path: 'sidepanel.html' },

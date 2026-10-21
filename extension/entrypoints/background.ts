@@ -10,6 +10,7 @@ import { backfillArt, backfillArtists, backfillUploaders, forget, mixKey, rememb
 import { setApp } from '@/lib/oauth';
 import { profileMixes } from '@/lib/soundcloud';
 import { cleanMixUrl, utm } from '@/lib/utm';
+import { track } from '@/lib/analytics';
 import { soundcloudPlaylist, spotifyPlaylist } from '@/lib/playlists';
 import { parseTracklist } from '@/lib/tracklist';
 import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, coverage, type Job, type Offer, type Row, type Store, type Track } from '@/lib/types';
@@ -138,6 +139,7 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
     case 'panel:profile-mixes':
       return await profileMixes(msg.url).catch(() => ({ mixes: [] }));
     case 'panel:scan':
+      track('scan_from_artist_page');
       // a new tab on the mix: the panel follows the active tab, reads it and starts listening
       await browser.tabs.create({ url: msg.url, active: true });
       return { ok: true };
@@ -248,6 +250,7 @@ async function read(tabId: number) {
     method: info.stream ? 'stream' : info.seekable ? 'seek' : 'live',
   };
   await setJob(job);
+  track('mix_read', { site: new URL(job.mix.url).hostname.replace(/^www\./, ''), tracklist: tracks.length > 0, tracks: tracks.length, method: job.method });
   lookUpArtist(info);
   if (tracks.length) enrich().catch(() => {});
   return job;
@@ -355,6 +358,8 @@ async function identify(tabId: number, streamId?: string, resume = false) {
     await ask(tabId, { type: 'source:pause' }).catch(() => {});
     // a stopped listen keeps its place, so Keep listening can resume from there
     const stoppedEarly = stopListening;
+    const finished = (await getJob())?.rows ?? [];
+    track('identify_end', { method: info.stream ? 'stream' : info.seekable ? 'seek' : 'live', tracks: finished.length, confirmed: finished.filter((r) => r.track.hits >= 2).length, stopped: stoppedEarly, resumed: resume });
     await update((job) => ({ ...job, phase: job.phase === 'identifying' ? 'review' : job.phase, listening: false, progress: stoppedEarly ? job.progress : 1 }));
     enrich().catch(() => {});
   }
@@ -583,6 +588,8 @@ async function cart(stores: Store[]) {
     }
   } finally {
     for (const tab of [handOff ? undefined : beatportTab, bandcampTab]) if (tab) await browser.tabs.remove(tab).catch(() => {});
+    const after = (await getJob())?.rows ?? [];
+    track('cart_run', { store: stores.join('+'), asked: keys.length, carted: after.filter((r) => keys.includes(keyOf(r.track)) && r.status === 'carted').length, playlist: !!playlist, buy_all: playlistCarted });
     await update((j) => ({
       ...j,
       phase: j.listening ? 'identifying' : 'done',
@@ -665,6 +672,7 @@ async function playlist(service: 'beatport' | 'spotify' | 'soundcloud') {
       : service === 'spotify' ? await spotifyPlaylist(job.mix.title, description, rows)
       : await soundcloudPlaylist(job.mix.title, description, rows);
     await update((j) => ({ ...j, made: { ...j.made, [service]: { ...made, at: Date.now() } } }));
+    track('playlist_made', { service, added: made.added, missing: made.missing.length });
     await browser.tabs.create({ url: utm(made.url, 'playlist', service), active: true });
   } catch (e) {
     await update((j) => ({ ...j, error: e instanceof Error ? e.message : String(e) }));
