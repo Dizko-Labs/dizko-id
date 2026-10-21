@@ -100,6 +100,14 @@ function replace(job: Job | null) {
   return next;
 }
 
+/** The job, only while it is still the given mix's; null once the panel has moved on. */
+async function ownJob(owner: string) {
+  const job = await getJob();
+  return job && mixKey(job.mix.url) === owner ? job : null;
+}
+
+const message = (e: unknown) => (e instanceof Error ? e.message : String(e));
+
 const keyOf = (t: Track) => `${t.artist}|${t.title}`;
 function patchRow(key: string, patch: Partial<Row>, owner?: string) {
   return update((job) => ({ ...job, rows: job.rows.map((r) => (keyOf(r.track) === key ? { ...r, ...patch } : r)) }), owner);
@@ -212,9 +220,7 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
       return switchTo(msg.tabId);
     case 'panel:identify':
       stopListening = false;
-      identify(msg.tabId, msg.streamId, msg.resume).catch((e) =>
-        update((job) => ({ ...job, phase: job.phase === 'identifying' ? 'review' : job.phase, listening: false, error: e instanceof Error ? e.message : String(e) })),
-      );
+      identify(msg.tabId, msg.streamId, msg.resume).catch(() => {});
       return { ok: true };
     case 'panel:toggle':
       await update((job) => ({ ...job, rows: job.rows.map((r, i) => (i === msg.index ? { ...r, selected: !r.selected } : r)) }));
@@ -226,9 +232,7 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
       // Listening carries on: the cart run takes the tracks ticked now, and later finds can be added after
       if ((await getJob())?.phase === 'carting') return { ok: false };
       stopCarting = false;
-      cart(msg.stores).catch((e) =>
-        update((job) => ({ ...job, phase: job.listening ? 'identifying' : 'done', waitingFor: undefined, error: e instanceof Error ? e.message : String(e) })),
-      );
+      cart(msg.stores).catch(() => {});
       return { ok: true };
     case 'panel:stop':
       // The panel's Stop during a cart run stops the cart run; otherwise it stops listening
@@ -305,9 +309,7 @@ async function scan(url: string) {
   if (job.phase === 'reading' && !job.rows.length) {
     if (!info.stream) return { error: 'SoundCloud would not hand over this mix\'s audio. Open it to listen.' };
     stopListening = false;
-    identify(undefined, undefined, false, info).catch((e) =>
-      update((j) => ({ ...j, phase: j.phase === 'identifying' ? 'review' : j.phase, listening: false, error: e instanceof Error ? e.message : String(e) })),
-    );
+    identify(undefined, undefined, false, info).catch(() => {});
   }
   return { ok: true, url: job.mix.url };
 }
@@ -388,6 +390,9 @@ async function identify(tabId: number | undefined, streamId?: string, resume = f
   listening.add(owner);
   try {
     await listen(before, owner, tabId, streamId, resume, given);
+  } catch (e) {
+    // the error belongs to this mix, even if the panel has moved to another since
+    await update((job) => ({ ...job, phase: job.phase === 'identifying' ? 'review' : job.phase, listening: false, error: message(e) }), owner);
   } finally {
     listening.delete(owner);
   }
@@ -634,6 +639,8 @@ async function cart(stores: Store[]) {
   carting.add(owner);
   try {
     await cartRun(stores, owner);
+  } catch (e) {
+    await update((job) => ({ ...job, phase: job.listening ? 'identifying' : 'done', waitingFor: undefined, error: message(e) }), owner);
   } finally {
     carting.delete(owner);
   }
@@ -678,8 +685,9 @@ async function cartRun(stores: Store[], owner: string) {
           else await patch(key, { status: m.status, alternatives: m.alternatives?.slice(0, 4), ...missing(row, 'beatport', m.status) });
         }
       }
-      if (matched.length && !stopCarting) {
-        playlist = await fillPlaylist(beatportTab, (await getJob())!, matched.map((m) => m.offer.id));
+      const mine = await ownJob(owner);
+      if (matched.length && !stopCarting && mine) {
+        playlist = await fillPlaylist(beatportTab, mine, matched.map((m) => m.offer.id));
         if (!playlist) {
           for (const m of matched) await patch(m.key, { status: 'failed' });
         } else {
@@ -749,7 +757,9 @@ async function follow(tab: number, owner: string) {
         if (m.offer) matched.push({ key, offer: m.offer });
         else await patchRow(key, { status: m.status, alternatives: m.alternatives?.slice(0, 4), ...missing(row, 'beatport', m.status) }, owner);
       }
-      if (matched.length && (await fillPlaylist(tab, (await getJob())!, matched.map((m) => m.offer.id)))) {
+      const mine = await ownJob(owner);
+      if (!mine) break;
+      if (matched.length && (await fillPlaylist(tab, mine, matched.map((m) => m.offer.id)))) {
         for (const m of matched) await patchRow(m.key, { status: 'in-playlist', offer: m.offer }, owner);
       }
       if (!job.listening) break;
@@ -764,7 +774,7 @@ async function follow(tab: number, owner: string) {
 // ---- playlists on other services, from the ticked tracks
 
 /** Beatport alone: the mix's playlist, without touching the cart. */
-async function beatportPlaylistOnly(rows: Row[]): Promise<{ url: string; added: number; missing: string[] }> {
+async function beatportPlaylistOnly(rows: Row[], owner: string): Promise<{ url: string; added: number; missing: string[] }> {
   const tab = await openTab('https://www.beatport.com/');
   try {
     if (!(await passCheck(tab)) || !(await beatportSession(tab))) throw new Error('Log in to Beatport first');
@@ -774,12 +784,14 @@ async function beatportPlaylistOnly(rows: Row[]): Promise<{ url: string; added: 
       const offer = row.offer?.store === 'beatport' ? row.offer : (await matchBeatport(tab, row.track)).offer;
       if (offer) {
         ids.push(offer.id);
-        if (row.status === 'queued') await patchRow(keyOf(row.track), { status: 'in-playlist', offer });
+        if (row.status === 'queued') await patchRow(keyOf(row.track), { status: 'in-playlist', offer }, owner);
       } else missing.push(`${row.track.artist} - ${row.track.title}`);
     }
-    const id = await fillPlaylist(tab, (await getJob())!, ids);
+    const mine = await ownJob(owner);
+    if (!mine) throw new Error('Another mix was opened before the playlist was made');
+    const id = await fillPlaylist(tab, mine, ids);
     if (!id) throw new Error('Beatport would not create the playlist');
-    await update((j) => ({ ...j, playlist: { ...j.playlist, beatport: id } }));
+    await update((j) => ({ ...j, playlist: { ...j.playlist, beatport: id } }), owner);
     return { url: beatportPlaylistUrl(id), added: ids.length, missing };
   } finally {
     await browser.tabs.remove(tab).catch(() => {});
@@ -788,20 +800,21 @@ async function beatportPlaylistOnly(rows: Row[]): Promise<{ url: string; added: 
 
 async function playlist(service: 'beatport' | 'spotify' | 'soundcloud') {
   const job = (await update((j) => ({ ...j, making: service, error: undefined })))!;
+  const owner = mixKey(job.mix.url);
   const rows = job.rows.filter((r) => r.selected);
   const description = `Tracklist of ${job.mix.url}, made with Dizko ID`;
   try {
     const made =
-      service === 'beatport' ? await beatportPlaylistOnly(rows)
+      service === 'beatport' ? await beatportPlaylistOnly(rows, owner)
       : service === 'spotify' ? await spotifyPlaylist(job.mix.title, description, rows)
       : await soundcloudPlaylist(job.mix.title, description, rows);
-    await update((j) => ({ ...j, made: { ...j.made, [service]: { ...made, at: Date.now() } } }));
+    await update((j) => ({ ...j, made: { ...j.made, [service]: { ...made, at: Date.now() } } }), owner);
     track('playlist_made', { service, added: made.added, missing: made.missing.length });
     await browser.tabs.create({ url: utm(made.url, 'playlist', service), active: true });
   } catch (e) {
-    await update((j) => ({ ...j, error: e instanceof Error ? e.message : String(e) }));
+    await update((j) => ({ ...j, error: message(e) }), owner);
   } finally {
-    await update((j) => ({ ...j, making: undefined }));
+    await update((j) => ({ ...j, making: undefined }), owner);
   }
 }
 
