@@ -5,7 +5,7 @@ export default defineConfig({
   modules: ['@wxt-dev/module-react'],
   vite: () => ({ plugins: [tailwindcss()] }),
   manifest: {
-    name: 'Mix to Cart',
+    name: 'Dizko ID',
     description: 'Find every track in a DJ mix and add them to your Beatport or Bandcamp cart.',
     permissions: ['sidePanel', 'tabCapture', 'offscreen', 'scripting', 'storage', 'tabs', 'identity'],
     host_permissions: [
@@ -24,8 +24,12 @@ export default defineConfig({
       'https://secure.soundcloud.com/*',
       // the DJ's upcoming dates and links, from Dizko's public endpoint
       'https://mcp.dizko.app/*',
+      // a DJ's other SoundCloud mixes, for the artist page
+      'https://api-v2.soundcloud.com/*',
+      // cover art for tracks saved without it
+      'https://itunes.apple.com/*',
     ],
-    action: { default_title: 'Mix to Cart' },
+    action: { default_title: 'Dizko ID' },
     side_panel: { default_path: 'sidepanel.html' },
     // shazamio-core's fingerprinting runs as WebAssembly in the offscreen document
     content_security_policy: { extension_pages: "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'" },

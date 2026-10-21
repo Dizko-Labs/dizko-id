@@ -10,6 +10,8 @@ export interface Track {
   /** Shazam clips that matched; a written tracklist counts as confirmed */
   hits: number;
   isrc?: string;
+  /** cover art: Shazam's, else filled in later from the iTunes catalogue */
+  art?: string;
   source: 'shazam' | 'tracklist';
 }
 
@@ -25,6 +27,7 @@ export interface Offer {
   version: string;
   price?: { value: number; currency: string; display: string };
   isrc?: string;
+  art?: string;
   release?: string;
   label?: string;
   /** ISO date, used to prefer original releases over later compilations */
@@ -58,7 +61,7 @@ export interface Row {
 import type { Artist } from './dizko';
 
 export interface Job {
-  mix: { title: string; url: string; duration?: number; uploader?: string; artistCheckedAt?: number };
+  mix: { title: string; url: string; duration?: number; uploader?: string; art?: string; artistCheckedAt?: number };
   /** the DJ, when Dizko knows them */
   artist?: Artist;
   rows: Row[];

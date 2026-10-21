@@ -1,4 +1,5 @@
 import { findArtist, isPlatform } from './dizko';
+import { artistNames, norm, splitTitle } from './match';
 import type { Job } from './types';
 
 /** A mix the DJ has scanned, kept across sessions so the panel can show it again without listening again. */
@@ -39,25 +40,30 @@ export async function remember(job: Job) {
 }
 
 /**
- * Mixes saved before the uploader was recorded: read it from the mix page once (SoundCloud's hydration data,
+ * Mixes saved before the uploader or artwork was recorded: read them from the mix page once (SoundCloud's hydration data,
  * YouTube's ownerChannelName) so the library can name the DJ.
  */
 export async function backfillUploaders() {
-  const found = new Map<string, string>();
+  const found = new Map<string, { uploader?: string; art?: string }>();
   for (const h of await history()) {
-    if (h.mix.uploader || h.artist) continue;
+    if ((h.mix.uploader || h.artist) && h.mix.art) continue;
     const html = await fetch(h.mix.url, { credentials: 'include' }).then((r) => r.text()).catch(() => '');
     const hydration = html.match(/__sc_hydration\s*=\s*(\[[\s\S]*?\]);\s*<\/script>/)?.[1];
     const sound = hydration ? JSON.parse(hydration).find((x: any) => x.hydratable === 'sound')?.data : null;
     const channel = html.match(/"ownerChannelName":"((?:[^"\\]|\\.)*)"/)?.[1];
     const name: string | undefined = sound?.user?.username ?? (channel ? JSON.parse(`"${channel}"`) : undefined);
-    if (!name) continue;
-    found.set(mixKey(h.mix.url), name);
+    const art = html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/)?.[1]?.replace(/&amp;/g, '&');
+    if (!name && !art) continue;
+    found.set(mixKey(h.mix.url), { uploader: name, art });
   }
   if (!found.size) return;
   // re-read: a mix may have been saved while the pages were loading
   const now = await history();
-  for (const h of now) h.mix.uploader ??= found.get(mixKey(h.mix.url));
+  for (const h of now) {
+    const f = found.get(mixKey(h.mix.url));
+    h.mix.uploader ??= f?.uploader;
+    h.mix.art ??= f?.art;
+  }
   await browser.storage.local.set({ [KEY]: now });
 }
 
@@ -80,6 +86,39 @@ export async function backfillArtists() {
     h.mix.artistCheckedAt = Date.now();
     if (a && (!h.artist || isPlatform(h.artist.name))) h.artist = a;
   }
+  await browser.storage.local.set({ [KEY]: now });
+}
+
+/**
+ * Cover art for ticked tracks that have none (saved before art was kept, or from a written tracklist): one
+ * iTunes Search API lookup each (public, no key), a few a second, at most 60 per run.
+ */
+export async function backfillArt() {
+  const keyOf = (r: { track: { artist: string; title: string } }) => `${r.track.artist}|${r.track.title}`;
+  const art = new Map<string, string>();
+  const tried = new Set<string>();
+  for (const h of await history()) {
+    for (const r of h.rows) {
+      const key = keyOf(r);
+      if (!r.selected || r.track.art || r.offer?.art || tried.has(key) || tried.size >= 60) continue;
+      tried.add(key);
+      const q = encodeURIComponent(`${r.track.artist} ${r.track.title.replace(/\s*[([][^)\]]*[)\]]/g, '')}`);
+      const hits = await fetch(`https://itunes.apple.com/search?term=${q}&entity=song&limit=8`).then((x) => x.json()).catch(() => null);
+      // iTunes search is loose ("Dam Swindle That's Right" finds Cole Swindell): wrong art is worse than none,
+      // so take only a result whose artist and title both match
+      const want = artistNames(r.track.artist);
+      const title = norm(splitTitle(r.track.title).base);
+      const match = (hits?.results ?? []).find(
+        (x: any) => artistNames(String(x.artistName ?? '')).some((a) => want.includes(a)) && norm(splitTitle(String(x.trackName ?? '')).base) === title,
+      );
+      const url: string | undefined = match?.artworkUrl100;
+      if (url) art.set(key, url.replace('100x100bb', '200x200bb'));
+      await new Promise((ok) => setTimeout(ok, 350));
+    }
+  }
+  if (!art.size) return;
+  const now = await history();
+  for (const h of now) for (const r of h.rows) r.track.art ??= art.get(keyOf(r));
   await browser.storage.local.set({ [KEY]: now });
 }
 

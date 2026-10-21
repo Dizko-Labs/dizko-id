@@ -1,5 +1,5 @@
 ---
-name: Mix to Cart
+name: Dizko ID
 description: A DJ mix's tracklist in Dizko's world, near-black ground, off-white type and one acid accent that means act now or in your cart.
 colors:
   paper: "#080808"
@@ -170,7 +170,7 @@ components:
     backgroundColor: "{colors.acid-hover}"
 ---
 
-# Design System: Mix to Cart
+# Design System: Dizko ID
 
 ## Overview
 
@@ -222,7 +222,7 @@ Near-black and off-white with one acid green; colour is semantic and scarce.
 **Character:** one neutral grotesque, the same face dizko.app uses for UI and headlines. Hierarchy comes from size, weight (400 to 700) and negative tracking, never from case or slant. Numerals are tabular throughout so timestamps, counts and the progress percentage do not jitter.
 
 ### Hierarchy
-- **Display** (600, 26px, 1.05, -0.03em): the mix title in the header (up to three lines) and the "Mix to Cart" name on the library view.
+- **Display** (600, 26px, 1.05, -0.03em): the mix title in the header (up to three lines) and the "Dizko ID" name on the library view.
 - **Headline** (600, 19px, 1.08, -0.02em): confirmed track names.
 - **Title** (600, 18px, 1.15, -0.02em): mix titles in the library list and the listening percentage. The DJ name in the Dizko block sits beside it at 17px.
 - **Title Small** (600, 16px, 1.2, -0.01em): the "Plus N unconfirmed" heading and track names in the Tracks tab.
@@ -302,7 +302,7 @@ The signature component. See The Billing Rule. Store status sits at the right of
 A carted track's name gets an acid band from 12% to 92% of the line box with Acid Ink text, 3px bleed either side and 3px corners, wrapping cleanly across lines. It draws in left to right over 420ms on cubic-bezier(0.16, 1, 0.3, 1) (Dizko's enter easing) when the track is carted, and appears instantly under reduced motion. Used in the tracklist and the Tracks tab.
 
 ### SoundCloud Launcher
-A "Mix to Cart" pill with a cart glyph, appended after the last button in SoundCloud's own action row: on a track page (14px text, height from SoundCloud's Share button, minimum 28px) and on each single track in a listing such as a profile or stream (12px text, height from the row's first button, minimum 22px; albums and sets get none). Acid fill, Acid Ink semibold text in SoundCloud's page font, a full pill where SoundCloud's buttons are round and their corner radius where they are square, Acid Lift on hover, a 2px focus outline in the page's own text colour (acid could not be seen on SoundCloud's light page). If Chrome will not open the panel, the label changes to "Open from toolbar".
+A "Dizko ID" pill with a cart glyph, appended after the last button in SoundCloud's own action row: on a track page (14px text, height from SoundCloud's Share button, minimum 28px) and on each single track in a listing such as a profile or stream (12px text, height from the row's first button, minimum 22px; albums and sets get none). Acid fill, Acid Ink semibold text in SoundCloud's page font, a full pill where SoundCloud's buttons are round and their corner radius where they are square, Acid Lift on hover, a 2px focus outline in the page's own text colour (acid could not be seen on SoundCloud's light page). If Chrome will not open the panel, the label changes to "Open from toolbar".
 
 ## Do's and Don'ts
 

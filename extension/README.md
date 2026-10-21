@@ -1,4 +1,4 @@
-# Mix to Cart (Chrome extension)
+# Dizko ID (Chrome extension)
 
 Open a DJ mix on YouTube, SoundCloud or Mixcloud, click the extension, and the side panel lists every track in the set. Tick the ones you want, press "Add to cart", and they go into your Beatport cart (falling back to Bandcamp). You review the cart and press Buy yourself; the extension never checks out.
 

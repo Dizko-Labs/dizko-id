@@ -6,6 +6,7 @@ export interface Hit {
   artist: string;
   title: string;
   isrc?: string;
+  art?: string;
 }
 
 /** Keep the first appearance of each distinct track, in play order, counting how often it was heard. */
@@ -18,11 +19,12 @@ export function collapse(hits: Hit[]): Track[] {
     if (prev) {
       prev.hits += 1;
       prev.isrc ??= h.isrc;
+      prev.art ??= h.art;
       continue;
     }
     // Shazam sometimes repeats a credit: "Inside Me (feat. Astral T) (feat. Astral T)"
     const title = h.title.replace(/(\s*[([][^)\]]+[)\]])\1+/g, '$1');
-    const t: Track = { at: h.at, artist: h.artist, title, hits: 1, isrc: h.isrc, source: 'shazam' };
+    const t: Track = { at: h.at, artist: h.artist, title, hits: 1, isrc: h.isrc, art: h.art, source: 'shazam' };
     seen.set(key, t);
     out.push(t);
   }

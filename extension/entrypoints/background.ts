@@ -6,8 +6,9 @@ import {
   beatportApi, beatportBuyAll, beatportPlaylistUrl, storeCheck,
 } from '@/lib/stores';
 import { findArtist, isPlatform, isStale } from '@/lib/dizko';
-import { backfillArtists, backfillUploaders, forget, mixKey, remember, saved } from '@/lib/history';
+import { backfillArt, backfillArtists, backfillUploaders, forget, mixKey, remember, saved } from '@/lib/history';
 import { setApp } from '@/lib/oauth';
+import { profileMixes } from '@/lib/soundcloud';
 import { soundcloudPlaylist, spotifyPlaylist } from '@/lib/playlists';
 import { parseTracklist } from '@/lib/tracklist';
 import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, type Job, type Offer, type Row, type Store, type Track } from '@/lib/types';
@@ -18,7 +19,7 @@ const NAME_YOUR_PRICE = 1;
 export default defineBackground(() => {
   browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
   recover();
-  backfillUploaders().then(backfillArtists).catch(() => {});
+  backfillUploaders().then(backfillArtists).then(backfillArt).catch(() => {});
   browser.runtime.onMessage.addListener((msg: PanelRequest & { streamId?: string }, sender, reply) => {
     // The button on the SoundCloud page: open the panel on that tab (the click is the user gesture it needs)
     // and leave a note so the panel starts identifying once it has read the mix
@@ -133,6 +134,12 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
   switch (msg.type) {
     case 'panel:read':
       return read(msg.tabId);
+    case 'panel:profile-mixes':
+      return { mixes: await profileMixes(msg.url).catch(() => []) };
+    case 'panel:scan':
+      // a new tab on the mix: the panel follows the active tab, reads it and starts listening
+      await browser.tabs.create({ url: msg.url, active: true });
+      return { ok: true };
     case 'panel:forget':
       await forget(msg.url);
       return { ok: true };
@@ -222,6 +229,7 @@ async function read(tabId: number) {
   if (before) {
     const { savedAt: _, ...job } = before;
     job.mix.uploader ??= info.uploader;
+    job.mix.art ??= info.art;
     // an older lookup took the hosting channel for the DJ; look again
     if (isPlatform(job.artist?.name)) job.artist = undefined;
     await setJob(job);
@@ -231,7 +239,7 @@ async function read(tabId: number) {
   }
   const tracks = parseTracklist(info.description);
   const job: Job = {
-    mix: { title: info.title, url: info.url, duration: info.duration, uploader: info.uploader },
+    mix: { title: info.title, url: info.url, duration: info.duration, uploader: info.uploader, art: info.art },
     rows: tracks.map(rowFor),
     phase: tracks.length ? 'review' : 'reading',
     tracklistFound: tracks.length > 0,
@@ -448,6 +456,7 @@ function beatportOffer(t: any): Offer {
     release: t.release?.name,
     label: t.release?.label?.name,
     released: t.publish_date ?? t.new_release_date,
+    art: t.image?.uri ?? t.release?.image?.uri,
   };
 }
 
@@ -487,7 +496,7 @@ async function fillPlaylist(tab: number, job: Job, trackIds: string[]): Promise<
   let id = job.playlist?.beatport;
   if (id && (await api(tab, `/my/playlists/${id}/`)).status !== 200) id = undefined;
   if (!id) {
-    const made = await api(tab, '/my/playlists/', 'POST', { name: job.mix.title.slice(0, 100) || 'Mix to Cart' });
+    const made = await api(tab, '/my/playlists/', 'POST', { name: job.mix.title.slice(0, 100) || 'Dizko ID' });
     id = made.data?.id;
     if (!id) return null;
   }
@@ -642,7 +651,7 @@ async function beatportPlaylistOnly(rows: Row[]): Promise<{ url: string; added: 
 async function playlist(service: 'beatport' | 'spotify' | 'soundcloud') {
   const job = (await update((j) => ({ ...j, making: service, error: undefined })))!;
   const rows = job.rows.filter((r) => r.selected);
-  const description = `Tracklist of ${job.mix.url}, made with Mix to Cart`;
+  const description = `Tracklist of ${job.mix.url}, made with Dizko ID`;
   try {
     const made =
       service === 'beatport' ? await beatportPlaylistOnly(rows)

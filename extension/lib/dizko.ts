@@ -9,12 +9,16 @@ export interface Artist {
   genres: string[];
   cities: string[];
   events: { title: string; date: string; city: string; venue: string; url: string }[];
+  /** their SoundCloud profile, from Dizko's links */
+  soundcloud?: string;
   /** when this was fetched: dates go stale, so a saved artist is refreshed after a while */
   fetchedAt?: number;
+  /** shape version; older saved copies are fetched again */
+  v?: number;
 }
 
 /** A saved artist worth fetching again: older than 12 hours, or saved before fetch times were kept. */
-export const isStale = (a?: Artist) => !a?.fetchedAt || Date.now() - a.fetchedAt > 12 * 3600 * 1000;
+export const isStale = (a?: Artist) => !a?.fetchedAt || a.v !== 2 || Date.now() - a.fetchedAt > 12 * 3600 * 1000;
 
 const tag = (url: string) => {
   const u = new URL(url);
@@ -88,6 +92,8 @@ export async function findArtist(title: string, uploader?: string): Promise<Arti
       url: tag(r.page?.page_url ?? e.dizko_url),
       claimed: !!r.page?.published,
       fetchedAt: Date.now(),
+      v: 2,
+      soundcloud: typeof e.links?.soundcloud === 'string' ? e.links.soundcloud : undefined,
       genres: (e.genres ?? []).slice(0, 3),
       cities: (e.cities ?? []).slice(0, 3),
       events: [...(e.upcoming_appearances ?? [])]

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, ChevronDown, ChevronLeft, ChevronUp } from 'lucide-react';
+import { DizkoMark } from '@/components/DizkoMark';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -13,6 +14,7 @@ import { links } from '@/lib/links';
 import { norm } from '@/lib/match';
 import type { PanelRequest } from '@/lib/messages';
 import { redirectUri, type App as ServiceApp, type Service } from '@/lib/oauth';
+import { profileOf, type Upload } from '@/lib/soundcloud';
 import { beatportPlaylistUrl } from '@/lib/stores';
 import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, type Job, type PlaylistService, type Row, type Store } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -96,7 +98,7 @@ function StoreLinks({ row }: { row: Row }) {
 }
 
 /** The DJ behind the mix, from Dizko: what they play, where they are based, and where they play next. */
-function ArtistBlock({ artist }: { artist: Artist }) {
+function ArtistBlock({ artist, onName, hideName }: { artist: Artist; onName?: () => void; hideName?: boolean }) {
   const [allDates, setAllDates] = useState(false);
   const shown = allDates ? artist.events : artist.events.slice(0, 3);
   const about = [artist.genres.map(titleCase).join(', '), artist.cities.length ? `Based around ${artist.cities.join(', ')}` : '']
@@ -104,8 +106,12 @@ function ArtistBlock({ artist }: { artist: Artist }) {
     .join('. ');
   return (
     <section className="border-b border-toner-3 px-4 py-3 text-[13px]">
-      <a href={artist.url} target="_blank" rel="noreferrer" className="text-[17px] font-semibold tracking-[-0.02em] hover:underline">{artist.name}</a>
-      {about && <p className="mt-0.5 text-toner-1">{about}.</p>}
+      {!hideName && (onName ? (
+        <button type="button" onClick={onName} className="text-left text-[17px] font-semibold tracking-[-0.02em] hover:underline">{artist.name}</button>
+      ) : (
+        <a href={artist.url} target="_blank" rel="noreferrer" className="text-[17px] font-semibold tracking-[-0.02em] hover:underline">{artist.name}</a>
+      ))}
+      {about && <p className={cn('text-toner-1', !hideName && 'mt-0.5')}>{about}.</p>}
       <a href={artist.url} target="_blank" rel="noreferrer" className={cn(LINK, 'mt-1 inline-block text-[12px] font-semibold')}>More on Dizko</a>
       {artist.events.length > 0 && (
         <ul className="mt-2 space-y-1.5">
@@ -143,12 +149,44 @@ function ArtistBlock({ artist }: { artist: Artist }) {
   );
 }
 
+/** Artwork square; an empty surface tile keeps rows aligned when there is none. */
+function Cover({ src, size = 52 }: { src?: string; size?: number }) {
+  const box = { width: size, height: size };
+  return src ? (
+    <img src={src} alt="" loading="lazy" style={box} className="mt-0.5 shrink-0 rounded-[6px] bg-surface object-cover" />
+  ) : (
+    <span style={box} className="mt-0.5 shrink-0 rounded-[6px] bg-surface" aria-hidden />
+  );
+}
+
 // ---- library: saved mixes and the tracks ticked across them
 
 /** The DJ for a saved mix: Dizko's match, else the uploader unless that is a channel hosting other DJs' sets. */
 const dj = (h: Saved) => (h.artist && !isPlatform(h.artist.name) ? h.artist.name : isPlatform(h.mix.uploader) ? undefined : h.mix.uploader);
 
-function Library({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => void }) {
+interface Dj {
+  key: string;
+  name: string;
+  artist?: Artist;
+  mixes: Saved[];
+}
+
+/** DJs scanned so far, most mixes first: Dizko's profile where it knows them, else the uploader's name. */
+function djsOf(items: Saved[]): Dj[] {
+  const byDj = new Map<string, Dj>();
+  for (const h of items) {
+    const name = dj(h);
+    if (!name) continue;
+    const key = norm(name);
+    const entry = byDj.get(key) ?? { key, name, mixes: [] };
+    entry.artist ??= h.artist && !isPlatform(h.artist.name) ? h.artist : undefined;
+    entry.mixes.push(h);
+    byDj.set(key, entry);
+  }
+  return [...byDj.values()].sort((a, b) => b.mixes.length - a.mixes.length);
+}
+
+function Library({ items, onOpen, onArtist }: { items: Saved[]; onOpen: (url: string) => void; onArtist: (key: string) => void }) {
   const picks = new Map<string, { row: Row; mix: Saved }>();
   for (const h of items) {
     for (const row of h.rows) {
@@ -157,21 +195,10 @@ function Library({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => v
       if (!picks.has(key)) picks.set(key, { row, mix: h });
     }
   }
-  // DJs scanned so far, most mixes first: Dizko's profile where it knows them, else the uploader's name
-  const byDj = new Map<string, { name: string; artist?: Artist; mixes: Saved[] }>();
-  for (const h of items) {
-    const name = dj(h);
-    if (!name) continue;
-    const key = norm(name);
-    const entry = byDj.get(key) ?? { name, mixes: [] };
-    entry.artist ??= h.artist && !isPlatform(h.artist.name) ? h.artist : undefined;
-    entry.mixes.push(h);
-    byDj.set(key, entry);
-  }
-  const artists = [...byDj.values()].sort((a, b) => b.mixes.length - a.mixes.length);
+  const artists = djsOf(items);
   return (
     <Tabs defaultValue="mixes" className="min-h-0 flex-1 gap-0">
-      <TabsList variant="line" className="h-10 w-full justify-start gap-5 border-b border-toner-3 px-4">
+      <TabsList variant="line" className="mt-2 h-11 w-full justify-start gap-6 border-b border-toner-3 px-4">
         <TabsTrigger value="mixes" className="flex-none px-0 text-[14px] font-semibold">Mixes {items.length}</TabsTrigger>
         <TabsTrigger value="artists" className="flex-none px-0 text-[14px] font-semibold">Artists {artists.length}</TabsTrigger>
         <TabsTrigger value="tracks" className="flex-none px-0 text-[14px] font-semibold">Tracks {picks.size}</TabsTrigger>
@@ -182,11 +209,17 @@ function Library({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => v
             const ticked = h.rows.filter((r) => r.selected).length;
             const carted = h.rows.filter((r) => r.status === 'carted').length;
             return (
-              <li key={h.mix.url} className="border-b border-toner-3 py-3">
+              <li key={h.mix.url} className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-3 border-b border-toner-3 py-3">
+                <Cover src={h.mix.art} size={64} />
+                <div className="min-w-0">
                 <button type="button" onClick={() => onOpen(h.mix.url)} className="block w-full text-left hover:underline">
                   <span className="line-clamp-2 text-[18px] leading-[1.15] font-semibold tracking-[-0.02em]">{h.mix.title}</span>
                 </button>
-                {dj(h) && <p className="mt-0.5 truncate text-[13px] font-semibold text-toner-1">{dj(h)}</p>}
+                {dj(h) && (
+                  <button type="button" onClick={() => onArtist(norm(dj(h)!))} className="mt-0.5 block max-w-full truncate text-left text-[13px] font-semibold text-toner-1 hover:text-ink hover:underline">
+                    {dj(h)}
+                  </button>
+                )}
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] font-semibold whitespace-nowrap text-toner-2">
                   <a href={h.mix.url} target="_blank" rel="noreferrer" className={cn(LINK, 'text-ink')}>{sourceOf(h.mix.url)}</a>
                   <span>{ticked} of {h.rows.length} ticked</span>
@@ -196,6 +229,7 @@ function Library({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => v
                     Remove
                   </button>
                 </div>
+                </div>
               </li>
             );
           })}
@@ -204,18 +238,13 @@ function Library({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => v
       <TabsContent value="artists" className="overflow-y-auto px-4">
         {!artists.length && <p className="py-5 text-[14px] text-toner-1">The DJs behind the mixes you open collect here.</p>}
         <ul>
-          {artists.map(({ name, artist, mixes }) => {
+          {artists.map(({ key, name, artist, mixes }) => {
             const next = artist?.events[0];
             return (
-              <li key={name} className="border-b border-toner-3 py-3">
-                <div className="flex items-baseline justify-between gap-3">
-                  {artist ? (
-                    <a href={artist.url} target="_blank" rel="noreferrer" className="truncate text-[18px] leading-[1.15] font-semibold tracking-[-0.02em] hover:underline">{name}</a>
-                  ) : (
-                    <span className="truncate text-[18px] leading-[1.15] font-semibold tracking-[-0.02em]">{name}</span>
-                  )}
-                  {artist && <a href={artist.url} target="_blank" rel="noreferrer" className={cn(LINK, 'shrink-0 text-[12px] font-semibold')}>Dizko</a>}
-                </div>
+              <li key={key} className="border-b border-toner-3 py-3">
+                <button type="button" onClick={() => onArtist(key)} className="block max-w-full truncate text-left text-[18px] leading-[1.15] font-semibold tracking-[-0.02em] hover:underline">
+                  {name}
+                </button>
                 {next && (
                   <a href={next.url} target="_blank" rel="noreferrer" className="mt-0.5 block truncate text-[13px] text-toner-1 hover:text-ink hover:underline">
                     Next: {new Date(`${next.date}T12:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}, {titleCase(next.city)}
@@ -239,7 +268,9 @@ function Library({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => v
         {!picks.size && <p className="py-5 text-[14px] text-toner-1">Tracks you tick in a mix collect here.</p>}
         <ul>
           {[...picks.values()].map(({ row, mix }) => (
-            <li key={`${row.track.artist}|${row.track.title}`} className="border-b border-toner-3 py-2.5">
+            <li key={`${row.track.artist}|${row.track.title}`} className="grid grid-cols-[52px_minmax(0,1fr)] gap-x-3 border-b border-toner-3 py-2.5">
+              <Cover src={row.track.art ?? row.offer?.art} />
+              <div className="min-w-0">
               <p className="truncate text-[13px] font-semibold text-toner-1">{row.track.artist}</p>
               <p className="text-[16px] leading-[1.2] font-semibold tracking-[-0.01em]">
                 <span className={row.status === 'carted' ? 'highlighter' : undefined}>{row.track.title}</span>
@@ -248,11 +279,89 @@ function Library({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => v
                 From {mix.mix.title}
               </button>
               <StoreLinks row={row} />
+              </div>
             </li>
           ))}
         </ul>
       </TabsContent>
     </Tabs>
+  );
+}
+
+// ---- an artist's page inside the panel: Dizko profile, scanned mixes, their other SoundCloud mixes
+
+/** SoundCloud's own embeddable player, so a mix plays inside the panel. */
+function Player({ url }: { url: string }) {
+  const src = `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&color=%23c4f236&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=false`;
+  return <iframe title="SoundCloud player" src={src} className="mt-2 h-[120px] w-full rounded-[0.75rem] border-0" allow="autoplay" loading="lazy" />;
+}
+
+function ArtistPage({ entry, onBack, onOpen }: { entry: Dj; onBack: () => void; onOpen: (url: string) => void }) {
+  const { name, artist, mixes } = entry;
+  // their SoundCloud: Dizko's link, else the profile behind a mix they uploaded themselves
+  const profile =
+    artist?.soundcloud ??
+    mixes.map((h) => (h.mix.uploader && norm(h.mix.uploader) === entry.key ? profileOf(h.mix.url) : undefined)).find(Boolean);
+  const [more, setMore] = useState<Upload[] | null>(null);
+  const [playing, setPlaying] = useState<string | null>(null);
+  useEffect(() => {
+    if (!profile) return setMore([]);
+    send({ type: 'panel:profile-mixes', url: profile }).then((r: { mixes?: Upload[] }) => setMore(r?.mixes ?? []));
+  }, [profile]);
+  const scanned = new Set(mixes.map((h) => mixKey(h.mix.url)));
+  const unscanned = (more ?? []).filter((u) => !scanned.has(mixKey(u.url)));
+  return (
+    <main className="flex h-full flex-col overflow-y-auto">
+      <header className="border-b border-toner-3 px-4 pt-3 pb-3.5">
+        <button type="button" onClick={onBack} className="-ml-1.5 flex min-h-9 items-center gap-1 pr-2 text-[16px] font-semibold hover:underline">
+          <ChevronLeft className="size-6" strokeWidth={2.25} aria-hidden />
+          Library
+        </button>
+        <h1 className="mt-2 text-[26px] leading-[1.05] font-semibold tracking-[-0.03em]">{name}</h1>
+      </header>
+      {artist && <ArtistBlock artist={artist} hideName />}
+      <section className="border-b border-toner-3 px-4 py-3">
+        <h2 className="text-[16px] font-semibold tracking-[-0.01em]">Scanned</h2>
+        <ul>
+          {mixes.map((h) => (
+            <li key={h.mix.url} className="flex gap-3 border-b border-toner-3 py-2.5 last:border-0">
+              <Cover src={h.mix.art} size={44} />
+              <div className="min-w-0">
+                <button type="button" onClick={() => onOpen(h.mix.url)} className="block w-full text-left text-[15px] font-semibold hover:underline">{h.mix.title}</button>
+                <p className="mt-0.5 text-[12px] text-toner-2">
+                  {h.rows.filter((r) => r.selected).length} of {h.rows.length} ticked
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+      {profile && (
+        <section className="px-4 py-3">
+          <h2 className="text-[16px] font-semibold tracking-[-0.01em]">More mixes on SoundCloud</h2>
+          {more === null && <p className="py-2 text-[13px] text-toner-2">Loading their uploads…</p>}
+          {more !== null && !unscanned.length && <p className="py-2 text-[13px] text-toner-2">No other mixes on their SoundCloud.</p>}
+          <ul>
+            {unscanned.map((u) => (
+              <li key={u.url} className="border-b border-toner-3 py-2.5 last:border-0">
+                <div className="flex gap-3">
+                  <Cover src={u.art} size={44} />
+                  <p className="min-w-0 text-[15px] font-semibold">{u.title}</p>
+                </div>
+                <div className="mt-1 flex items-center gap-3 text-[12px]">
+                  <span className="text-toner-2">{clock(u.duration)} · {new Date(u.at).getFullYear()}</span>
+                  <button type="button" onClick={() => setPlaying(playing === u.url ? null : u.url)} className={cn(LINK, 'ml-auto font-semibold')}>
+                    {playing === u.url ? 'Hide player' : 'Listen'}
+                  </button>
+                  <Button onClick={() => send({ type: 'panel:scan', url: u.url })} className="h-8 px-3.5 text-[13px] font-semibold">Scan mix</Button>
+                </div>
+                {playing === u.url && <Player url={u.url} />}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+    </main>
   );
 }
 
@@ -352,6 +461,8 @@ export default function App() {
   const [library, setLibrary] = useState(false);
   // a mix opened from the library, shown while the DJ is on some other page
   const [opened, setOpened] = useState<string | null>(null);
+  // an artist's page, by DJ key; cleared by moving to another page or opening a mix
+  const [artistKey, setArtistKey] = useState<string | null>(null);
   const onMixPage = !!tab && MIX_SITES.test(tab.url);
   const sameMix = !!job && !!tab && mixKey(job.mix.url) === mixKey(tab.url);
   const fromLibrary = !!job && !!opened && !sameMix && mixKey(job.mix.url) === mixKey(opened);
@@ -360,6 +471,7 @@ export default function App() {
   // Read the page as soon as the panel opens on a mix that is not already loaded
   useEffect(() => {
     setLibrary(false);
+    setArtistKey(null);
     if (onMixPage) setOpened(null);
     if (tab && onMixPage && !sameMix && !busy) {
       send({ type: 'panel:read', tabId: tab.id }).then((r) => setError(r?.error ?? ''));
@@ -388,6 +500,7 @@ export default function App() {
   }, [job?.mix.url, job?.phase, sameMix]);
 
   async function open(url: string) {
+    setArtistKey(null);
     if (job && mixKey(job.mix.url) === mixKey(url)) {
       setLibrary(false);
       setOpened(url);
@@ -401,14 +514,24 @@ export default function App() {
 
   const showMix = !!job && !library && (sameMix || fromLibrary || busy);
 
+  if (artistKey) {
+    const fromJob: Dj | undefined = job?.artist ? { key: artistKey, name: job.artist.name, artist: job.artist, mixes: [] } : undefined;
+    const entry = djsOf(items).find((d) => d.key === artistKey) ?? fromJob;
+    if (entry) return <ArtistPage entry={entry} onBack={() => { setArtistKey(null); setLibrary(true); }} onOpen={open} />;
+  }
+
   if (!showMix) {
     return (
       <main className="flex h-full flex-col">
-        <header className="border-b border-toner-3 px-4 pt-4 pb-3.5">
-          <h1 className="text-[26px] leading-none font-semibold tracking-[-0.03em]">Mix to Cart</h1>
-          <p className="mt-2.5 text-[13px]">
+        {/* the brand bar: Dizko's raised surface, its mark, and room above the library */}
+        <header className="border-b border-toner-3 bg-surface px-4 pt-5 pb-4">
+          <div className="flex items-center gap-2.5">
+            <DizkoMark className="h-[22px] w-auto text-ink" />
+            <h1 className="text-[26px] leading-none font-semibold tracking-[-0.03em]">Dizko ID</h1>
+          </div>
+          <p className="mt-3.5 text-[13px] text-toner-1">
             Are you a DJ?{' '}
-            <a href="https://build.dizko.app" target="_blank" rel="noreferrer" className="font-semibold underline decoration-1">Claim your page on Dizko</a>
+            <a href="https://build.dizko.app" target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1 underline-offset-2">Claim your page on Dizko</a>
           </p>
         </header>
         {job && library && (sameMix || busy) && (
@@ -419,7 +542,7 @@ export default function App() {
         {onMixPage && !library ? (
           <p className="px-4 py-5 text-[15px] text-toner-1">Reading this mix…</p>
         ) : items.length ? (
-          <Library items={items} onOpen={open} />
+          <Library items={items} onOpen={open} onArtist={setArtistKey} />
         ) : (
           <p className="px-4 py-5 text-[15px] leading-snug text-toner-1">Open a DJ mix on YouTube, SoundCloud or Mixcloud, and its tracklist appears here. Every mix you open is saved to your library.</p>
         )}
@@ -478,7 +601,9 @@ export default function App() {
         </button>
       )}
 
-      {job.artist && !isPlatform(job.artist.name) && <ArtistBlock artist={job.artist} />}
+      {fromLibrary && /soundcloud\.com/.test(job.mix.url) && <div className="border-b border-toner-3 px-4 pb-3"><Player url={job.mix.url} /></div>}
+
+      {job.artist && !isPlatform(job.artist.name) && <ArtistBlock artist={job.artist} onName={() => setArtistKey(norm(job.artist!.name))} />}
 
       <section className="space-y-2.5 border-b border-toner-3 px-4 py-3">
         {job.phase === 'reading' && !job.rows.length && (

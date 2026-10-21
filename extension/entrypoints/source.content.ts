@@ -56,6 +56,7 @@ async function info(): Promise<SourceInfo> {
     duration: duration ?? (m && Number.isFinite(m.duration) ? m.duration : undefined),
     seekable: !!m && Number.isFinite(m.duration) && m.duration > 0,
     uploader,
+    art: og('image') || undefined,
     stream,
   };
 }

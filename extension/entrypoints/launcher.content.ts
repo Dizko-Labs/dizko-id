@@ -1,5 +1,5 @@
 /**
- * Mix to Cart buttons inside SoundCloud's own action rows (Like, Share, Repost, ...): one on a track page, and
+ * Dizko ID buttons inside SoundCloud's own action rows (Like, Share, Repost, ...): one on a track page, and
  * one on each single track in a listing (profiles, streams). Pressing it opens the side panel on that mix and
  * starts identifying. SoundCloud's newer track page renders inside a same-site frame (soundcloud.com/n/...),
  * so this runs in every frame and only acts where a row exists.
@@ -37,9 +37,9 @@ export default defineContentScript({
       const button = document.createElement('button');
       button.type = 'button';
       button.setAttribute(MARK, '');
-      button.setAttribute('aria-label', 'Mix to Cart: find the tracks in this mix');
+      button.setAttribute('aria-label', 'Dizko ID: find the tracks in this mix');
       button.title = 'Find the tracks in this mix';
-      button.innerHTML = `${CART}<span>Mix to Cart</span>`;
+      button.innerHTML = `${CART}<span>Dizko ID</span>`;
       const round = parseFloat(look.borderTopLeftRadius) >= height / 2 - 1 || look.borderTopLeftRadius.endsWith('%');
       Object.assign(button.style, {
         display: 'inline-flex',
@@ -82,7 +82,7 @@ export default defineContentScript({
         .sendMessage({ type: 'launch', url })
         .then((r: { opened?: boolean } | undefined) => {
           if (r?.opened === false) {
-            button.title = 'Click the Mix to Cart icon in the toolbar to open it; it starts listening by itself';
+            button.title = 'Click the Dizko ID icon in the toolbar to open it; it starts listening by itself';
             button.querySelector('span')!.textContent = 'Open from toolbar';
           }
         })

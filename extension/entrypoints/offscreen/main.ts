@@ -104,5 +104,7 @@ async function recognize(pcm: Float32Array, rate: number): Promise<ClipResult> {
   const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
   if (!res.ok) return { error: `shazam ${res.status}` };
   const track = (await res.json()).track;
-  return track ? { track: { artist: track.subtitle ?? '', title: track.title ?? '', isrc: track.isrc } } : {};
+  return track
+    ? { track: { artist: track.subtitle ?? '', title: track.title ?? '', isrc: track.isrc, art: track.images?.coverart ?? track.images?.background } }
+    : {};
 }
