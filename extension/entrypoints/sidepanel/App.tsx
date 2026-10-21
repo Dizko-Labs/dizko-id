@@ -326,7 +326,7 @@ function Player({ url }: { url: string }) {
   return <iframe title="SoundCloud player" src={src} className="enter-down mt-2 h-[120px] w-full rounded-[0.75rem] border-0" allow="autoplay" loading="lazy" />;
 }
 
-function ArtistPage({ entry, onBack, onOpen, motion }: { entry: Dj; onBack: () => void; onOpen: (url: string) => void; motion?: string }) {
+function ArtistPage({ entry, onBack, onOpen, onScan, motion }: { entry: Dj; onBack: () => void; onOpen: (url: string) => void; onScan: (url: string) => void; motion?: string }) {
   const { name, artist, mixes } = entry;
   // their SoundCloud: Dizko's link, else the profile behind a mix they uploaded themselves
   const profile =
@@ -398,7 +398,7 @@ function ArtistPage({ entry, onBack, onOpen, motion }: { entry: Dj; onBack: () =
                   <button type="button" onClick={() => setPlaying(playing === u.url ? null : u.url)} className={cn(LINK, 'ml-auto font-semibold')}>
                     {playing === u.url ? 'Hide player' : 'Listen'}
                   </button>
-                  <Button variant="outline" onClick={() => send({ type: 'panel:scan', url: u.url })} className="h-8 border-toner-2 bg-transparent px-3.5 text-[13px] font-semibold hover:bg-surface">Scan mix</Button>
+                  <Button variant="outline" onClick={() => onScan(u.url)} className="h-8 border-toner-2 bg-transparent px-3.5 text-[13px] font-semibold hover:bg-surface">Scan mix</Button>
                 </div>
                 {playing === u.url && <Player url={u.url} />}
               </li>
@@ -544,6 +544,18 @@ export default function App() {
     listen();
   }, [job?.mix.url, job?.phase, sameMix]);
 
+  /** Scan a mix from an artist page without opening it: the panel moves to it while it is read and heard. */
+  async function scan(url: string) {
+    setError('');
+    const r = await send({ type: 'panel:scan', url });
+    if (r?.error) return setError(r.error);
+    if (r?.url) {
+      setArtistKey(null);
+      setLibrary(false);
+      setOpened(r.url);
+    }
+  }
+
   async function open(url: string) {
     setArtistKey(null);
     if (job && mixKey(job.mix.url) === mixKey(url)) {
@@ -554,13 +566,19 @@ export default function App() {
     if ((await send({ type: 'panel:open', url }))?.ok) {
       setLibrary(false);
       setOpened(url);
+    } else if (items.some((h) => mixKey(h.mix.url) === mixKey(url))) {
+      // another mix is listening or carting: show this saved one read-only and leave that run alone
+      setLibrary(false);
+      setOpened(url);
     } else setError('Finish the current listen or cart run first.');
   }
 
+  // A saved mix opened while another one is running: shown from the library, read-only, the run carries on
+  const peek = !library && opened && job && busy && mixKey(job.mix.url) !== mixKey(opened) ? items.find((h) => mixKey(h.mix.url) === mixKey(opened)) : undefined;
   const showMix = !!job && !library && (sameMix || fromLibrary || busy);
 
   // Screens stack library < mix < artist: deeper arrives from the right, back from the left
-  const screen = artistKey ? `artist:${artistKey}` : showMix ? `mix:${mixKey(job!.mix.url)}` : 'library';
+  const screen = artistKey ? `artist:${artistKey}` : peek ? `mix:${mixKey(peek.mix.url)}` : showMix ? `mix:${mixKey(job!.mix.url)}` : 'library';
   const depth = artistKey ? 2 : showMix ? 1 : 0;
   const last = useRef({ screen, depth });
   const motion = useRef<string | undefined>(undefined);
@@ -572,7 +590,7 @@ export default function App() {
   if (artistKey) {
     const fromJob: Dj | undefined = job?.artist ? { key: artistKey, name: job.artist.name, artist: job.artist, mixes: [] } : undefined;
     const entry = djsOf(items).find((d) => d.key === artistKey) ?? fromJob;
-    if (entry) return <ArtistPage key={screen} motion={motion.current} entry={entry} onBack={() => { setArtistKey(null); setLibrary(true); }} onOpen={open} />;
+    if (entry) return <ArtistPage key={screen} motion={motion.current} entry={entry} onBack={() => { setArtistKey(null); setLibrary(true); }} onOpen={open} onScan={scan} />;
   }
 
   if (!showMix) {
@@ -614,16 +632,20 @@ export default function App() {
     );
   }
 
-  const selected = job.rows.filter((r) => r.selected);
-  const unconfirmed = job.rows.filter((r) => r.track.hits < 2).length;
-  const carted = job.rows.filter((r) => r.status === 'carted');
+  // the live job, or a saved mix being looked at while that job runs
+  const view: Job = peek ?? job!;
+  const readOnly = !!peek;
+  const selected = view.rows.filter((r) => r.selected);
+  const unconfirmed = view.rows.filter((r) => r.track.hits < 2).length;
+  const carted = view.rows.filter((r) => r.status === 'carted');
   const forBeatport = selected.filter((r) => BEATPORT_CARTABLE.includes(r.status)).length;
   const forBandcamp = selected.filter((r) => BANDCAMP_CARTABLE.includes(r.status)).length;
-  const locked = job.phase === 'carting';
-  const current = job.rows.find((r) => r.status === 'searching');
-  const progress = Math.round((job.progress ?? 0) * 100);
-  const paused = coverage(job);
-  const playlistUrl = job.playlist?.beatport ? beatportPlaylistUrl(job.playlist.beatport) : undefined;
+  // a peeked mix is read-only: ticks and stores wait until it is the live one
+  const locked = view.phase === 'carting' || readOnly;
+  const current = view.rows.find((r) => r.status === 'searching');
+  const progress = Math.round((view.progress ?? 0) * 100);
+  const paused = coverage(view);
+  const playlistUrl = view.playlist?.beatport ? beatportPlaylistUrl(view.playlist.beatport) : undefined;
 
   const cartButtons = (forBeatport > 0 || forBandcamp > 0) && (
     <div>
@@ -646,11 +668,11 @@ export default function App() {
           <ChevronLeft className="size-6" strokeWidth={2.25} aria-hidden />
           Library
         </button>
-        <h1 className="mt-2 line-clamp-3 text-[26px] leading-[1.05] font-semibold tracking-[-0.03em]">{job.mix.title}</h1>
+        <h1 className="mt-2 line-clamp-3 text-[26px] leading-[1.05] font-semibold tracking-[-0.03em]">{view.mix.title}</h1>
         <p className="mt-2 flex flex-wrap gap-x-3.5 text-[13px] font-semibold">
-          <a href={job.mix.url} target="_blank" rel="noreferrer" className="underline decoration-1 underline-offset-2">{sourceOf(job.mix.url)}</a>
-          {job.mix.duration ? <span>{clock(job.mix.duration)}</span> : null}
-          {job.rows.length > 0 && <span>{job.rows.length} {job.rows.length === 1 ? "track" : "tracks"}</span>}
+          <a href={view.mix.url} target="_blank" rel="noreferrer" className="underline decoration-1 underline-offset-2">{sourceOf(view.mix.url)}</a>
+          {view.mix.duration ? <span>{clock(view.mix.duration)}</span> : null}
+          {view.rows.length > 0 && <span>{view.rows.length} {view.rows.length === 1 ? "track" : "tracks"}</span>}
         </p>
       </header>
 
@@ -665,21 +687,29 @@ export default function App() {
         </button>
       )}
 
-      {fromLibrary && /soundcloud\.com/.test(job.mix.url) && <div className="border-b border-toner-3 px-4 pb-3"><Player url={job.mix.url} /></div>}
+      {(fromLibrary || readOnly) && /soundcloud\.com/.test(view.mix.url) && <div className="border-b border-toner-3 px-4 pb-3"><Player url={view.mix.url} /></div>}
 
-      {job.artist && !isPlatform(job.artist.name) && <ArtistBlock artist={job.artist} onName={() => setArtistKey(norm(job.artist!.name))} />}
+      {view.artist && !isPlatform(view.artist.name) && <ArtistBlock artist={view.artist} onName={() => setArtistKey(norm(view.artist!.name))} />}
 
       <section data-area="cart" className="space-y-2.5 border-b border-toner-3 px-4 py-3">
-        {job.phase === 'reading' && !job.rows.length && (
+        {readOnly && job && (
+          <div className="space-y-1.5 text-[13px]">
+            <p className="leading-snug text-toner-1">
+              <span className="font-semibold text-ink">{job.mix.title}</span> is still {job.phase === 'carting' ? 'filling your cart' : 'listening'}. This mix opens fully once that is done.
+            </p>
+            <button type="button" onClick={() => setOpened(job.mix.url)} className="font-semibold underline decoration-1 underline-offset-2">Back to it</button>
+          </div>
+        )}
+        {view.phase === 'reading' && !view.rows.length && (
           <>
             <p className="text-[14px] leading-snug">
               {error ? 'Listening could not start.' : 'No tracklist in the description, so it listens to the mix.'}
-              {job.method === 'seek' ? ' This tab stays quiet while it jumps through.' : job.method === 'live' ? ' Press play and leave it running.' : ''}
+              {view.method === 'seek' ? ' This tab stays quiet while it jumps through.' : view.method === 'live' ? ' Press play and leave it running.' : ''}
             </p>
             {error && <Button onClick={() => listen()} disabled={!sameMix} className="h-10 w-full text-[15px] font-semibold">Try again</Button>}
           </>
         )}
-        {(job.phase === 'identifying' || (job.phase === 'carting' && job.listening)) && (
+        {(view.phase === 'identifying' || (view.phase === 'carting' && view.listening)) && (
           <div className="space-y-1.5">
             <div className="flex items-baseline justify-between">
               <span className="text-[14px] font-semibold">Listening</span>
@@ -689,31 +719,31 @@ export default function App() {
               </span>
             </div>
             <Progress value={progress} className="h-1.5 bg-toner-3 [&>*]:bg-fill" />
-            {job.following && playlistUrl && (
+            {view.following && playlistUrl && (
               <p className="text-[13px] text-toner-1">
                 New finds go straight into your <a href={playlistUrl} target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1">Beatport playlist</a>.
               </p>
             )}
           </div>
         )}
-        {job.phase === 'review' && !job.rows.length && (
+        {view.phase === 'review' && !view.rows.length && (
           <>
-            {!job.error && <p className="text-[14px] leading-snug">No tracks were recognized in this mix.</p>}
+            {!view.error && <p className="text-[14px] leading-snug">No tracks were recognized in this mix.</p>}
             <Button onClick={() => listen()} disabled={!sameMix} className="h-10 w-full text-[15px] font-semibold">Try again</Button>
           </>
         )}
-        {job.phase === 'carting' ? (
+        {view.phase === 'carting' ? (
           <div className="space-y-1.5">
             <div className="flex items-baseline justify-between">
               <span className="text-[14px] font-semibold">
-                {job.waitingFor === 'beatport-login' ? 'Log in to Beatport in the new tab' : job.waitingFor === 'store-check' ? 'The store wants to check you are human' : 'Adding to cart'}
+                {view.waitingFor === 'beatport-login' ? 'Log in to Beatport in the new tab' : view.waitingFor === 'store-check' ? 'The store wants to check you are human' : 'Adding to cart'}
               </span>
               <button type="button" onClick={() => send({ type: 'panel:stop' })} className="text-[12px] text-toner-2 hover:text-ink hover:underline">Stop</button>
             </div>
             <p className="truncate text-[13px] text-toner-1">
-              {job.waitingFor === 'beatport-login'
+              {view.waitingFor === 'beatport-login'
                 ? 'Beatport keeps carts in your account. It carries on by itself once you are logged in.'
-                : job.waitingFor === 'store-check'
+                : view.waitingFor === 'store-check'
                   ? 'Answer it in the tab that just opened. It carries on by itself afterwards.'
                   : current
                     ? `Now: ${current.track.artist}, ${current.track.title}`
@@ -721,24 +751,24 @@ export default function App() {
             </p>
           </div>
         ) : (
-          job.rows.length > 0 && (
+          view.rows.length > 0 && (
             <>
               {carted.length > 0 && (
                 <div className="flex items-center justify-between gap-3">
                   <p className="text-[14px] font-semibold">{carted.length} in your cart</p>
                   <span className="flex gap-3 text-[13px] font-semibold">
-                    {Object.entries(job.carts ?? {}).map(([s, url]) => (
+                    {Object.entries(view.carts ?? {}).map(([s, url]) => (
                       <a key={s} href={url} target="_blank" rel="noreferrer" className={LINK}>Open {s === 'beatport' ? 'Beatport' : 'Bandcamp'}</a>
                     ))}
                   </span>
                 </div>
               )}
-              {!carted.length && playlistUrl && job.rows.some((r) => r.status === 'in-playlist') && (
+              {!carted.length && playlistUrl && view.rows.some((r) => r.status === 'in-playlist') && (
                 <p className="text-[13px] text-toner-1">
                   In your <a href={playlistUrl} target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1">Beatport playlist</a>; its Buy All puts them in the cart.
                 </p>
               )}
-              {job.phase === 'review' && (job.method === 'stream' || job.method === 'seek') && paused != null && paused < (job.progress != null ? 0.98 : 0.85) && (
+              {view.phase === 'review' && (view.method === 'stream' || view.method === 'seek') && paused != null && paused < (view.progress != null ? 0.98 : 0.85) && (
                 // A listen that stopped part way (a stop, a switch, an extension reload): the bar stays, in grey
                 <div className="space-y-1.5">
                   <div className="flex items-baseline justify-between">
@@ -747,7 +777,7 @@ export default function App() {
                       {sameMix ? (
                         <button type="button" onClick={() => listen(true)} className="text-[13px] font-semibold underline decoration-1 underline-offset-2">Keep listening</button>
                       ) : (
-                        <a href={job.mix.url} target="_blank" rel="noreferrer" className="text-[13px] font-semibold underline decoration-1 underline-offset-2">Open the mix to finish</a>
+                        <a href={view.mix.url} target="_blank" rel="noreferrer" className="text-[13px] font-semibold underline decoration-1 underline-offset-2">Open the mix to finish</a>
                       )}
                       <span className="text-[18px] font-semibold tabular-nums text-toner-1">{Math.round(paused * 100)}%</span>
                     </span>
@@ -755,17 +785,17 @@ export default function App() {
                   <Progress value={paused * 100} className="h-1.5 bg-toner-3 [&>*]:bg-toner-1" />
                 </div>
               )}
-              {cartButtons}
-              <Playlists job={job} ticked={selected.length} />
+              {!readOnly && cartButtons}
+              {!readOnly && <Playlists job={view} ticked={selected.length} />}
               <div className="flex items-center gap-2 pt-0.5">
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline" className="h-9 gap-1 border-toner-2 bg-transparent text-[13px] font-semibold hover:bg-surface">Export tracklist<ChevronDown className="size-4" /></Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="start">
-                    <DropdownMenuItem onSelect={() => download(job, 'txt')}>Text, with links</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => download(job, 'csv')}>Spreadsheet (CSV)</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => download(job, 'json')}>JSON</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => download(view, 'txt')}>Text, with links</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => download(view, 'csv')}>Spreadsheet (CSV)</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => download(view, 'json')}>JSON</DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
                 {sameMix && !busy && (
@@ -781,14 +811,14 @@ export default function App() {
             </>
           )
         )}
-        {(error || job.error) && <p className="text-[13px] text-miss">{error || job.error}</p>}
+        {(error || view.error) && <p className="text-[13px] text-miss">{error || view.error}</p>}
       </section>
 
-      {job.rows.length > 0 && (
+      {view.rows.length > 0 && (
         <div className="flex items-center justify-between border-b border-toner-3 px-4 py-1.5 text-[13px]">
-          <span className="text-toner-2">{selected.length} of {job.rows.length} ticked</span>
+          <span className="text-toner-2">{selected.length} of {view.rows.length} ticked</span>
           <span className="flex">
-            <Button variant="ghost" size="sm" disabled={locked || selected.length === job.rows.length} onClick={() => send({ type: 'panel:select', all: true })} className="h-8 px-2 text-[13px]">Select all</Button>
+            <Button variant="ghost" size="sm" disabled={locked || selected.length === view.rows.length} onClick={() => send({ type: 'panel:select', all: true })} className="h-8 px-2 text-[13px]">Select all</Button>
             <Button variant="ghost" size="sm" disabled={locked || !selected.length} onClick={() => send({ type: 'panel:select', all: false })} className="h-8 px-2 text-[13px]">Deselect all</Button>
           </span>
         </div>
@@ -797,18 +827,18 @@ export default function App() {
       <div data-area="tracklist" className="px-4 pb-24">
         {/* Billing: confirmed tracks set large, single-hit IDs on the smaller "plus" line */}
         <ol>
-          {job.rows.map((row, i) => row.track.hits >= 2 && <TrackRow key={`${row.track.artist}|${row.track.title}`} row={row} index={i} locked={locked} />)}
+          {view.rows.map((row, i) => row.track.hits >= 2 && <TrackRow key={`${row.track.artist}|${row.track.title}`} row={row} index={i} locked={locked} />)}
         </ol>
         {unconfirmed > 0 && (
           <>
             <h2 className="mt-5 border-b border-toner-3 pb-1.5 text-[16px] font-semibold tracking-[-0.01em]">Plus {unconfirmed} unconfirmed</h2>
             <p className="pt-1.5 text-[12px] text-toner-2">Each heard in one clip only. Often a sample or a blend, so they start unticked.</p>
             <ol>
-              {job.rows.map((row, i) => row.track.hits < 2 && <TrackRow key={`${row.track.artist}|${row.track.title}`} row={row} index={i} locked={locked} />)}
+              {view.rows.map((row, i) => row.track.hits < 2 && <TrackRow key={`${row.track.artist}|${row.track.title}`} row={row} index={i} locked={locked} />)}
             </ol>
           </>
         )}
-        {job.phase === 'identifying' && !job.rows.length && <p className="py-6 text-[14px] text-toner-2">Tracks appear here as they are recognized.</p>}
+        {view.phase === 'identifying' && !view.rows.length && <p className="py-6 text-[14px] text-toner-2">Tracks appear here as they are recognized.</p>}
       </div>
 
     </main>

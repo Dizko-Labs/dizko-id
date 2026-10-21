@@ -9,6 +9,7 @@ import { findArtist, isPlatform, isStale } from '@/lib/dizko';
 import { backfillArt, backfillArtists, backfillAvatars, backfillUploaders, forget, mixKey, remember, saved } from '@/lib/history';
 import { setApp } from '@/lib/oauth';
 import { profileAvatar, profileMixes } from '@/lib/soundcloud';
+import { soundcloudInfo } from '@/lib/soundcloudPage';
 import { cleanMixUrl, utm } from '@/lib/utm';
 import { track } from '@/lib/analytics';
 import { account as dizkoAccount, link as dizkoLink, sync as dizkoSync, unlink as dizkoUnlink } from '@/lib/dizkoAccount';
@@ -141,11 +142,27 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
       return read(msg.tabId);
     case 'panel:profile-mixes':
       return await profileMixes(msg.url).catch(() => ({ mixes: [] }));
-    case 'panel:scan':
+    case 'panel:scan': {
       track('scan_from_artist_page');
-      // a new tab on the mix: the panel follows the active tab, reads it and starts listening
-      await browser.tabs.create({ url: msg.url, active: true });
-      return { ok: true };
+      if (!/^https:\/\/soundcloud\.com\//.test(msg.url)) {
+        // only SoundCloud can be read and heard without its page; anything else opens, and the panel takes over
+        await browser.tabs.create({ url: msg.url, active: true });
+        return { ok: true };
+      }
+      // Read and listen in the background: the DJ stays where they are while the panel shows the new mix
+      const now = await getJob();
+      if (now && busy(now)) await settle();
+      const info = await soundcloudInfo(msg.url);
+      const job = await readInfo(info);
+      if (job.phase === 'reading' && !job.rows.length) {
+        if (!info.stream) return { error: 'SoundCloud would not hand over this mix\'s audio. Open it to listen.' };
+        stopListening = false;
+        identify(undefined, undefined, false, info).catch((e) =>
+          update((j) => ({ ...j, phase: j.phase === 'identifying' ? 'review' : j.phase, listening: false, error: e instanceof Error ? e.message : String(e) })),
+        );
+      }
+      return { ok: true, url: job.mix.url };
+    }
     case 'panel:dizko-link':
       try {
         await dizkoLink(msg.follow);
@@ -248,7 +265,11 @@ function lookUpArtist(info: SourceInfo) {
 }
 
 async function read(tabId: number) {
-  const info = await ask<SourceInfo>(tabId, { type: 'source:info' });
+  return readInfo(await ask<SourceInfo>(tabId, { type: 'source:info' }));
+}
+
+/** Make (or restore) the job for a mix from what its page says, wherever that came from. */
+async function readInfo(info: SourceInfo) {
   // A mix scanned before opens as it was left, ticks and cart results included, instead of listening again
   const before = await saved(info.url);
   if (before) {
@@ -312,12 +333,16 @@ async function lookup(get: () => Promise<ClipResult>): Promise<ClipResult> {
   }
 }
 
-async function identify(tabId: number, streamId?: string, resume = false) {
+/**
+ * Listen to a mix. `tabId` is the mix's tab; a SoundCloud mix read by URL (`given`) needs none, since its own
+ * stream is fingerprinted directly.
+ */
+async function identify(tabId: number | undefined, streamId?: string, resume = false, given?: SourceInfo) {
   const before = (await getJob())!;
   // Keep listening picks up at the point it stopped, with what it had already heard
   const from = resume ? coverage(before) ?? 0 : 0;
   await update((job) => ({ ...job, phase: job.phase === 'carting' ? 'carting' : 'identifying', listening: true, progress: from, error: undefined }));
-  const info = await ask<SourceInfo>(tabId, { type: 'source:info' });
+  const info = given ?? (await ask<SourceInfo>(tabId!, { type: 'source:info' }));
   await ensureOffscreen();
   if (!info.stream) {
     if (!streamId) throw new Error('No audio stream for this tab');
@@ -355,7 +380,7 @@ async function identify(tabId: number, streamId?: string, resume = false) {
       const { at, clip } = samplePoints(info.duration);
       for (let i = Math.floor(from * at.length); i < at.length && !stopListening; i++) {
         const point = at[i]!;
-        await ask(tabId, { type: 'source:seek', at: point });
+        await ask(tabId!, { type: 'source:seek', at: point });
         const r = await lookup(() => offscreen<ClipResult>({ type: 'offscreen:clip', seconds: clip }));
         if (r.error) failed = r.error;
         if (r.track) hits.push({ at: point, ...r.track });
@@ -378,7 +403,7 @@ async function identify(tabId: number, streamId?: string, resume = false) {
   } finally {
     await offscreen({ type: 'offscreen:stop' }).catch(() => {});
     await browser.offscreen.closeDocument().catch(() => {});
-    await ask(tabId, { type: 'source:pause' }).catch(() => {});
+    if (tabId != null) await ask(tabId, { type: 'source:pause' }).catch(() => {});
     // a stopped listen keeps its place, so Keep listening can resume from there
     const stoppedEarly = stopListening;
     const finished = (await getJob())?.rows ?? [];
