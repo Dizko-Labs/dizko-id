@@ -439,13 +439,16 @@ export default function App() {
   const playlistUrl = job.playlist?.beatport ? beatportPlaylistUrl(job.playlist.beatport) : undefined;
 
   const cartButtons = (forBeatport > 0 || forBandcamp > 0) && (
-    <div className="grid grid-cols-2 gap-2">
-      <Button disabled={!forBeatport} onClick={() => cartIn('beatport')} className="h-10 text-[14px] font-semibold">
-        Beatport cart{forBeatport ? ` (${forBeatport})` : ''}
-      </Button>
-      <Button variant="outline" disabled={!forBandcamp} onClick={() => cartIn('bandcamp')} className="h-10 border-toner-2 bg-transparent hover:bg-surface text-[14px] font-semibold">
-        Bandcamp cart{forBandcamp ? ` (${forBandcamp})` : ''}
-      </Button>
+    <div>
+      <p className="mb-1.5 text-[13px] font-semibold">Purchase</p>
+      <div className="grid grid-cols-2 gap-2">
+        <Button disabled={!forBeatport} onClick={() => cartIn('beatport')} className="h-10 text-[14px] font-semibold">
+          Beatport{forBeatport ? ` (${forBeatport})` : ''}
+        </Button>
+        <Button variant="outline" disabled={!forBandcamp} onClick={() => cartIn('bandcamp')} className="h-10 border-toner-2 bg-transparent hover:bg-surface text-[14px] font-semibold">
+          Bandcamp{forBandcamp ? ` (${forBandcamp})` : ''}
+        </Button>
+      </div>
     </div>
   );
 

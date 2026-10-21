@@ -262,8 +262,8 @@ Round controls on a square page. Rows, sections and rules are square-edged and r
 ### Buttons
 Dizko pills, sentence case.
 - **Shape:** full pill.
-- **Primary:** acid fill, Acid Ink text, 14 to 15px semibold, 40px tall, full width or filling its grid cell. One per state: Identify tracks, Try again, Beatport cart (N), Save and make playlist. Hover drops to 90% acid.
-- **Outline:** 1px Tertiary Text border, transparent fill, Text label at 13 to 14px semibold, 36 to 40px tall. Used for Bandcamp cart, the playlist services and Export tracklist. Hover fills with Surface. A finished playlist becomes an outline link with an up-right arrow.
+- **Primary:** acid fill, Acid Ink text, 14 to 15px semibold, 40px tall, full width or filling its grid cell. One per state: Try again, Beatport (N) under the Purchase label, Save and make playlist. Hover drops to 90% acid.
+- **Outline:** 1px Tertiary Text border, transparent fill, Text label at 13 to 14px semibold, 36 to 40px tall. Used for Bandcamp (N), the playlist services and Export tracklist. Hover fills with Surface. A finished playlist becomes an outline link with an up-right arrow.
 - **Ghost:** no border or fill, 13px, Tertiary Text for Cancel and Scan again, Text for Select all and Deselect all. Hover fills with Surface and turns Text.
 - **Focus:** 2px solid outline offset 2px in the focus colour: acid on dark, Text on light.
 - **Disabled:** 50% opacity, no pointer events.
