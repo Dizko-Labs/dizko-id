@@ -11,7 +11,7 @@ import { setApp } from '@/lib/oauth';
 import { profileMixes } from '@/lib/soundcloud';
 import { soundcloudPlaylist, spotifyPlaylist } from '@/lib/playlists';
 import { parseTracklist } from '@/lib/tracklist';
-import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, type Job, type Offer, type Row, type Store, type Track } from '@/lib/types';
+import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, coverage, type Job, type Offer, type Row, type Store, type Track } from '@/lib/types';
 
 /** Price used when a Bandcamp track is "name your price" with no minimum. */
 const NAME_YOUR_PRICE = 1;
@@ -286,7 +286,7 @@ async function lookup(get: () => Promise<ClipResult>): Promise<ClipResult> {
 async function identify(tabId: number, streamId?: string, resume = false) {
   const before = (await getJob())!;
   // Keep listening picks up at the point it stopped, with what it had already heard
-  const from = resume ? before.progress ?? 0 : 0;
+  const from = resume ? coverage(before) ?? 0 : 0;
   await update((job) => ({ ...job, phase: job.phase === 'carting' ? 'carting' : 'identifying', listening: true, progress: from, error: undefined }));
   const info = await ask<SourceInfo>(tabId, { type: 'source:info' });
   await ensureOffscreen();

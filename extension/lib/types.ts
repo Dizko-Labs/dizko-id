@@ -91,6 +91,17 @@ export interface Job {
   error?: string;
 }
 
+/**
+ * How far a listen got, 0..1: the recorded progress, else (mixes saved before it was recorded) the last found
+ * track's time over the mix's length. A finished or never-listened mix has nothing to estimate.
+ */
+export function coverage(job: Job): number | undefined {
+  if (job.progress != null) return job.progress;
+  if (job.tracklistFound || !job.mix.duration || !job.rows.length) return undefined;
+  const last = Math.max(...job.rows.map((r) => r.track.at ?? 0));
+  return Math.min(1, (last + 60) / job.mix.duration);
+}
+
 /** Rows a Beatport press picks up (a playlist row gets carted by Buy All) */
 export const BEATPORT_CARTABLE: Status[] = ['queued', 'failed', 'login-needed', 'in-playlist'];
 /** Bandcamp also takes what Beatport did not have */

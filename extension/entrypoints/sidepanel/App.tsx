@@ -16,7 +16,7 @@ import type { PanelRequest } from '@/lib/messages';
 import { redirectUri, type App as ServiceApp, type Service } from '@/lib/oauth';
 import { profileOf, type Upload } from '@/lib/soundcloud';
 import { beatportPlaylistUrl } from '@/lib/stores';
-import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, type Job, type PlaylistService, type Row, type Store } from '@/lib/types';
+import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, coverage, type Job, type PlaylistService, type Row, type Store } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 const MIX_SITES = /^https:\/\/(www\.youtube\.com\/watch|soundcloud\.com\/[^/]+\/[^/]+|www\.mixcloud\.com\/[^/]+\/[^/]+)/;
@@ -559,6 +559,7 @@ export default function App() {
   const locked = job.phase === 'carting';
   const current = job.rows.find((r) => r.status === 'searching');
   const progress = Math.round((job.progress ?? 0) * 100);
+  const paused = coverage(job);
   const playlistUrl = job.playlist?.beatport ? beatportPlaylistUrl(job.playlist.beatport) : undefined;
 
   const cartButtons = (forBeatport > 0 || forBandcamp > 0) && (
@@ -674,15 +675,22 @@ export default function App() {
                   In your <a href={playlistUrl} target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1">Beatport playlist</a>; its Buy All puts them in the cart.
                 </p>
               )}
-              {job.phase === 'review' && !job.tracklistFound && job.method !== 'live' && (job.progress ?? 1) < 0.98 && (
-                <p className="flex items-center justify-between gap-3 text-[13px] text-toner-1">
-                  <span>Listening stopped at {progress}%.</span>
-                  {sameMix ? (
-                    <button type="button" onClick={() => listen(true)} className="font-semibold text-ink underline decoration-1 underline-offset-2">Keep listening</button>
-                  ) : (
-                    <a href={job.mix.url} target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1 underline-offset-2">Open the mix to finish</a>
-                  )}
-                </p>
+              {job.phase === 'review' && job.method !== 'live' && paused != null && paused < 0.98 && (
+                // A listen that stopped part way (a stop, a switch, an extension reload): the bar stays, in grey
+                <div className="space-y-1.5">
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-[14px] font-semibold">Listening paused</span>
+                    <span className="flex items-baseline gap-3">
+                      {sameMix ? (
+                        <button type="button" onClick={() => listen(true)} className="text-[13px] font-semibold underline decoration-1 underline-offset-2">Keep listening</button>
+                      ) : (
+                        <a href={job.mix.url} target="_blank" rel="noreferrer" className="text-[13px] font-semibold underline decoration-1 underline-offset-2">Open the mix to finish</a>
+                      )}
+                      <span className="text-[18px] font-semibold tabular-nums text-toner-1">{Math.round(paused * 100)}%</span>
+                    </span>
+                  </div>
+                  <Progress value={paused * 100} className="h-1.5 bg-toner-3 [&>*]:bg-toner-1" />
+                </div>
               )}
               {cartButtons}
             </>
