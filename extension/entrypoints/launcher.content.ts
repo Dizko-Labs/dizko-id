@@ -29,17 +29,44 @@ export default defineContentScript({
       const share = document.querySelector<HTMLElement>('button[aria-label="Share"]');
       const row = share?.parentElement;
       if (!share || !row || row.querySelector(`[${MARK}]`)) return;
-      // A shallow copy of SoundCloud's own icon button keeps its size, colour and hover
-      const button = share.cloneNode(false) as HTMLButtonElement;
+      // Our own pill, dressed in the Share button's computed look so it sits in either SoundCloud layout: the
+      // new one rings its round icon buttons with an outline, the classic one draws a border
+      const look = getComputedStyle(share);
+      const ringed = look.outlineStyle !== 'none' && parseFloat(look.outlineWidth) > 0;
+      const height = Math.max(28, Math.round(share.getBoundingClientRect().height) || 32);
+      const button = document.createElement('button');
+      button.type = 'button';
       button.setAttribute(MARK, '');
       button.setAttribute('aria-label', 'Mix to Cart: find the tracks in this mix');
       button.title = 'Find the tracks in this mix';
-      // Icon plus a word: an icon alone read as one more SoundCloud control
       button.innerHTML =
-        '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none">' +
+        '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:none">' +
         '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>' +
-        '<span style="margin-left:6px;font-weight:600;white-space:nowrap">Mix to Cart</span>';
-      Object.assign(button.style, { display: 'inline-flex', alignItems: 'center', width: 'auto', paddingLeft: '10px', paddingRight: '12px' });
+        '<span>Mix to Cart</span>';
+      const radius = parseFloat(look.borderTopLeftRadius) >= height / 2 - 1 ? `${height / 2}px` : look.borderTopLeftRadius;
+      Object.assign(button.style, {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '6px',
+        height: `${height}px`,
+        padding: '0 12px 0 10px',
+        marginLeft: '8px',
+        boxSizing: 'border-box',
+        border: ringed || look.borderTopStyle === 'none' ? '0' : `${look.borderTopWidth} ${look.borderTopStyle} ${look.borderTopColor}`,
+        outline: ringed ? `${look.outlineWidth} ${look.outlineStyle} ${look.outlineColor}` : 'none',
+        outlineOffset: look.outlineOffset,
+        borderRadius: radius,
+        background: look.backgroundColor,
+        color: look.color,
+        // the page's type, not the button's (SoundCloud's icon buttons inherit a fallback font)
+        font: `600 14px/1 ${getComputedStyle(document.body).fontFamily}`,
+        whiteSpace: 'nowrap',
+        cursor: 'pointer',
+        flex: 'none',
+      });
+      const rest = look.backgroundColor;
+      button.addEventListener('mouseenter', () => (button.style.background = `color-mix(in srgb, ${look.color} 12%, ${rest === 'rgba(0, 0, 0, 0)' ? 'transparent' : rest})`));
+      button.addEventListener('mouseleave', () => (button.style.background = rest));
       button.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
