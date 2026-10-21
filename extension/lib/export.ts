@@ -1,4 +1,4 @@
-import { links } from './links';
+import { exportLinks } from './links';
 import type { Job, Row } from './types';
 
 const time = (s: number | null) => {
@@ -15,7 +15,7 @@ const STATUS: Record<Row['status'], string> = {
 
 export function toText(job: Job): string {
   const lines = job.rows.map((r) => {
-    const l = links(r);
+    const l = exportLinks(r);
     return `${time(r.track.at).padStart(7)}  ${r.track.artist} - ${r.track.title}${r.track.hits < 2 ? '  (unconfirmed)' : ''}\n         Beatport ${l.beatport}\n         Bandcamp ${l.bandcamp}\n         Spotify ${l.spotify}\n         YouTube ${l.youtube}`;
   });
   return `${job.mix.title}\n${job.mix.url}\n\n${lines.join('\n')}\n`;
@@ -29,7 +29,7 @@ const csvCell = (v: string | number | undefined) => {
 export function toCsv(job: Job): string {
   const head = ['time', 'artist', 'title', 'confirmed', 'selected', 'status', 'store', 'version', 'price', 'currency', 'beatport', 'bandcamp', 'spotify', 'youtube'];
   const rows = job.rows.map((r) => {
-    const l = links(r);
+    const l = exportLinks(r);
     return [
       time(r.track.at), r.track.artist, r.track.title, r.track.hits >= 2 ? 'yes' : 'no', r.selected ? 'yes' : 'no', STATUS[r.status],
       r.offer?.store, r.offer?.version, r.offer?.price?.value, r.offer?.price?.currency, l.beatport, l.bandcamp, l.spotify, l.youtube,
@@ -44,7 +44,7 @@ export function toJson(job: Job): string {
     source: job.mix.url,
     tracks: job.rows.map((r) => ({
       at: time(r.track.at), artist: r.track.artist, title: r.track.title, hits: r.track.hits,
-      confident: r.track.hits >= 2, selected: r.selected, status: r.status, offer: r.offer ?? null, links: links(r),
+      confident: r.track.hits >= 2, selected: r.selected, status: r.status, offer: r.offer ?? null, links: exportLinks(r),
     })),
   }, null, 1);
 }

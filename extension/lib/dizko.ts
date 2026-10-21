@@ -20,12 +20,6 @@ export interface Artist {
 /** A saved artist worth fetching again: older than 12 hours, or saved before fetch times were kept. */
 export const isStale = (a?: Artist) => !a?.fetchedAt || a.v !== 2 || Date.now() - a.fetchedAt > 12 * 3600 * 1000;
 
-const tag = (url: string) => {
-  const u = new URL(url);
-  u.searchParams.set('utm_source', 'mix_to_cart');
-  u.searchParams.set('utm_medium', 'extension');
-  return u.href;
-};
 
 /** One get_artist call on Dizko's public MCP endpoint (stateless JSON-RPC over HTTP, no key). */
 async function getArtist(query: string): Promise<any> {
@@ -89,7 +83,7 @@ export async function findArtist(title: string, uploader?: string): Promise<Arti
     if (!inTitle.includes(name) && name !== norm(uploader ?? '')) continue;
     return {
       name: e.name,
-      url: tag(r.page?.page_url ?? e.dizko_url),
+      url: r.page?.page_url ?? e.dizko_url,
       claimed: !!r.page?.published,
       fetchedAt: Date.now(),
       v: 2,
@@ -99,7 +93,7 @@ export async function findArtist(title: string, uploader?: string): Promise<Arti
       events: [...(e.upcoming_appearances ?? [])]
         .sort((a, b) => String(a.date).localeCompare(String(b.date)))
         .slice(0, 10)
-        .map((ev) => ({ title: ev.title, date: ev.date, city: ev.city, venue: ev.venue, url: /dizko\.app/.test(ev.event_url) ? tag(ev.event_url) : ev.event_url })),
+        .map((ev) => ({ title: ev.title, date: ev.date, city: ev.city, venue: ev.venue, url: ev.event_url })),
     };
   }
   return undefined;

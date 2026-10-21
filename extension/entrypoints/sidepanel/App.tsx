@@ -105,7 +105,7 @@ function ArtistBlock({ artist, onName, hideName }: { artist: Artist; onName?: ()
     .filter(Boolean)
     .join('. ');
   return (
-    <section className="border-b border-toner-3 px-4 py-3 text-[13px]">
+    <section data-area="dizko" className="border-b border-toner-3 px-4 py-3 text-[13px]">
       {!hideName && (onName ? (
         <button type="button" onClick={onName} className="text-left text-[17px] font-semibold tracking-[-0.02em] hover:underline">{artist.name}</button>
       ) : (
@@ -208,7 +208,7 @@ function Library({ items, onOpen, onArtist }: { items: Saved[]; onOpen: (url: st
   }
   const artists = djsOf(items);
   return (
-    <Tabs value={tabValue} onValueChange={pickTab} className="min-h-0 flex-1 gap-0">
+    <Tabs data-area="library" value={tabValue} onValueChange={pickTab} className="min-h-0 flex-1 gap-0">
       <TabsList variant="line" className="mt-2 h-11 w-full justify-start gap-6 border-b border-toner-3 px-4">
         <TabsTrigger value="mixes" className="flex-none px-0 text-[14px] font-semibold">Mixes {items.length}</TabsTrigger>
         <TabsTrigger value="artists" className="flex-none px-0 text-[14px] font-semibold">Artists {artists.length}</TabsTrigger>
@@ -327,7 +327,7 @@ function ArtistPage({ entry, onBack, onOpen, motion }: { entry: Dj; onBack: () =
   const scanned = new Set(mixes.map((h) => mixKey(h.mix.url)));
   const unscanned = (more ?? []).filter((u) => !scanned.has(mixKey(u.url)));
   return (
-    <main className={cn('flex h-full flex-col overflow-y-auto', motion)}>
+    <main data-area="artist" className={cn('flex h-full flex-col overflow-y-auto', motion)}>
       <header className="border-b border-toner-3 px-4 pt-3 pb-3.5">
         <button type="button" onClick={onBack} className="-ml-1.5 flex min-h-9 items-center gap-1 pr-2 text-[16px] font-semibold hover:underline">
           <ChevronLeft className="size-6" strokeWidth={2.25} aria-hidden />
@@ -403,7 +403,7 @@ function Playlists({ job, ticked }: { job: Job; ticked: number }) {
   const [connecting, setConnecting] = useState<Service | null>(null);
   const urlFor = (id: PlaylistService) => job.made?.[id]?.url ?? (id === 'beatport' && job.playlist?.beatport ? beatportPlaylistUrl(job.playlist.beatport) : undefined);
   return (
-    <section className="border-t border-toner-3 px-4 py-3">
+    <section data-area="playlist" className="border-t border-toner-3 px-4 py-3">
       <p className="text-[13px] font-semibold">Playlist of the {ticked} ticked</p>
       <div className="mt-2 grid grid-cols-3 gap-2">
         {SERVICES.map((s) => {
@@ -558,7 +558,7 @@ export default function App() {
     return (
       <main key={screen} className={cn('flex h-full flex-col', motion.current)}>
         {/* the brand bar: Dizko's raised surface, its mark, and room above the library */}
-        <header className="border-b border-toner-3 bg-surface px-4 pt-5 pb-4">
+        <header data-area="claim" className="border-b border-toner-3 bg-surface px-4 pt-5 pb-4">
           <div className="flex items-center gap-2.5">
             <DizkoMark className="h-[22px] w-auto text-ink" />
             <h1 className="text-[26px] leading-none font-semibold tracking-[-0.03em]">Dizko ID</h1>
@@ -612,7 +612,7 @@ export default function App() {
 
   return (
     <main key={screen} className={cn('flex h-full flex-col', motion.current)}>
-      <header className="border-b border-toner-3 px-4 pt-3 pb-3.5">
+      <header data-area="mix" className="border-b border-toner-3 px-4 pt-3 pb-3.5">
         <button type="button" onClick={() => setLibrary(true)} className="-ml-1.5 flex min-h-9 items-center gap-1 pr-2 text-[16px] font-semibold hover:underline">
           <ChevronLeft className="size-6" strokeWidth={2.25} aria-hidden />
           Library
@@ -640,7 +640,7 @@ export default function App() {
 
       {job.artist && !isPlatform(job.artist.name) && <ArtistBlock artist={job.artist} onName={() => setArtistKey(norm(job.artist!.name))} />}
 
-      <section className="space-y-2.5 border-b border-toner-3 px-4 py-3">
+      <section data-area="cart" className="space-y-2.5 border-b border-toner-3 px-4 py-3">
         {job.phase === 'reading' && !job.rows.length && (
           <>
             <p className="text-[14px] leading-snug">
@@ -743,7 +743,7 @@ export default function App() {
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto px-4 pb-4">
+      <div data-area="tracklist" className="flex-1 overflow-y-auto px-4 pb-4">
         {/* Billing: confirmed tracks set large, single-hit IDs on the smaller "plus" line */}
         <ol>
           {job.rows.map((row, i) => row.track.hits >= 2 && <TrackRow key={`${row.track.artist}|${row.track.title}`} row={row} index={i} locked={locked} />)}

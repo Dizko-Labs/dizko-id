@@ -9,6 +9,7 @@ import { findArtist, isPlatform, isStale } from '@/lib/dizko';
 import { backfillArt, backfillArtists, backfillUploaders, forget, mixKey, remember, saved } from '@/lib/history';
 import { setApp } from '@/lib/oauth';
 import { profileMixes } from '@/lib/soundcloud';
+import { cleanMixUrl, utm } from '@/lib/utm';
 import { soundcloudPlaylist, spotifyPlaylist } from '@/lib/playlists';
 import { parseTracklist } from '@/lib/tracklist';
 import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, coverage, type Job, type Offer, type Row, type Store, type Track } from '@/lib/types';
@@ -239,7 +240,7 @@ async function read(tabId: number) {
   }
   const tracks = parseTracklist(info.description);
   const job: Job = {
-    mix: { title: info.title, url: info.url, duration: info.duration, uploader: info.uploader, art: info.art },
+    mix: { title: info.title, url: cleanMixUrl(info.url), duration: info.duration, uploader: info.uploader, art: info.art },
     rows: tracks.map(rowFor),
     phase: tracks.length ? 'review' : 'reading',
     tracklistFound: tracks.length > 0,
@@ -583,9 +584,9 @@ async function cart(stores: Store[]) {
       carts: { ...j.carts, ...carts },
       rows: j.rows.map((r) => (r.status === 'searching' ? { ...r, status: 'queued' } : r)),
     }));
-    for (const url of Object.values(carts)) await browser.tabs.create({ url, active: false });
+    for (const [store, url] of Object.entries(carts)) await browser.tabs.create({ url: utm(url, 'cart', `${store}_cart`), active: false });
     // Buy All did not go through: hand the DJ the playlist, where it is one press
-    if (playlist && !playlistCarted) await browser.tabs.create({ url: beatportPlaylistUrl(playlist), active: true });
+    if (playlist && !playlistCarted) await browser.tabs.create({ url: utm(beatportPlaylistUrl(playlist), 'cart', 'beatport_playlist'), active: true });
     if (handOff) follow(beatportTab!).catch(() => {});
   }
 }
@@ -658,7 +659,7 @@ async function playlist(service: 'beatport' | 'spotify' | 'soundcloud') {
       : service === 'spotify' ? await spotifyPlaylist(job.mix.title, description, rows)
       : await soundcloudPlaylist(job.mix.title, description, rows);
     await update((j) => ({ ...j, made: { ...j.made, [service]: { ...made, at: Date.now() } } }));
-    await browser.tabs.create({ url: made.url, active: true });
+    await browser.tabs.create({ url: utm(made.url, 'playlist', service), active: true });
   } catch (e) {
     await update((j) => ({ ...j, error: e instanceof Error ? e.message : String(e) }));
   } finally {
