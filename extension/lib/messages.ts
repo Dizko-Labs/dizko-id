@@ -1,5 +1,4 @@
-import type { App, Service } from './oauth';
-import type { PlaylistService, Track } from './types';
+import type { Track } from './types';
 
 /** background -> content script on the mix page */
 export type SourceRequest =
@@ -58,6 +57,4 @@ export type PanelRequest =
   | { type: 'panel:cart'; stores: ('beatport' | 'bandcamp')[] }
   | { type: 'panel:stop' }
   | { type: 'panel:stop-listening' }
-  | { type: 'panel:playlist'; service: PlaylistService }
-  | { type: 'panel:connect'; service: Service; app: App | undefined }
   | { type: 'panel:reset' };

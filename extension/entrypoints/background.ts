@@ -7,13 +7,11 @@ import {
 } from '@/lib/stores';
 import { findArtist, isPlatform, isStale } from '@/lib/dizko';
 import { backfillArt, backfillArtists, backfillAvatars, backfillUploaders, forget, history, mixKey, remember, saved } from '@/lib/history';
-import { setApp } from '@/lib/oauth';
 import { profileAvatar, profileMixes } from '@/lib/soundcloud';
 import { soundcloudInfo } from '@/lib/soundcloudPage';
 import { cleanMixUrl, utm } from '@/lib/utm';
 import { track } from '@/lib/analytics';
 import { account as dizkoAccount, link as dizkoLink, sync as dizkoSync, unlink as dizkoUnlink } from '@/lib/dizkoAccount';
-import { soundcloudPlaylist, spotifyPlaylist, type Made } from '@/lib/playlists';
 import { parseTracklist } from '@/lib/tracklist';
 import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, coverage, type Job, type Offer, type Row, type Store, type Track } from '@/lib/types';
 
@@ -238,13 +236,6 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
       // The panel's Stop during a cart run stops the cart run; otherwise it stops listening
       if ((await getJob())?.phase === 'carting') stopCarting = true;
       else stopListening = true;
-      return { ok: true };
-    case 'panel:playlist':
-      if ((await getJob())?.making) return { ok: false };
-      playlist(msg.service).catch(() => {});
-      return { ok: true };
-    case 'panel:connect':
-      await setApp(msg.service, msg.app);
       return { ok: true };
     case 'panel:stop-listening':
       stopListening = true;
@@ -773,53 +764,6 @@ async function follow(tab: number, owner: string) {
   } finally {
     await browser.tabs.remove(tab).catch(() => {});
     await update((j) => ({ ...j, following: false }), owner);
-  }
-}
-
-// ---- playlists on other services, from the ticked tracks
-
-/** Beatport alone: the mix's playlist, without touching the cart. */
-async function beatportPlaylistOnly(rows: Row[], owner: string): Promise<Made> {
-  const tab = await openTab('https://www.beatport.com/');
-  try {
-    if (!(await passCheck(tab)) || !(await beatportSession(tab))) throw new Error('Log in to Beatport first');
-    const ids: string[] = [];
-    const missing: string[] = [];
-    for (const row of rows) {
-      const offer = row.offer?.store === 'beatport' ? row.offer : (await matchBeatport(tab, row.track)).offer;
-      if (offer) {
-        ids.push(offer.id);
-        if (row.status === 'queued') await patchRow(keyOf(row.track), { status: 'in-playlist', offer }, owner);
-      } else missing.push(`${row.track.artist} - ${row.track.title}`);
-    }
-    const mine = await ownJob(owner);
-    if (!mine) throw new Error('Another mix was opened before the playlist was made');
-    const id = await fillPlaylist(tab, mine, ids);
-    if (!id) throw new Error('Beatport would not create the playlist');
-    await update((j) => ({ ...j, playlist: { ...j.playlist, beatport: id } }), owner);
-    return { url: beatportPlaylistUrl(id), added: ids.length, missing };
-  } finally {
-    await browser.tabs.remove(tab).catch(() => {});
-  }
-}
-
-async function playlist(service: 'beatport' | 'spotify' | 'soundcloud') {
-  const job = (await update((j) => ({ ...j, making: service, error: undefined })))!;
-  const owner = mixKey(job.mix.url);
-  const rows = job.rows.filter((r) => r.selected);
-  const description = `Tracklist of ${job.mix.url}, made with Dizko ID`;
-  try {
-    const made =
-      service === 'beatport' ? await beatportPlaylistOnly(rows, owner)
-      : service === 'spotify' ? await spotifyPlaylist(job.mix.title, description, rows)
-      : await soundcloudPlaylist(job.mix.title, description, rows);
-    await update((j) => ({ ...j, made: { ...j.made, [service]: { ...made, at: Date.now() } } }), owner);
-    track('playlist_made', { service, added: made.added, missing: made.missing.length });
-    await browser.tabs.create({ url: utm(made.url, 'playlist', service), active: true });
-  } catch (e) {
-    await update((j) => ({ ...j, error: message(e) }), owner);
-  } finally {
-    await update((j) => ({ ...j, making: undefined }), owner);
   }
 }
 

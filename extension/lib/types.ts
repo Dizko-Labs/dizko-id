@@ -1,5 +1,4 @@
 export type Store = 'beatport' | 'bandcamp';
-export type PlaylistService = 'beatport' | 'spotify' | 'soundcloud';
 
 /** One track heard in the mix, from Shazam or from a written tracklist. */
 export interface Track {
@@ -90,12 +89,8 @@ export interface Job {
   carts?: Partial<Record<Store, string>>;
   /** the playlist made for this mix, by store; Beatport's is reused on later runs */
   playlist?: { beatport?: number };
-  /** playlists made from the ticked tracks, by service */
-  made?: Partial<Record<PlaylistService, { url: string; added: number; missing: string[]; at: number }>>;
   /** the tracks have been looked up on Beatport once for BPM, key and length */
   enriched?: boolean;
-  /** a playlist is being made right now */
-  making?: PlaylistService;
   error?: string;
 }
 

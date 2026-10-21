@@ -36,7 +36,6 @@ export async function remember(job: Job) {
     waitingFor: undefined,
     listening: undefined,
     following: undefined,
-    making: undefined,
     error: undefined,
     rows: job.rows.map((r) => (r.status === 'searching' ? { ...r, status: 'queued' } : r)),
     savedAt: Date.now(),

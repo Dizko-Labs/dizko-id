@@ -1,12 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PreviewButton, stopPreview } from './Preview';
 import { SettingsPage, useSettings } from './Settings';
 import { useStored } from './useStored';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { isPlatform, type Artist } from '@/lib/dizko';
@@ -15,10 +14,9 @@ import { djOf, mixKey, type Saved } from '@/lib/history';
 import { links } from '@/lib/links';
 import { norm } from '@/lib/match';
 import type { PanelRequest } from '@/lib/messages';
-import { redirectUri, type App as ServiceApp, type Service } from '@/lib/oauth';
 import { profileOf, type Upload } from '@/lib/soundcloud';
 import { beatportPlaylistUrl } from '@/lib/stores';
-import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, coverage, type Job, type PlaylistService, trackKey, type Row, type Store } from '@/lib/types';
+import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, coverage, type Job, trackKey, type Row, type Store } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 const MIX_SITES = /^https:\/\/(www\.youtube\.com\/watch|soundcloud\.com\/[^/]+\/[^/]+|www\.mixcloud\.com\/[^/]+\/[^/]+)/;
@@ -261,7 +259,8 @@ function Library({ items, onOpen, onArtist, onAccount }: { items: Saved[]; onOpe
                 </button>
                 {next && (
                   <a href={next.url} target="_blank" rel="noreferrer" className="mt-0.5 block truncate text-[13px] text-toner-1 hover:text-ink hover:underline">
-                    Next: {new Date(`${next.date}T12:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}, {titleCase(next.city)}
+                    {/* the party's name says more than its date; the date is on the artist page */}
+                    Next: {next.title || new Date(`${next.date}T12:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}, {titleCase(next.city)}
                   </a>
                 )}
                 <ul className="mt-1.5 space-y-0.5">
@@ -402,86 +401,28 @@ function ArtistPage({ entry, onBack, onOpen, onScan, motion }: { entry: Dj; onBa
 
 // ---- playlists on other services
 
-const SERVICES: { id: PlaylistService; name: string; app?: { where: string; url: string; secret: boolean } }[] = [
-  { id: 'beatport', name: 'Beatport' },
-  { id: 'spotify', name: 'Spotify', app: { where: 'Spotify developer dashboard', url: 'https://developer.spotify.com/dashboard', secret: false } },
-  { id: 'soundcloud', name: 'SoundCloud', app: { where: 'SoundCloud app settings', url: 'https://soundcloud.com/you/apps', secret: true } },
-];
-
-/** One playlist per service from the ticked tracks; Spotify and SoundCloud go through the DJ's own developer app. */
-function Playlists({ job, ticked }: { job: Job; ticked: number }) {
-  const apps = useStored<Partial<Record<Service, ServiceApp>>>('local', 'apps', {});
-  const [connecting, setConnecting] = useState<Service | null>(null);
-  const urlFor = (id: PlaylistService) => job.made?.[id]?.url ?? (id === 'beatport' && job.playlist?.beatport ? beatportPlaylistUrl(job.playlist.beatport) : undefined);
+/** Export and Scan again, in one menu: the things done with a tracklist once it is found. */
+function TracklistMenu({ job, onRescan }: { job: Job; onRescan?: () => void }) {
   return (
-    <div data-area="playlist">
-      <p className="mb-1.5 text-[13px] font-semibold">Playlist</p>
-      <div className="grid grid-cols-3 gap-2">
-        {SERVICES.map((s) => {
-          const url = urlFor(s.id);
-          if (url) {
-            return (
-              <Button key={s.id} asChild variant="outline" className="h-9 border-toner-2 bg-transparent hover:bg-surface px-2 text-[13px] font-semibold">
-                <a href={url} target="_blank" rel="noreferrer" aria-label={`Open the ${s.name} playlist`}>{s.name}<ArrowUpRight className="size-3.5" aria-hidden /></a>
-              </Button>
-            );
-          }
-          const needsApp = s.app && !apps[s.id as Service]?.clientId;
-          return (
-            <Button
-              key={s.id}
-              variant="outline"
-              disabled={!ticked || !!job.making}
-              onClick={() => (needsApp ? setConnecting(s.id as Service) : send({ type: 'panel:playlist', service: s.id }))}
-              className="h-9 border-toner-2 bg-transparent hover:bg-surface px-2 text-[13px] font-semibold"
-            >
-              {job.making === s.id ? 'Making…' : s.name}
-            </Button>
-          );
-        })}
-      </div>
-      {SERVICES.map(({ id, name }) => {
-        const m = job.made?.[id];
-        return m?.missing.length ? (
-          <p key={id} className="mt-1.5 text-[12px] text-toner-2">{name} did not have {m.missing.length}: {m.missing.slice(0, 3).join('; ')}{m.missing.length > 3 ? '…' : ''}</p>
-        ) : null;
-      })}
-      {connecting && <Connect service={connecting} onDone={() => setConnecting(null)} />}
-    </div>
-  );
-}
-
-function Connect({ service, onDone }: { service: Service; onDone: () => void }) {
-  const s = SERVICES.find((x) => x.id === service)!;
-  const [clientId, setClientId] = useState('');
-  const [clientSecret, setClientSecret] = useState('');
-  async function save() {
-    await send({ type: 'panel:connect', service, app: { clientId: clientId.trim(), ...(s.app!.secret ? { clientSecret: clientSecret.trim() } : {}) } });
-    onDone();
-    await send({ type: 'panel:playlist', service });
-  }
-  return (
-    <div className="mt-3 space-y-2 border-t border-toner-3 pt-3 text-[13px]">
-      <p className="leading-snug">
-        {s.name} playlists go through your own developer app. In the{' '}
-        <a href={s.app!.url} target="_blank" rel="noreferrer" className="font-semibold underline decoration-1">{s.app!.where}</a>, add this redirect URI, then paste the app's details here. They stay in this browser.
-      </p>
-      <p className="bg-accent px-2 py-1.5 font-mono text-[12px] break-all select-all">{redirectUri(service)}</p>
-      <label className="block">
-        <span className="font-semibold">Client ID</span>
-        <Input value={clientId} onChange={(e) => setClientId(e.target.value)} className="mt-1 rounded-[0.75rem] border-toner-2" autoComplete="off" spellCheck={false} />
-      </label>
-      {s.app!.secret && (
-        <label className="block">
-          <span className="font-semibold">Client secret</span>
-          <Input type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} className="mt-1 rounded-[0.75rem] border-toner-2" autoComplete="off" />
-        </label>
-      )}
-      <div className="flex gap-2 pt-1">
-        <Button onClick={save} disabled={!clientId.trim() || (s.app!.secret && !clientSecret.trim())} className="h-9 flex-1 text-[14px] font-semibold">Save and make playlist</Button>
-        <Button variant="ghost" onClick={onDone} className="h-9 text-[13px] text-toner-2">Cancel</Button>
-      </div>
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" className="h-9 gap-1 self-start border-toner-2 bg-transparent text-[13px] font-semibold hover:bg-surface">
+          Export tracklist
+          <ChevronDown className="size-4" aria-hidden />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="min-w-52">
+        <DropdownMenuItem onSelect={() => download(job, 'txt')}>Text, with links</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => download(job, 'csv')}>Spreadsheet (CSV)</DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => download(job, 'json')}>JSON</DropdownMenuItem>
+        {onRescan && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={onRescan}>Scan again</DropdownMenuItem>
+          </>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
@@ -781,28 +722,10 @@ export default function App() {
                 </div>
               )}
               {!readOnly && cartButtons}
-              {!readOnly && <Playlists job={view} ticked={selected.length} />}
-              <div className="flex items-center gap-2 pt-0.5">
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" className="h-9 gap-1 border-toner-2 bg-transparent text-[13px] font-semibold hover:bg-surface">Export tracklist<ChevronDown className="size-4" /></Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="start">
-                    <DropdownMenuItem onSelect={() => download(view, 'txt')}>Text, with links</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => download(view, 'csv')}>Spreadsheet (CSV)</DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => download(view, 'json')}>JSON</DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-                {sameMix && !busy && (
-                  <Button
-                    variant="ghost"
-                    className="ml-auto h-9 text-[13px] text-toner-2"
-                    onClick={() => send({ type: 'panel:reset' }).then(() => tab && send({ type: 'panel:read', tabId: tab.id }))}
-                  >
-                    Scan again
-                  </Button>
-                )}
-              </div>
+              <TracklistMenu
+                job={view}
+                onRescan={sameMix && !busy ? () => send({ type: 'panel:reset' }).then(() => tab && send({ type: 'panel:read', tabId: tab.id })) : undefined}
+              />
             </>
           )
         )}

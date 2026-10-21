@@ -17,11 +17,6 @@ export default defineConfig({
       'https://amp.shazam.com/*',
       // SoundCloud mixes are fingerprinted from their HLS segments
       'https://playback.media-streaming.soundcloud.cloud/*',
-      // playlists through the DJ's own Spotify and SoundCloud developer apps
-      'https://api.spotify.com/*',
-      'https://accounts.spotify.com/*',
-      'https://api.soundcloud.com/*',
-      'https://secure.soundcloud.com/*',
       // the DJ's upcoming dates and links, from Dizko's public endpoint
       'https://mcp.dizko.app/*',
       // a DJ's other SoundCloud mixes, for the artist page
