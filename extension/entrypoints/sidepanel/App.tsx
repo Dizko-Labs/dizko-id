@@ -74,28 +74,23 @@ function StoreLinks({ row }: { row: Row }) {
     <p className="mt-1 flex flex-wrap gap-x-3 text-[12px] font-medium">
       <a href={l.beatport} target="_blank" rel="noreferrer" className={LINK}>Beatport</a>
       <a href={l.bandcamp} target="_blank" rel="noreferrer" className={LINK}>Bandcamp</a>
-      <a href={l.spotify} target="_blank" rel="noreferrer" className={LINK}>Spotify</a>
-      <a href={l.youtube} target="_blank" rel="noreferrer" className={LINK}>YouTube</a>
     </p>
   );
 }
 
 /** The DJ behind the mix, from Dizko: what they play, where they are based, and where they play next. */
-function ArtistBlock({ artist, onName, hideName }: { artist: Artist; onName?: () => void; hideName?: boolean }) {
+function ArtistBlock({ artist, onName, hideName, claim }: { artist: Artist; onName?: () => void; hideName?: boolean; claim?: boolean }) {
   const [allDates, setAllDates] = useState(false);
   const shown = allDates ? artist.events : artist.events.slice(0, 3);
-  const about = [artist.genres.map(titleCase).join(', '), artist.cities.length ? `Based around ${artist.cities.join(', ')}` : '']
-    .filter(Boolean)
-    .join('. ');
+  const about = [artist.genres.map(titleCase).join(', '), artist.cities.join(', ')].filter(Boolean).join('  ·  ');
   return (
     <section data-area="dizko" className="border-b border-toner-3 px-4 py-3 text-[13px]">
       {!hideName && onName && (
         <button type="button" onClick={onName} className="text-left text-[17px] font-semibold tracking-[-0.02em] hover:underline">{artist.name}</button>
       )}
-      {about && <p className={cn('text-toner-1', !hideName && 'mt-0.5')}>{about}.</p>}
-      <a href={artist.url} target="_blank" rel="noreferrer" className={cn(LINK, 'mt-1 inline-block text-[12px] font-semibold')}>More on Dizko</a>
+      {about && <p className={cn('text-toner-1', !hideName && 'mt-0.5')}>{about}</p>}
       {artist.events.length > 0 && (
-        <ul className="mt-2 space-y-1.5">
+        <ul className="mt-3 space-y-2">
           {shown.map((e, i) => (
             <li key={e.url} className={i >= 3 ? 'enter-down' : undefined} style={i >= 3 ? { animationDelay: `${(i - 3) * 40}ms` } : undefined}>
               <a href={e.url} target="_blank" rel="noreferrer" className="group grid grid-cols-[76px_minmax(0,1fr)] gap-x-2">
@@ -120,7 +115,7 @@ function ArtistBlock({ artist, onName, hideName }: { artist: Artist; onName?: ()
           <ChevronDown className={cn('size-3.5 transition-transform duration-200 ease-out', allDates && 'rotate-180')} aria-hidden />
         </button>
       )}
-      {!artist.claimed && (
+      {claim && !artist.claimed && (
         <p className="mt-2 text-[12px] text-toner-2">
           Are you {artist.name}?{' '}
           <a href="https://build.dizko.app" target="_blank" rel="noreferrer" className={cn(LINK, 'font-semibold text-ink')}>Claim this page</a>
@@ -212,7 +207,6 @@ function Library({ items, onOpen, onArtist, onAccount }: { items: Saved[]; onOpe
         <ul>
           {items.map((h) => {
             const ticked = h.rows.filter((r) => r.selected).length;
-            const carted = h.rows.filter((r) => r.status === 'carted').length;
             return (
               <li key={h.mix.url} className="grid grid-cols-[64px_minmax(0,1fr)] gap-x-3 border-b border-toner-3 py-3">
                 <Cover src={h.mix.art} size={64} />
@@ -226,10 +220,7 @@ function Library({ items, onOpen, onArtist, onAccount }: { items: Saved[]; onOpe
                   </button>
                 )}
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] font-semibold whitespace-nowrap text-toner-2">
-                  <a href={h.mix.url} target="_blank" rel="noreferrer" className={cn(LINK, 'text-ink')}>{sourceOf(h.mix.url)}</a>
-                  <span>{ticked} of {h.rows.length} ticked</span>
-                  {carted > 0 && <span className="text-ink">{carted} in cart</span>}
-                  <span>{when(h.savedAt)}</span>
+                  <span>{ticked} of {h.rows.length} ticked  ·  {when(h.savedAt)}</span>
                   <button type="button" onClick={() => send({ type: 'panel:forget', url: h.mix.url })} className="ml-auto text-toner-2 hover:text-ink hover:underline">
                     Remove
                   </button>
@@ -244,7 +235,7 @@ function Library({ items, onOpen, onArtist, onAccount }: { items: Saved[]; onOpe
         {!artists.length && <p className="py-5 text-[14px] text-toner-1">The DJs behind the mixes you open collect here.</p>}
         {artists.length > 0 && !linked && (
           <button type="button" onClick={onAccount} className="mt-3 flex w-full items-center justify-between gap-3 rounded-[0.75rem] bg-surface px-3.5 py-3 text-left text-[13px] hover:bg-toner-3/40">
-            <span><span className="font-semibold">Bring these DJs into your Dizko feed</span><span className="block text-toner-2">Link your Dizko account</span></span>
+            <span className="font-semibold">Add these DJs to your Dizko feed</span>
             <ChevronRight className="size-4 shrink-0 text-toner-2" aria-hidden />
           </button>
         )}
@@ -354,7 +345,7 @@ function ArtistPage({ entry, onBack, onOpen, onScan, motion }: { entry: Dj; onBa
           </div>
         </div>
       </header>
-      {artist && <ArtistBlock artist={artist} hideName />}
+      {artist && <ArtistBlock artist={artist} hideName claim />}
       <section className="border-b border-toner-3 px-4 py-3">
         <h2 className="text-[16px] font-semibold tracking-[-0.01em]">Scanned</h2>
         <ul>
@@ -651,7 +642,7 @@ export default function App() {
           onClick={() => send({ type: 'panel:switch', tabId: tab.id })}
           className="flex items-center justify-between gap-3 border-b border-toner-3 bg-ink px-4 py-2.5 text-left text-[13px] font-semibold text-paper"
         >
-          <span>This tab has another mix. This one stops; what it found stays in your library.</span>
+          <span>Another mix is open in this tab</span>
           <span className="shrink-0 underline decoration-1 underline-offset-2">Switch</span>
         </button>
       )}
@@ -672,7 +663,7 @@ export default function App() {
         {view.phase === 'reading' && !view.rows.length && (
           <>
             <p className="text-[14px] leading-snug">
-              {needsIcon ? 'Chrome needs one click on the Dizko ID icon in your toolbar before it lets Dizko ID hear this tab. Click it and listening starts.' : error ? 'Listening could not start.' : prefs.autoListen ? 'No tracklist in the description, so it listens to the mix.' : 'No tracklist in the description. Dizko ID can listen to the mix to find the tracks.'}
+              {needsIcon ? 'Click the Dizko ID icon in your toolbar to start listening.' : error ? 'Listening could not start.' : prefs.autoListen ? 'No tracklist in the description, so it listens to the mix.' : 'No tracklist in the description. Dizko ID can listen to the mix to find the tracks.'}
               {needsIcon ? '' : view.method === 'seek' ? ' This tab stays quiet while it jumps through.' : view.method === 'live' ? ' Press play and leave it running.' : ''}
             </p>
             {!needsIcon && (error || !prefs.autoListen) && <Button onClick={() => listen()} disabled={!sameMix || readOnly} className="h-10 w-full text-[15px] font-semibold">{error ? 'Try again' : 'Identify tracks'}</Button>}
@@ -723,11 +714,10 @@ export default function App() {
           view.rows.length > 0 && (
             <>
               {carted.length > 0 && (
-                <div className="flex items-center justify-between gap-3">
-                  <p className="text-[14px] font-semibold">{carted.length} in your cart</p>
-                  <span className="flex gap-3 text-[13px] font-semibold">
+                <div className="flex items-center gap-3">
+                  <span className="flex gap-4 text-[13px] font-semibold">
                     {Object.entries(view.carts ?? {}).map(([s, url]) => (
-                      <a key={s} href={url} target="_blank" rel="noreferrer" className={LINK}>Open {s === 'beatport' ? 'Beatport' : 'Bandcamp'}</a>
+                      <a key={s} href={url} target="_blank" rel="noreferrer" className={LINK}>Open {s === 'beatport' ? 'Beatport' : 'Bandcamp'} cart</a>
                     ))}
                   </span>
                 </div>
@@ -764,17 +754,18 @@ export default function App() {
         )}
         {(error || (view.error && view.error !== TAB_AUDIO_NEEDED)) && <p className="text-[13px] text-miss">{error || view.error}</p>}
         {needsIcon && view.phase !== 'reading' && (
-          <p className="text-[14px] leading-snug">Chrome needs one click on the Dizko ID icon in your toolbar before it lets Dizko ID hear this tab. Click it and listening starts.</p>
+          <p className="text-[14px] leading-snug">Click the Dizko ID icon in your toolbar to start listening.</p>
         )}
       </section>
 
       {view.rows.length > 0 && (
         <div className="flex items-center justify-between border-b border-toner-3 px-4 py-1.5 text-[13px]">
           <span className="text-toner-2">{selected.length} of {view.rows.length} ticked</span>
-          <span className="flex">
-            <Button variant="ghost" size="sm" disabled={locked || selected.length === view.rows.length} onClick={() => send({ type: 'panel:select', all: true })} className="h-8 px-2 text-[13px]">Select all</Button>
-            <Button variant="ghost" size="sm" disabled={locked || !selected.length} onClick={() => send({ type: 'panel:select', all: false })} className="h-8 px-2 text-[13px]">Deselect all</Button>
-          </span>
+          {selected.length === view.rows.length ? (
+            <Button variant="ghost" size="sm" disabled={locked} onClick={() => send({ type: 'panel:select', all: false })} className="-mr-2 h-8 px-2 text-[13px]">Untick all</Button>
+          ) : (
+            <Button variant="ghost" size="sm" disabled={locked} onClick={() => send({ type: 'panel:select', all: true })} className="-mr-2 h-8 px-2 text-[13px]">Tick all</Button>
+          )}
         </div>
       )}
 
@@ -822,7 +813,7 @@ function TrackFacts({ offer }: { offer?: Row['offer'] }) {
   return (
     <p className="mt-0.5 text-[12px] font-medium text-toner-1 tabular-nums" title={offer.key?.name || undefined}>
       {facts.join('  ·  ')}
-      {offer.version ? <span className="text-toner-2">{`  ·  ${offer.version}`}</span> : null}
+      {offer.version && offer.version !== 'Original Mix' ? <span className="text-toner-2">{`  ·  ${offer.version}`}</span> : null}
     </p>
   );
 }

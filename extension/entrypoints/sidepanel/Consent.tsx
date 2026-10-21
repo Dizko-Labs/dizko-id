@@ -16,7 +16,7 @@ export function ConsentBar() {
   return (
     <div role="region" aria-label="Usage data" className="enter-down fixed inset-x-0 bottom-0 z-40 border-t border-toner-3 bg-surface px-4 py-3">
       <p className="text-[13px] leading-snug">
-        Share anonymous usage with Dizko? Which features and links get used, counted against a random id. Never your name, accounts or what you listen to.
+        Share anonymous usage with Dizko? Never your name or what you listen to.
       </p>
       <div className="mt-2.5 grid grid-cols-2 gap-2">
         <Button onClick={() => choose('yes')} className="h-9 text-[14px] font-semibold">Share</Button>

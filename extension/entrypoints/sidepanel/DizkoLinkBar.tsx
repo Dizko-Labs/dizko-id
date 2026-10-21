@@ -51,7 +51,7 @@ export function DizkoLinkBar() {
       ) : (
         <>
           <p className="leading-snug text-toner-1">
-            <span className="font-semibold text-ink">Bring these DJs into your Dizko feed.</span> Sign in or make an account on Dizko; only DJ and artist names go across.
+            Add the DJs you scan to your Dizko feed. Only names are shared.
           </p>
           <label className="mt-2.5 flex items-center gap-2 text-[13px]">
             <Checkbox checked={follow} onCheckedChange={(v) => setFollow(v === true)} className="border-toner-2 data-[state=checked]:border-tick data-[state=checked]:bg-tick data-[state=checked]:text-on-tick" />

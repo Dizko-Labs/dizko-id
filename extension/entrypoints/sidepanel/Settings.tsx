@@ -48,15 +48,14 @@ export function SettingsPage({ onBack, motion }: { onBack: () => void; motion?: 
       </header>
 
       <section className="px-4 pb-2">
-        <h2 className="mt-4 text-[12px] font-semibold text-toner-2">Defaults</h2>
-        <div className="divide-y divide-toner-3">
-          <Choice label="Marketplace" hint="The store your Purchase button leads with." field="marketplace" value={s.marketplace} options={[{ value: 'beatport', label: 'Beatport' }, { value: 'bandcamp', label: 'Bandcamp' }]} />
-          <Choice label="Track previews" hint="Beatport plays its own clip of the exact release; Apple plays a 30 second preview. The other is tried when the first has none." field="preview" value={s.preview} options={[{ value: 'beatport', label: 'Beatport' }, { value: 'apple', label: 'Apple' }, { value: 'off', label: 'Off' }]} />
+        <div className="mt-2 divide-y divide-toner-3">
+          <Choice label="Marketplace" field="marketplace" value={s.marketplace} options={[{ value: 'beatport', label: 'Beatport' }, { value: 'bandcamp', label: 'Bandcamp' }]} />
+          <Choice label="Track previews" field="preview" value={s.preview} options={[{ value: 'beatport', label: 'Beatport' }, { value: 'apple', label: 'Apple' }, { value: 'off', label: 'Off' }]} />
           <Choice label="Appearance" field="theme" value={s.theme} options={[{ value: 'system', label: 'System' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }]} />
           <label className="flex items-center justify-between gap-4 py-3.5">
             <span>
               <span className="block text-[14px] font-semibold">Start listening by itself</span>
-              <span className="mt-0.5 block text-[12px] leading-snug text-toner-2">When a mix has no written tracklist, identify it as soon as it opens.</span>
+              <span className="mt-0.5 block text-[12px] leading-snug text-toner-2">When a mix has no tracklist</span>
             </span>
             <Switch checked={s.autoListen} onCheckedChange={(v) => setSetting('autoListen', v)} className="data-[state=checked]:bg-acid data-[state=unchecked]:bg-toner-3" />
           </label>
@@ -74,11 +73,7 @@ export function SettingsPage({ onBack, motion }: { onBack: () => void; motion?: 
       </section>
 
       <section data-area="claim" className="mt-auto border-t border-toner-3 px-4 py-5 text-[13px] text-toner-1">
-        <p className="max-w-[36ch] leading-snug">
-          Dizko ID finds every track in a DJ mix, shows where the DJ plays next, and sends the tracks to your Beatport or Bandcamp cart or a playlist.
-        </p>
-        <p className="mt-3">
-          Are you a DJ?{' '}
+        <p>
           <a href="https://build.dizko.app" target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1 underline-offset-2">Claim your page on Dizko</a>
         </p>
         <p className="mt-1.5">
