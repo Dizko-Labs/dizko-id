@@ -302,7 +302,13 @@ export default function App() {
             ) : current >= 0 ? (
               <p className="truncate text-[13px] text-toner-1">Now: <span className="font-semibold text-ink">{job.rows[current]!.track.artist}, {job.rows[current]!.track.title}</span></p>
             ) : null}
-            <Button variant="outline" onClick={() => send({ type: 'panel:stop' })} className="mt-1 h-9 w-full border-ink bg-transparent">Stop</Button>
+            <Button variant="outline" onClick={() => send({ type: 'panel:stop' })} className="mt-1 h-9 w-full border-ink bg-transparent">Stop adding</Button>
+            {job.listening && (
+              <div className="flex items-center justify-between pt-1 text-[13px] text-toner-2">
+                <span>Still listening, {Math.round((job.progress ?? 0) * 100)}%</span>
+                <Button variant="ghost" onClick={() => send({ type: 'panel:stop-listening' })} className="h-8 px-2 text-[13px] text-toner-2">Stop listening</Button>
+              </div>
+            )}
           </div>
         )}
         {job.phase === 'done' && (

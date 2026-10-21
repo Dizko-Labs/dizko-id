@@ -27,6 +27,7 @@ export async function remember(job: Job) {
     phase: job.phase === 'done' ? 'done' : 'review',
     progress: undefined,
     waitingFor: undefined,
+    listening: undefined,
     error: undefined,
     rows: job.rows.map((r) => (r.status === 'searching' ? { ...r, status: 'queued' } : r)),
     savedAt: Date.now(),

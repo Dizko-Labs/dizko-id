@@ -31,21 +31,38 @@ async function setJob(job: Job | null) {
   await browser.storage.session.set({ job });
   if (job) await remember(job);
 }
-async function patchRow(i: number, patch: Partial<Row>) {
-  const job = await getJob();
-  if (!job) return;
-  job.rows[i] = { ...job.rows[i]!, ...patch };
-  await setJob(job);
+/**
+ * Listening and carting run at the same time and both edit the job, so every read-modify-write goes through one
+ * queue: neither can overwrite a change the other made in between.
+ */
+let queue: Promise<unknown> = Promise.resolve();
+function update(change: (job: Job) => Job): Promise<Job | null> {
+  const next = queue.then(async () => {
+    const job = await getJob();
+    if (!job) return null;
+    const changed = change(job);
+    await setJob(changed);
+    return changed;
+  });
+  queue = next.catch(() => {});
+  return next;
 }
 
-let stopping = false;
+const keyOf = (t: Track) => `${t.artist}|${t.title}`;
+function patchRow(key: string, patch: Partial<Row>) {
+  return update((job) => ({ ...job, rows: job.rows.map((r) => (keyOf(r.track) === key ? { ...r, ...patch } : r)) }));
+}
+
+/** Separate switches, so stopping the cart run leaves listening going and the other way round. */
+let stopListening = false;
+let stopCarting = false;
 
 /**
  * Chrome stops an idle extension worker after about 30 seconds, and a pending timer does not count as activity.
  * Wait in short steps that touch extension storage so a long wait (a Shazam back-off, a login) keeps it alive.
  */
-async function nap(ms: number) {
-  for (const end = Date.now() + ms; Date.now() < end && !stopping; ) {
+async function nap(ms: number, stopped = () => stopListening) {
+  for (const end = Date.now() + ms; Date.now() < end && !stopped(); ) {
     await new Promise((r) => setTimeout(r, Math.min(10_000, end - Date.now())));
     await browser.storage.session.get('job');
   }
@@ -54,12 +71,12 @@ async function nap(ms: number) {
 /** A fresh worker means any job that was running died with the old one: settle it so the panel is not stuck. */
 async function recover() {
   const job = await getJob();
-  if (job?.phase === 'identifying') {
-    await setJob({ ...job, phase: 'review', error: 'Listening stopped part way. These are the tracks found before it did.' });
-  } else if (job?.phase === 'carting') {
-    const rows = job.rows.map((r) => (r.status === 'searching' ? { ...r, status: 'queued' as const } : r));
-    await setJob({ ...job, rows, phase: 'done', waitingFor: undefined, error: 'Adding to cart stopped part way. Press Add to cart again to finish.' });
-  }
+  if (!job || (job.phase !== 'identifying' && job.phase !== 'carting' && !job.listening)) return;
+  const rows = job.rows.map((r) => (r.status === 'searching' ? { ...r, status: 'queued' as const } : r));
+  const error = job.phase === 'carting'
+    ? 'Adding to cart stopped part way. Press Add to cart again to finish.'
+    : 'Listening stopped part way. These are the tracks found before it did.';
+  await setJob({ ...job, rows, phase: job.phase === 'carting' ? 'done' : 'review', listening: false, waitingFor: undefined, error });
 }
 
 async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknown> {
@@ -68,51 +85,44 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
       return read(msg.tabId);
     case 'panel:open': {
       const before = await saved(msg.url);
-      if (!before || (await getJob())?.phase === 'identifying' || (await getJob())?.phase === 'carting') return { ok: false };
+      const now = await getJob();
+      if (!before || now?.listening || now?.phase === 'carting') return { ok: false };
       const { savedAt: _, ...job } = before;
       await setJob(job);
       return { ok: true };
     }
     case 'panel:identify':
-      stopping = false;
-      identify(msg.tabId, msg.streamId).catch(async (e) => {
-        const job = await getJob();
-        if (job) await setJob({ ...job, phase: 'review', error: e instanceof Error ? e.message : String(e) });
-      });
+      stopListening = false;
+      identify(msg.tabId, msg.streamId).catch((e) =>
+        update((job) => ({ ...job, phase: job.phase === 'identifying' ? 'review' : job.phase, listening: false, error: e instanceof Error ? e.message : String(e) })),
+      );
       return { ok: true };
-    case 'panel:toggle': {
-      const job = await getJob();
-      const row = job?.rows[msg.index];
-      if (!job || !row) return { ok: false };
-      row.selected = !row.selected;
-      await setJob(job);
+    case 'panel:toggle':
+      await update((job) => ({ ...job, rows: job.rows.map((r, i) => (i === msg.index ? { ...r, selected: !r.selected } : r)) }));
       return { ok: true };
-    }
-    case 'panel:select': {
-      const job = await getJob();
-      if (!job) return { ok: false };
-      for (const row of job.rows) row.selected = msg.all;
-      await setJob(job);
+    case 'panel:select':
+      await update((job) => ({ ...job, rows: job.rows.map((r) => ({ ...r, selected: msg.all })) }));
       return { ok: true };
-    }
     case 'panel:cart':
-      // Carting while still listening: stop listening and cart what has been found so far
-      if ((await getJob())?.phase === 'identifying') {
-        stopping = true;
-        for (let i = 0; i < 120 && (await getJob())?.phase === 'identifying'; i++) await new Promise((r) => setTimeout(r, 250));
-      }
-      stopping = false;
-      cart(msg.stores).catch(async (e) => {
-        const job = await getJob();
-        if (job) await setJob({ ...job, phase: 'done', error: e instanceof Error ? e.message : String(e) });
-      });
+      // Listening carries on: the cart run takes the tracks ticked now, and later finds can be added after
+      if ((await getJob())?.phase === 'carting') return { ok: false };
+      stopCarting = false;
+      cart(msg.stores).catch((e) =>
+        update((job) => ({ ...job, phase: job.listening ? 'identifying' : 'done', waitingFor: undefined, error: e instanceof Error ? e.message : String(e) })),
+      );
       return { ok: true };
     case 'panel:stop':
-      stopping = true;
+      // The panel's Stop during a cart run stops the cart run; otherwise it stops listening
+      if ((await getJob())?.phase === 'carting') stopCarting = true;
+      else stopListening = true;
+      return { ok: true };
+    case 'panel:stop-listening':
+      stopListening = true;
       return { ok: true };
     case 'panel:reset': {
       // Start over means scan this mix afresh, so it leaves the history too
-      stopping = true;
+      stopListening = true;
+      stopCarting = true;
       const job = await getJob();
       if (job) await forget(job.mix.url);
       await setJob(null);
@@ -183,16 +193,14 @@ async function lookup(get: () => Promise<ClipResult>): Promise<ClipResult> {
   for (let wait = 20_000; ; wait *= 2) {
     const r = await get();
     if (r.error !== 'shazam 429') return r;
-    if (wait > 80_000 || stopping) throw new Error(RATE_LIMITED);
+    if (wait > 80_000 || stopListening) throw new Error(RATE_LIMITED);
     await nap(wait);
-    if (stopping) return {};
+    if (stopListening) return {};
   }
 }
 
 async function identify(tabId: number, streamId?: string) {
-  let job = (await getJob())!;
-  job = { ...job, phase: 'identifying', progress: 0, error: undefined };
-  await setJob(job);
+  await update((job) => ({ ...job, phase: job.phase === 'carting' ? 'carting' : 'identifying', listening: true, progress: 0, error: undefined }));
   const info = await ask<SourceInfo>(tabId, { type: 'source:info' });
   await ensureOffscreen();
   if (!info.stream) {
@@ -201,24 +209,22 @@ async function identify(tabId: number, streamId?: string) {
   }
   const hits: Hit[] = [];
   let failed = '';
-  const publish = async (progress: number) => {
-    job = (await getJob())!;
-    const prior = new Map(job.rows.map((r) => [`${r.track.artist}|${r.track.title}`, r]));
-    job.rows = collapse(hits).map((t) => {
-      const row = rowFor(t);
-      // keep a tick the DJ already set; a second hit ticks a row that was unticked by default
-      // keep the DJ's tick or untick; only a track's second hit ticks it automatically
-      const was = prior.get(`${t.artist}|${t.title}`);
-      if (was) row.selected = was.track.hits < 2 && t.hits >= 2 ? true : was.selected;
-      return row;
+  const publish = (progress: number) =>
+    update((job) => {
+      const prior = new Map(job.rows.map((r) => [keyOf(r.track), r]));
+      const rows = collapse(hits).map((t) => {
+        const was = prior.get(keyOf(t));
+        if (!was) return rowFor(t);
+        // keep cart results and the DJ's tick or untick; only a track's second hit ticks it automatically
+        return { ...was, track: t, selected: was.track.hits < 2 && t.hits >= 2 ? true : was.selected };
+      });
+      return { ...job, rows, progress };
     });
-    await setJob({ ...job, phase: 'identifying', progress });
-  };
 
   try {
     if (info.stream && info.duration) {
       const { at } = samplePoints(info.duration);
-      for (let i = 0; i < at.length && !stopping; i++) {
+      for (let i = 0; i < at.length && !stopListening; i++) {
         const point = at[i]!;
         const seg = info.stream.segments.find((s) => s.start <= point && s.start + s.dur > point);
         if (!seg) continue;
@@ -229,7 +235,7 @@ async function identify(tabId: number, streamId?: string) {
       }
     } else if (info.seekable && info.duration) {
       const { at, clip } = samplePoints(info.duration);
-      for (let i = 0; i < at.length && !stopping; i++) {
+      for (let i = 0; i < at.length && !stopListening; i++) {
         const point = at[i]!;
         await ask(tabId, { type: 'source:seek', at: point });
         const r = await lookup(() => offscreen<ClipResult>({ type: 'offscreen:clip', seconds: clip }));
@@ -241,7 +247,7 @@ async function identify(tabId: number, streamId?: string) {
       // No player we can seek (or a live page): sample clips in real time while the DJ plays the mix
       const started = Date.now();
       const limit = info.duration ?? 4 * 3600;
-      while (!stopping && (Date.now() - started) / 1000 < limit) {
+      while (!stopListening && (Date.now() - started) / 1000 < limit) {
         const at = (Date.now() - started) / 1000;
         const r = await lookup(() => offscreen<ClipResult>({ type: 'offscreen:clip', seconds: 10 }));
         if (r.track) hits.push({ at, ...r.track });
@@ -255,8 +261,7 @@ async function identify(tabId: number, streamId?: string) {
     await offscreen({ type: 'offscreen:stop' }).catch(() => {});
     await browser.offscreen.closeDocument().catch(() => {});
     await ask(tabId, { type: 'source:pause' }).catch(() => {});
-    job = (await getJob())!;
-    await setJob({ ...job, phase: 'review', progress: 1 });
+    await update((job) => ({ ...job, phase: job.phase === 'identifying' ? 'review' : job.phase, listening: false, progress: 1 }));
   }
 }
 
@@ -287,14 +292,14 @@ async function load(tabId: number, url: string, settle = 900) {
  */
 async function passCheck(worker: number): Promise<boolean> {
   if (!(await run(worker, storeCheck))) return true;
-  await setJob({ ...(await getJob())!, waitingFor: 'store-check' });
+  await update((job) => ({ ...job, waitingFor: 'store-check' }));
   await browser.tabs.update(worker, { active: true });
   let passed = false;
-  for (let i = 0; i < 100 && !stopping && !passed; i++) {
+  for (let i = 0; i < 100 && !stopCarting && !passed; i++) {
     await new Promise((r) => setTimeout(r, 3000));
     passed = !(await run(worker, storeCheck).catch(() => true));
   }
-  await setJob({ ...(await getJob())!, waitingFor: undefined });
+  await update((job) => ({ ...job, waitingFor: undefined }));
   return passed;
 }
 
@@ -305,18 +310,19 @@ async function run<A extends unknown[], R>(tabId: number, func: (...args: A) => 
 
 /** Beatport has no guest cart: wait for the DJ to log in, polling until the session shows up. */
 async function beatportLogin(worker: number, probe: string): Promise<boolean> {
-  const job = (await getJob())!;
-  await setJob({ ...job, waitingFor: 'beatport-login' });
+  await update((job) => ({ ...job, waitingFor: 'beatport-login' }));
   const login = await browser.tabs.create({ url: 'https://www.beatport.com/account/login', active: true });
-  for (let i = 0; i < 100 && !stopping; i++) {
+  for (let i = 0; i < 100 && !stopCarting; i++) {
     await new Promise((r) => setTimeout(r, 3000));
     await load(worker, probe, 600);
     if ((await run(worker, beatportReadSearch))?.loggedIn === true) {
       await browser.tabs.remove(login.id!).catch(() => {});
-      await setJob({ ...(await getJob())!, waitingFor: undefined });
+      await update((job) => ({ ...job, waitingFor: undefined }));
       return true;
     }
   }
+  await browser.tabs.remove(login.id!).catch(() => {});
+  await update((job) => ({ ...job, waitingFor: undefined }));
   return false;
 }
 
@@ -375,16 +381,21 @@ async function tryBandcamp(worker: number, track: Track): Promise<{ status: Row[
   return { status: alternatives.length ? 'version-missing' : 'not-found', alternatives };
 }
 
+const CARTABLE: Row['status'][] = ['queued', 'failed', 'login-needed'];
+
 async function cart(stores: Store[]) {
-  let job = (await getJob())!;
-  await setJob({ ...job, phase: 'carting' });
+  // The tracks ticked when Add to cart was pressed; tracks found later by the still running listen wait for the next press
+  const job = (await update((j) => ({ ...j, phase: 'carting', error: undefined })))!;
+  const keys = job.rows.filter((r) => r.selected && CARTABLE.includes(r.status)).map((r) => keyOf(r.track));
   const worker = (await browser.tabs.create({ url: 'about:blank', active: false })).id!;
   const carts: Partial<Record<Store, string>> = {};
   try {
-    for (let i = 0; i < job.rows.length && !stopping; i++) {
-      const row = (await getJob())!.rows[i]!;
-      if (!row.selected || !['queued', 'failed', 'login-needed'].includes(row.status)) continue;
-      await patchRow(i, { status: 'searching' });
+    for (const key of keys) {
+      if (stopCarting) break;
+      const row = (await getJob())!.rows.find((r) => keyOf(r.track) === key);
+      // unticked while the run was going: skip it
+      if (!row?.selected || !CARTABLE.includes(row.status)) continue;
+      await patchRow(key, { status: 'searching' });
       let result: Awaited<ReturnType<typeof tryBeatport>> = { status: 'not-found' };
       const tried: Offer[] = [];
       for (const store of stores) {
@@ -396,13 +407,18 @@ async function cart(stores: Store[]) {
         const o = result.offer!;
         carts[o.store] = o.store === 'beatport' ? BEATPORT_CART : o.url;
       }
-      await patchRow(i, { status: result.status, offer: result.offer, alternatives: tried.length ? tried.slice(0, 4) : undefined });
+      await patchRow(key, { status: result.status, offer: result.offer, alternatives: tried.length ? tried.slice(0, 4) : undefined });
       await new Promise((r) => setTimeout(r, 800)); // human pace between tracks
     }
   } finally {
     await browser.tabs.remove(worker).catch(() => {});
-    job = (await getJob())!;
-    await setJob({ ...job, phase: 'done', carts });
+    await update((j) => ({
+      ...j,
+      phase: j.listening ? 'identifying' : 'done',
+      waitingFor: undefined,
+      carts: { ...j.carts, ...carts },
+      rows: j.rows.map((r) => (r.status === 'searching' ? { ...r, status: 'queued' } : r)),
+    }));
     for (const url of Object.values(carts)) await browser.tabs.create({ url, active: false });
   }
 }

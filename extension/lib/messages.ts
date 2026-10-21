@@ -43,4 +43,5 @@ export type PanelRequest =
   | { type: 'panel:select'; all: boolean }
   | { type: 'panel:cart'; stores: ('beatport' | 'bandcamp')[] }
   | { type: 'panel:stop' }
+  | { type: 'panel:stop-listening' }
   | { type: 'panel:reset' };
