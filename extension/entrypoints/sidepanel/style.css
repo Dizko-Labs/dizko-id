@@ -43,6 +43,7 @@
 }
 
 /* Light follows the system unless the DJ chose a theme in settings (data-theme on <html>) */
+/* Dizko's light palette, twice: for a light system setting and for Light chosen in Settings. Keep the two in sync. */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
     --paper: #ecece6;

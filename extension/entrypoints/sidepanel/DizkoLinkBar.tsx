@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { Account } from '@/lib/dizkoAccount';
 import type { PanelRequest } from '@/lib/messages';
+import { useStored } from './useStored';
 
 const send = (msg: PanelRequest) => browser.runtime.sendMessage(msg);
 
@@ -14,17 +15,11 @@ function ago(t?: number) {
 
 /** Link this library to a Dizko account, so the DJs and artists scanned here shape the Dizko feed. */
 export function DizkoLinkBar() {
-  const [a, setA] = useState<Account | null>(null);
+  // null until read, so a linked account does not flash the link button
+  const a = useStored<Account, null>('local', 'dizkoAccount', {}, null);
   const [follow, setFollow] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
-  useEffect(() => {
-    const load = () => browser.storage.local.get('dizkoAccount').then((r) => setA((r.dizkoAccount as Account) ?? {}));
-    load();
-    const onChange = (changes: Record<string, unknown>, area: string) => area === 'local' && 'dizkoAccount' in changes && load();
-    browser.storage.onChanged.addListener(onChange);
-    return () => browser.storage.onChanged.removeListener(onChange);
-  }, []);
   if (!a) return null;
   const run = async (msg: PanelRequest) => {
     setBusy(true);

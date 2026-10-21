@@ -49,6 +49,13 @@ async function saveTokens(s: Service, t: Tokens | undefined) {
 
 const b64url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
+/** A PKCE verifier, its S256 challenge, and a state value for one sign-in. */
+export async function pkce() {
+  const verifier = b64url(crypto.getRandomValues(new Uint8Array(48)));
+  const challenge = b64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
+  return { verifier, challenge, state: b64url(crypto.getRandomValues(new Uint8Array(12))) };
+}
+
 async function exchange(s: Service, app: App, params: Record<string, string>): Promise<Tokens> {
   const body = new URLSearchParams({ client_id: app.clientId, ...params });
   if (app.clientSecret) body.set('client_secret', app.clientSecret);
@@ -73,9 +80,7 @@ export async function accessToken(s: Service): Promise<string> {
       // refresh tokens can be single use or revoked: fall through to a new sign-in
     }
   }
-  const verifier = b64url(crypto.getRandomValues(new Uint8Array(48)));
-  const challenge = b64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
-  const state = b64url(crypto.getRandomValues(new Uint8Array(12)));
+  const { verifier, challenge, state } = await pkce();
   const url = new URL(CONF[s].authorize);
   url.search = new URLSearchParams({
     client_id: app.clientId,

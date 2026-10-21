@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PreviewButton, stopPreview } from './Preview';
 import { SettingsPage, useSettings } from './Settings';
+import { useStored } from './useStored';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -39,18 +40,6 @@ const titleCase = (s: string) => s.replace(/\b\p{L}/gu, (c) => c.toUpperCase());
 
 // ---- storage subscriptions
 
-function useStored<T>(area: 'session' | 'local', key: string, fallback: T): T {
-  const [value, setValue] = useState<T>(fallback);
-  useEffect(() => {
-    browser.storage[area].get(key).then((r) => setValue((r[key] as T) ?? fallback));
-    const onChange = (changes: Record<string, { newValue?: unknown }>, changed: string) => {
-      if (changed === area && key in changes) setValue((changes[key]!.newValue as T) ?? fallback);
-    };
-    browser.storage.onChanged.addListener(onChange);
-    return () => browser.storage.onChanged.removeListener(onChange);
-  }, []);
-  return value;
-}
 
 function useActiveTab() {
   const [tab, setTab] = useState<{ id: number; url: string } | null>(null);

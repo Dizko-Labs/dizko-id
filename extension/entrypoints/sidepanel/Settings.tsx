@@ -1,22 +1,15 @@
-import { useEffect, useState } from 'react';
 import { ChevronLeft } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DEFAULTS, setSetting, type Settings as S } from '@/lib/settings';
 import { UsageSetting } from './Consent';
 import { DizkoLinkBar } from './DizkoLinkBar';
+import { useStored } from './useStored';
 
 /** The DJ's settings; `ready` is false until they are read, so nothing acts on the defaults by mistake. */
 export function useSettings(): S & { ready: boolean } {
-  const [s, setS] = useState<S & { ready: boolean }>({ ...DEFAULTS, ready: false });
-  useEffect(() => {
-    const load = () => browser.storage.local.get('settings').then((r) => setS({ ...DEFAULTS, ...((r.settings as Partial<S>) ?? {}), ready: true }));
-    load();
-    const onChange = (changes: Record<string, unknown>, area: string) => area === 'local' && 'settings' in changes && load();
-    browser.storage.onChanged.addListener(onChange);
-    return () => browser.storage.onChanged.removeListener(onChange);
-  }, []);
-  return s;
+  const saved = useStored<Partial<S>, null>('local', 'settings', {}, null);
+  return { ...DEFAULTS, ...saved, ready: saved !== null };
 }
 
 const ITEM = 'h-9 flex-1 rounded-full border border-toner-3 px-3 text-[13px] font-semibold text-toner-1 data-[state=on]:border-ink data-[state=on]:bg-ink data-[state=on]:text-paper';

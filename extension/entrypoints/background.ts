@@ -13,7 +13,7 @@ import { soundcloudInfo } from '@/lib/soundcloudPage';
 import { cleanMixUrl, utm } from '@/lib/utm';
 import { track } from '@/lib/analytics';
 import { account as dizkoAccount, link as dizkoLink, sync as dizkoSync, unlink as dizkoUnlink } from '@/lib/dizkoAccount';
-import { soundcloudPlaylist, spotifyPlaylist } from '@/lib/playlists';
+import { soundcloudPlaylist, spotifyPlaylist, type Made } from '@/lib/playlists';
 import { parseTracklist } from '@/lib/tracklist';
 import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, coverage, type Job, type Offer, type Row, type Store, type Track } from '@/lib/types';
 
@@ -159,7 +159,7 @@ async function settle() {
 /** A fresh worker means any job that was running died with the old one: settle it so the panel is not stuck. */
 async function recover() {
   const job = await getJob();
-  if (!job || (job.phase !== 'identifying' && job.phase !== 'carting' && !job.listening && !job.following)) return;
+  if (!job || !busy(job)) return;
   const rows = job.rows.map((r) => (r.status === 'searching' ? { ...r, status: 'queued' as const } : r));
   const error = job.phase === 'carting'
     ? 'Adding to your cart stopped part way. Press Beatport or Bandcamp under Purchase again to finish.'
@@ -384,9 +384,14 @@ async function lookup(get: () => Promise<ClipResult>): Promise<ClipResult> {
  * stream is fingerprinted directly.
  */
 async function identify(tabId: number | undefined, streamId?: string, resume = false, given?: SourceInfo) {
+  // a mix read by URL is claimed before any await, so nothing slips in between the scan and the listen
+  const claimed = given && mixKey(given.url);
+  if (claimed && listening.has(claimed)) return;
+  if (claimed) listening.add(claimed);
   const before = (await getJob())!;
   const owner = mixKey(before.mix.url);
-  if (listening.has(owner)) return;
+  if (claimed && claimed !== owner) listening.delete(claimed);
+  if (owner !== claimed && listening.has(owner)) return;
   listening.add(owner);
   try {
     await listen(before, owner, tabId, streamId, resume, given);
@@ -774,7 +779,7 @@ async function follow(tab: number, owner: string) {
 // ---- playlists on other services, from the ticked tracks
 
 /** Beatport alone: the mix's playlist, without touching the cart. */
-async function beatportPlaylistOnly(rows: Row[], owner: string): Promise<{ url: string; added: number; missing: string[] }> {
+async function beatportPlaylistOnly(rows: Row[], owner: string): Promise<Made> {
   const tab = await openTab('https://www.beatport.com/');
   try {
     if (!(await passCheck(tab)) || !(await beatportSession(tab))) throw new Error('Log in to Beatport first');

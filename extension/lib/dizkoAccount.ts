@@ -8,6 +8,7 @@ import { installId } from './analytics';
 import { isPlatform } from './dizko';
 import type { Saved } from './history';
 import { norm } from './match';
+import { pkce } from './oauth';
 
 const API = 'https://api.dizko.app';
 // the resource Dizko's OAuth binds tokens to; the same value must go to authorize and token
@@ -34,7 +35,6 @@ async function save(patch: Partial<Account>) {
 }
 
 const redirect = () => browser.identity.getRedirectURL('dizko');
-const b64url = (bytes: Uint8Array) => btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
 async function clientId(): Promise<string> {
   const known = (await account()).clientId;
@@ -61,9 +61,7 @@ async function tokenRequest(params: Record<string, string>) {
 /** Sign in on Dizko's own page (or create an account there) and approve the import. */
 export async function link(follow: boolean) {
   const id = await clientId();
-  const verifier = b64url(crypto.getRandomValues(new Uint8Array(48)));
-  const challenge = b64url(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier))));
-  const state = b64url(crypto.getRandomValues(new Uint8Array(12)));
+  const { verifier, challenge, state } = await pkce();
   const url = new URL(`${API}/oauth/authorize`);
   url.search = new URLSearchParams({ response_type: 'code', client_id: id, redirect_uri: redirect(), scope: SCOPE, state, code_challenge: challenge, code_challenge_method: 'S256', resource: RESOURCE }).toString();
   const back = new URL((await browser.identity.launchWebAuthFlow({ url: url.href, interactive: true }))!);
