@@ -463,6 +463,8 @@ export default function App() {
     try {
       // SoundCloud is fingerprinted from its own stream, YouTube and Mixcloud from the page's player; Chrome's tab
       // capture only when a page will not share its player's audio
+      // tab capture is not in the SoundCloud-only release's permissions
+      if (tabAudio && !browser.tabCapture) return setError('Dizko ID could not hear this mix.');
       const streamId = tabAudio ? await browser.tabCapture.getMediaStreamId({ targetTabId: tab.id }) : undefined;
       setError('');
       setNeedsIcon(null);

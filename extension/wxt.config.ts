@@ -7,7 +7,10 @@ export default defineConfig({
   manifest: {
     name: 'Dizko ID',
     description: 'Find every track in a SoundCloud DJ mix, see where the DJ plays next, and fill your Beatport or Bandcamp cart.',
-    permissions: ['sidePanel', 'tabCapture', 'offscreen', 'scripting', 'storage', 'unlimitedStorage', 'tabs', 'identity'],
+    // no tabs: host permissions already show the URL of SoundCloud, Beatport and Bandcamp tabs, the only ones read.
+    // no tabCapture in the SoundCloud-only release (SoundCloud is heard from its own stream); YouTube brings it back.
+    // unlimitedStorage: the saved library (50 mixes with their matches) can outgrow the 10 MB default mid-listen.
+    permissions: ['sidePanel', 'offscreen', 'scripting', 'storage', 'unlimitedStorage', 'identity'],
     host_permissions: [
       'https://soundcloud.com/*',
       'https://www.beatport.com/*',

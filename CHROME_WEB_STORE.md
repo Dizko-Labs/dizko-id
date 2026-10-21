@@ -4,7 +4,7 @@ Audit of the `extension` build (`extension/.output/chrome-mv3`) against Chrome W
 
 ## Blockers
 
-- [ ] **Version.** The manifest says `0.0.0`, which Chrome rejects ("They must not be all zero"). Set `version` in `extension/package.json` (WXT copies it into the manifest), for example `0.1.0`.
+- [x] **Version.** Set to 0.1.0 (2026-10-21). The manifest says `0.0.0`, which Chrome rejects ("They must not be all zero"). Set `version` in `extension/package.json` (WXT copies it into the manifest), for example `0.1.0`.
 - [ ] **Privacy policy.** Required, at a public URL, because the extension handles user data. It must name every recipient and what each receives:
   - Shazam (`amp.shazam.com`): audio fingerprints of the mix being played.
   - PostHog (`us.i.posthog.com`): opt-in usage events, fixed control names and counts only.
@@ -18,10 +18,13 @@ Audit of the `extension` build (`extension/.output/chrome-mv3`) against Chrome W
 
 ## Permission trims (verify, then remove)
 
-- [ ] **`tabs`.** It triggers the "Read your browsing history" install warning. It appears to be used only to read `tab.url` (`entrypoints/sidepanel/App.tsx:46`, `entrypoints/background.ts:44`, `:173`) to check for a mix site. Host permissions already expose `url` on SoundCloud, YouTube and Mixcloud, and it is undefined elsewhere, which is the wanted result. `tabs.create`, `tabs.update`, `tabs.onUpdated` do not need the permission. Remove it and test that the panel still detects mix pages and that Beatport/Bandcamp tab flows still read their URLs (both are in host permissions).
-- [ ] **`unlimitedStorage`.** Not referenced in code. History is capped at 50 (`lib/history.ts:17`); the default 10 MB should be ample unless cover art is stored as data URIs. Check, then drop.
+- [x] **`tabs`.** Removed 2026-10-21; verified headless that SoundCloud and Beatport tab URLs stay readable through host permissions, other tabs hidden, mix reading and scanning work. It triggers the "Read your browsing history" install warning. It appears to be used only to read `tab.url` (`entrypoints/sidepanel/App.tsx:46`, `entrypoints/background.ts:44`, `:173`) to check for a mix site. Host permissions already expose `url` on SoundCloud, and it is undefined elsewhere, which is the wanted result. `tabs.create`, `tabs.update`, `tabs.onUpdated` do not need the permission. Remove it and test that the panel still detects mix pages and that Beatport/Bandcamp tab flows still read their URLs (both are in host permissions).
+- [ ] **`unlimitedStorage`.** Kept on purpose: the 50-mix library with matches, alternatives and art URLs can outgrow 10 MB, and a full quota makes every job update throw mid-listen. It shows no install warning. Original note: Not referenced in code. History is capped at 50 (`lib/history.ts:17`); the default 10 MB should be ample unless cover art is stored as data URIs. Check, then drop.
 
-Keep: `sidePanel`, `tabCapture`, `offscreen`, `scripting`, `storage`, `identity`. Each maps to a feature.
+- [x] **`tabCapture`.** Removed for the SoundCloud-only release (SoundCloud is heard from its own HLS stream; tab capture was only a YouTube/Mixcloud fallback). The panel says it could not hear the mix if that fallback is ever reached. A high-scrutiny permission, so it comes back only with YouTube and Mixcloud.
+- [ ] **When YouTube and Mixcloud return:** restore `tabCapture` and their host permissions, and update the single-purpose text, permission justifications and privacy policy in the same submission.
+
+Keep: `sidePanel`, `offscreen`, `scripting`, `storage`, `unlimitedStorage`, `identity`. Each maps to a feature.
 
 ## Review risks to handle in the listing and privacy tab
 
