@@ -41,13 +41,31 @@ async function getArtist(query: string): Promise<any> {
   return text ? JSON.parse(text) : null;
 }
 
-/** Names worth looking up: the uploader, then the title with mix words and venues stripped. */
+/**
+ * Channels that host other DJs' sets. When one of these uploaded the mix, the DJ is in the title, and the
+ * channel's name in the title marks where the DJ's name ends ("Honey Dijon Boiler Room Sugar Mountain ...").
+ */
+const PLATFORMS = [
+  'boiler room', 'mixmag', 'cercle', 'resident advisor', 'ra', 'hör', 'hoer', 'hör berlin', 'defected', 'defected records',
+  'the lot radio', 'lot radio', 'nts', 'nts radio', 'rinse fm', 'rinse', 'dekmantel', 'keep hush', 'be-at.tv', 'beattv',
+  'awakenings', 'tomorrowland', 'circoloco', 'dj mag', 'djmag', 'fact', 'fact magazine', 'crack magazine', 'kiosk radio',
+  'balamii', 'worldwide fm', 'radio 1', 'bbc radio 1', 'essential mix', 'ministry of sound', 'cafe mambo', 'cercle records',
+  'stay true sounds', 'lights on', 'dirtybird', 'anjunadeep', 'drumcode', 'mixcloud', 'soundcloud', 'youtube',
+];
+const PLATFORM_RE = new RegExp(`\\b(${PLATFORMS.map((p) => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')})\\b`, 'gi');
+
+/** The uploader is a channel that hosts sets, not the DJ. */
+export const isPlatform = (name?: string) => !!name && PLATFORMS.includes(norm(name));
+
+/** Names worth looking up: the title split at venues, platforms and separators, plus the uploader when it is a DJ. */
 export function candidates(title: string, uploader?: string): string[] {
   const parts = title
-    .split(/\s+[|\-–:@]\s+|\s+(?:live at|at|b2b|x|presents)\s+|[()[\]]/i)
-    .map((p) => p.replace(/\b(boiler room|dj set|dj mix|mixtape|mix|live|set|podcast|session|sessions|episode|ep\.?|full)\b/gi, ' ').replace(/\s+/g, ' ').trim())
+    .replace(PLATFORM_RE, ' | ')
+    .split(/\s+[|\-–:@]\s+|\s*\|\s*|\s+(?:live at|at|b2b|x|presents|in|from)\s+|[()[\]]/i)
+    .map((p) => p.replace(/\b(dj set|dj mix|mixtape|mix|live|set|podcast|session|sessions|episode|ep\.?|full|stream|showcase)\b/gi, ' ').replace(/\s+/g, ' ').trim())
     .filter((p) => p.length > 2 && p.length < 40 && !/^\d+$/.test(p));
-  return [...new Set([uploader?.trim(), ...parts].filter(Boolean) as string[])].slice(0, 3);
+  const dj = uploader && !isPlatform(uploader) ? uploader.trim() : undefined;
+  return [...new Set([dj, ...parts].filter(Boolean) as string[])].slice(0, 3);
 }
 
 /**
@@ -61,6 +79,7 @@ export async function findArtist(title: string, uploader?: string): Promise<Arti
     const e = r?.mode === 'profile' ? r.entity : null;
     if (!e?.name) continue;
     const name = norm(e.name);
+    if (isPlatform(e.name)) continue;
     if (!inTitle.includes(name) && name !== norm(uploader ?? '')) continue;
     return {
       name: e.name,

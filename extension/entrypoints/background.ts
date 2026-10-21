@@ -5,7 +5,7 @@ import {
   BEATPORT_CART, bandcampAddToCart, bandcampReadSearch, bandcampReadTrack, bandcampSearchUrl,
   beatportApi, beatportBuyAll, beatportPlaylistUrl, storeCheck,
 } from '@/lib/stores';
-import { findArtist } from '@/lib/dizko';
+import { findArtist, isPlatform } from '@/lib/dizko';
 import { backfillUploaders, forget, mixKey, remember, saved } from '@/lib/history';
 import { setApp } from '@/lib/oauth';
 import { soundcloudPlaylist, spotifyPlaylist } from '@/lib/playlists';
@@ -183,6 +183,8 @@ async function read(tabId: number) {
   if (before) {
     const { savedAt: _, ...job } = before;
     job.mix.uploader ??= info.uploader;
+    // an older lookup took the hosting channel for the DJ; look again
+    if (isPlatform(job.artist?.name)) job.artist = undefined;
     await setJob(job);
     if (!job.artist) lookUpArtist(info);
     return job;

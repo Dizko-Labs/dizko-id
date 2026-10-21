@@ -7,4 +7,9 @@ describe('candidates', () => {
     expect(candidates('Honey Dijon | Boiler Room: London')[0]).toBe('Honey Dijon');
     expect(candidates('Derrick Carter Soulful House Mix | Boiler Room x Ballantines', 'Platform')).toContain('Derrick Carter Soulful House');
   });
+  it('skips a hosting channel and finds the DJ in the title', () => {
+    expect(candidates('Honey Dijon Boiler Room Sugar Mountain Melbourne DJ Set', 'Boiler Room')[0]).toBe('Honey Dijon');
+    expect(candidates('Peggy Gou | Cercle', 'Cercle')).toEqual(['Peggy Gou']);
+    expect(candidates('Kerri Chandler Boiler Room Mix', 'Kerri Chandler')[0]).toBe('Kerri Chandler');
+  });
 });

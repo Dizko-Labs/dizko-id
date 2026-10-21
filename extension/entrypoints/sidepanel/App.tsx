@@ -6,7 +6,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import type { Artist } from '@/lib/dizko';
+import { isPlatform, type Artist } from '@/lib/dizko';
 import { fileName, toCsv, toJson, toText } from '@/lib/export';
 import { mixKey, type Saved } from '@/lib/history';
 import { links } from '@/lib/links';
@@ -136,6 +136,9 @@ function ArtistBlock({ artist }: { artist: Artist }) {
 
 // ---- library: saved mixes and the tracks ticked across them
 
+/** The DJ for a saved mix: Dizko's match, else the uploader unless that is a channel hosting other DJs' sets. */
+const dj = (h: Saved) => (h.artist && !isPlatform(h.artist.name) ? h.artist.name : isPlatform(h.mix.uploader) ? undefined : h.mix.uploader);
+
 function Library({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => void }) {
   const picks = new Map<string, { row: Row; mix: Saved }>();
   for (const h of items) {
@@ -161,7 +164,7 @@ function Library({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => v
                 <button type="button" onClick={() => onOpen(h.mix.url)} className="block w-full text-left hover:underline">
                   <span className="line-clamp-2 text-[21px] leading-[1.05] font-black [font-stretch:64%]">{h.mix.title}</span>
                 </button>
-                {(h.artist?.name ?? h.mix.uploader) && <p className="mt-0.5 truncate text-[13px] font-semibold text-toner-1">{h.artist?.name ?? h.mix.uploader}</p>}
+                {dj(h) && <p className="mt-0.5 truncate text-[13px] font-semibold text-toner-1">{dj(h)}</p>}
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] font-semibold whitespace-nowrap text-toner-2">
                   <a href={h.mix.url} target="_blank" rel="noreferrer" className={cn(LINK, 'text-ink')}>{sourceOf(h.mix.url)}</a>
                   <span>{ticked} of {h.rows.length} picked</span>
@@ -404,7 +407,7 @@ export default function App() {
         </p>
       </header>
 
-      {job.artist && <ArtistBlock artist={job.artist} />}
+      {job.artist && !isPlatform(job.artist.name) && <ArtistBlock artist={job.artist} />}
 
       <section className="space-y-2.5 border-b-2 border-ink px-4 py-3">
         {job.phase === 'reading' && !job.rows.length && (
