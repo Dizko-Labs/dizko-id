@@ -58,9 +58,12 @@ SoundCloud only (2026-10-21, owner's call). YouTube and Mixcloud listening works
 
 ## Open work
 
-1. EventChat PR #845 (taste import, `taste:write`): green (`local-ci` success) and mergeable as of 2026-10-21; Claude's merge was refused by the auto-mode permission check, so the owner merges it. Then a backend deploy (`scripts/deploy-backend-production.sh`) and a web deploy (`npm run deploy:production` in `web/`) per EventChat's AGENTS.md. Until it is deployed, Link to Dizko fails at registration (unknown scope).
-2. PostHog: create a project and set `POSTHOG_KEY` in `extension/lib/analytics.ts` (public key, safe to commit).
-3. (none: Spotify and SoundCloud playlists were removed; a return would need one shared developer app per service or a small token-exchange backend for SoundCloud's secret.)
-4. Chrome Web Store: pin a manifest `key` so the extension id is stable, write the privacy disclosure (analytics, Dizko link), store listing.
-5. Queued features: shareable playlist page (needs hosting; ask before enabling GitHub Pages), YouTube Music and Apple Music playlists (via logged-in web sessions), a Mix to Cart button on YouTube.
-6. Open a PR from `extension` to `main` when the owner asks.
+Status 2026-10-21 (end of session): v0.1.0, SoundCloud only, being packaged for the Chrome Web Store. Checklist: `CHROME_WEB_STORE.md`; paste-ready listing and privacy-tab answers: `STORE_LISTING.md`; zip: `cd extension && npm run zip` (`.output/mix-to-cart-0.1.0-chrome.zip`, 827 KB).
+
+1. Privacy policy: Dizko ID section added to Dizko's existing policy, EventChat PR #849 (branch `docs/privacy-dizko-id`, `https://www.dizko.app/privacy-policy.html#dizko-id`). Its `scripts/ci.sh --report` was running at session end. Owner approved: merge once green (owner merges if the permission check refuses Claude), then `npm run deploy:production` in EventChat `web/` from a clean master checkout. The extension already links it (Settings and the consent prompt).
+2. Owner: register the Chrome Web Store developer account (fee, 2-Step Verification), upload the zip without publishing; then copy the public key (Package tab) into `manifest.key` in `wxt.config.ts` so unpacked and store builds share an id (Link to Dizko's OAuth redirect depends on it), rebuild, re-upload.
+3. Store images: 440x280 promo tile, 1 to 5 screenshots at 1280x800 from real renders. A real identification of `soundcloud.com/julianahuxtable/german-visa-pipeline-dekmantel-mix-288` was running into `real-history.json` in the session scratchpad for authentic screenshot data; redo it if lost (no invented tracks in screenshots).
+4. EventChat PR #845 (taste import, `taste:write`): green and mergeable; the owner merges it, then a backend deploy (`scripts/deploy-backend-production.sh`) and a web deploy. Until then Link to Dizko fails at registration (unknown scope).
+5. PostHog: create a project and set `POSTHOG_KEY` in `extension/lib/analytics.ts` (public key). Until then the consent prompt is asked but nothing is sent.
+6. Update after launch: YouTube and Mixcloud (see First release scope; long YouTube ads still stall a listen), and a queue for scanning several mixes (Shazam rate limits make concurrent listens slower, not faster).
+7. Open a PR from `extension` to `main` when the owner asks.
