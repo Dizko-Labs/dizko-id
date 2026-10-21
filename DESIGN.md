@@ -304,6 +304,16 @@ A carted track's name gets an acid band from 12% to 92% of the line box with Aci
 ### SoundCloud Launcher
 A "Dizko ID" pill with a cart glyph, appended after the last button in SoundCloud's own action row: on a track page (14px text, height from SoundCloud's Share button, minimum 28px) and on each single track in a listing such as a profile or stream (12px text, height from the row's first button, minimum 22px; albums and sets get none). Acid fill, Acid Ink semibold text in SoundCloud's page font, a full pill where SoundCloud's buttons are round and their corner radius where they are square, Acid Lift on hover, a 2px focus outline in the page's own text colour (acid could not be seen on SoundCloud's light page). If Chrome will not open the panel, the label changes to "Open from toolbar".
 
+## Motion
+
+Motion says where content came from, and nothing else moves.
+
+- **Screens** stack library, mix, artist. Going deeper slides the new screen in from the right (20px, fading in); going back slides it in from the left. 260ms on Dizko's enter easing, cubic-bezier(0.16, 1, 0.3, 1).
+- **Library tabs** slide in from the side the chosen tab sits on (Mixes, Artists, Tracks left to right), same timing. The chosen tab is remembered for the session.
+- **Revealed content** (more dates, the SoundCloud player) drops in from 6px above over 220ms; extra dates follow each other 40ms apart, and the chevron turns half a revolution.
+- **In your cart**: the acid marker draws in left to right over 420ms.
+- Under reduced motion every one of these becomes a 160ms fade.
+
 ## Do's and Don'ts
 
 ### Do:

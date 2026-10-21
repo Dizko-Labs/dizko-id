@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, ChevronDown, ChevronLeft, ChevronUp } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, ChevronLeft } from 'lucide-react';
 import { DizkoMark } from '@/components/DizkoMark';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -115,8 +115,8 @@ function ArtistBlock({ artist, onName, hideName }: { artist: Artist; onName?: ()
       <a href={artist.url} target="_blank" rel="noreferrer" className={cn(LINK, 'mt-1 inline-block text-[12px] font-semibold')}>More on Dizko</a>
       {artist.events.length > 0 && (
         <ul className="mt-2 space-y-1.5">
-          {shown.map((e) => (
-            <li key={e.url}>
+          {shown.map((e, i) => (
+            <li key={e.url} className={i >= 3 ? 'enter-down' : undefined} style={i >= 3 ? { animationDelay: `${(i - 3) * 40}ms` } : undefined}>
               <a href={e.url} target="_blank" rel="noreferrer" className="group grid grid-cols-[76px_minmax(0,1fr)] gap-x-2">
                 <span className="font-semibold">{new Date(`${e.date}T12:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}</span>
                 <span className="min-w-0">
@@ -136,7 +136,7 @@ function ArtistBlock({ artist, onName, hideName }: { artist: Artist; onName?: ()
           className="mt-1.5 flex items-center gap-1 text-[12px] font-semibold text-toner-1 hover:text-ink"
         >
           {allDates ? 'Fewer dates' : `${artist.events.length - 3} more dates`}
-          {allDates ? <ChevronUp className="size-3.5" aria-hidden /> : <ChevronDown className="size-3.5" aria-hidden />}
+          <ChevronDown className={cn('size-3.5 transition-transform duration-200 ease-out', allDates && 'rotate-180')} aria-hidden />
         </button>
       )}
       {!artist.claimed && (
@@ -186,7 +186,18 @@ function djsOf(items: Saved[]): Dj[] {
   return [...byDj.values()].sort((a, b) => b.mixes.length - a.mixes.length);
 }
 
+const TAB_ORDER = ['mixes', 'artists', 'tracks'];
+
 function Library({ items, onOpen, onArtist }: { items: Saved[]; onOpen: (url: string) => void; onArtist: (key: string) => void }) {
+  // the chosen tab survives a visit to a mix or an artist; the new tab slides in from the side it sits on
+  const [tabValue, setTabValue] = useState(() => sessionStorage.getItem('library-tab') ?? 'mixes');
+  const [tabFrom, setTabFrom] = useState<'right' | 'left' | null>(null);
+  const pickTab = (v: string) => {
+    setTabFrom(TAB_ORDER.indexOf(v) > TAB_ORDER.indexOf(tabValue) ? 'right' : 'left');
+    setTabValue(v);
+    try { sessionStorage.setItem('library-tab', v); } catch { /* storage can be unavailable */ }
+  };
+  const tabMotion = tabFrom === 'right' ? 'enter-right' : tabFrom === 'left' ? 'enter-left' : undefined;
   const picks = new Map<string, { row: Row; mix: Saved }>();
   for (const h of items) {
     for (const row of h.rows) {
@@ -197,13 +208,13 @@ function Library({ items, onOpen, onArtist }: { items: Saved[]; onOpen: (url: st
   }
   const artists = djsOf(items);
   return (
-    <Tabs defaultValue="mixes" className="min-h-0 flex-1 gap-0">
+    <Tabs value={tabValue} onValueChange={pickTab} className="min-h-0 flex-1 gap-0">
       <TabsList variant="line" className="mt-2 h-11 w-full justify-start gap-6 border-b border-toner-3 px-4">
         <TabsTrigger value="mixes" className="flex-none px-0 text-[14px] font-semibold">Mixes {items.length}</TabsTrigger>
         <TabsTrigger value="artists" className="flex-none px-0 text-[14px] font-semibold">Artists {artists.length}</TabsTrigger>
         <TabsTrigger value="tracks" className="flex-none px-0 text-[14px] font-semibold">Tracks {picks.size}</TabsTrigger>
       </TabsList>
-      <TabsContent value="mixes" className="overflow-y-auto px-4">
+      <TabsContent value="mixes" className={cn("overflow-y-auto px-4", tabMotion)}>
         <ul>
           {items.map((h) => {
             const ticked = h.rows.filter((r) => r.selected).length;
@@ -235,7 +246,7 @@ function Library({ items, onOpen, onArtist }: { items: Saved[]; onOpen: (url: st
           })}
         </ul>
       </TabsContent>
-      <TabsContent value="artists" className="overflow-y-auto px-4">
+      <TabsContent value="artists" className={cn("overflow-y-auto px-4", tabMotion)}>
         {!artists.length && <p className="py-5 text-[14px] text-toner-1">The DJs behind the mixes you open collect here.</p>}
         <ul>
           {artists.map(({ key, name, artist, mixes }) => {
@@ -264,7 +275,7 @@ function Library({ items, onOpen, onArtist }: { items: Saved[]; onOpen: (url: st
           })}
         </ul>
       </TabsContent>
-      <TabsContent value="tracks" className="overflow-y-auto px-4">
+      <TabsContent value="tracks" className={cn("overflow-y-auto px-4", tabMotion)}>
         {!picks.size && <p className="py-5 text-[14px] text-toner-1">Tracks you tick in a mix collect here.</p>}
         <ul>
           {[...picks.values()].map(({ row, mix }) => (
@@ -292,11 +303,12 @@ function Library({ items, onOpen, onArtist }: { items: Saved[]; onOpen: (url: st
 
 /** SoundCloud's own embeddable player, so a mix plays inside the panel. */
 function Player({ url }: { url: string }) {
+  // appears below what opened it, so it drops in from above
   const src = `https://w.soundcloud.com/player/?url=${encodeURIComponent(url)}&color=%23c4f236&auto_play=false&hide_related=true&show_comments=false&show_user=true&show_reposts=false&show_teaser=false&visual=false`;
-  return <iframe title="SoundCloud player" src={src} className="mt-2 h-[120px] w-full rounded-[0.75rem] border-0" allow="autoplay" loading="lazy" />;
+  return <iframe title="SoundCloud player" src={src} className="enter-down mt-2 h-[120px] w-full rounded-[0.75rem] border-0" allow="autoplay" loading="lazy" />;
 }
 
-function ArtistPage({ entry, onBack, onOpen }: { entry: Dj; onBack: () => void; onOpen: (url: string) => void }) {
+function ArtistPage({ entry, onBack, onOpen, motion }: { entry: Dj; onBack: () => void; onOpen: (url: string) => void; motion?: string }) {
   const { name, artist, mixes } = entry;
   // their SoundCloud: Dizko's link, else the profile behind a mix they uploaded themselves
   const profile =
@@ -311,7 +323,7 @@ function ArtistPage({ entry, onBack, onOpen }: { entry: Dj; onBack: () => void; 
   const scanned = new Set(mixes.map((h) => mixKey(h.mix.url)));
   const unscanned = (more ?? []).filter((u) => !scanned.has(mixKey(u.url)));
   return (
-    <main className="flex h-full flex-col overflow-y-auto">
+    <main className={cn('flex h-full flex-col overflow-y-auto', motion)}>
       <header className="border-b border-toner-3 px-4 pt-3 pb-3.5">
         <button type="button" onClick={onBack} className="-ml-1.5 flex min-h-9 items-center gap-1 pr-2 text-[16px] font-semibold hover:underline">
           <ChevronLeft className="size-6" strokeWidth={2.25} aria-hidden />
@@ -514,15 +526,25 @@ export default function App() {
 
   const showMix = !!job && !library && (sameMix || fromLibrary || busy);
 
+  // Screens stack library < mix < artist: deeper arrives from the right, back from the left
+  const screen = artistKey ? `artist:${artistKey}` : showMix ? `mix:${mixKey(job!.mix.url)}` : 'library';
+  const depth = artistKey ? 2 : showMix ? 1 : 0;
+  const last = useRef({ screen, depth });
+  const motion = useRef<string | undefined>(undefined);
+  if (last.current.screen !== screen) {
+    motion.current = depth >= last.current.depth ? 'enter-right' : 'enter-left';
+    last.current = { screen, depth };
+  }
+
   if (artistKey) {
     const fromJob: Dj | undefined = job?.artist ? { key: artistKey, name: job.artist.name, artist: job.artist, mixes: [] } : undefined;
     const entry = djsOf(items).find((d) => d.key === artistKey) ?? fromJob;
-    if (entry) return <ArtistPage entry={entry} onBack={() => { setArtistKey(null); setLibrary(true); }} onOpen={open} />;
+    if (entry) return <ArtistPage key={screen} motion={motion.current} entry={entry} onBack={() => { setArtistKey(null); setLibrary(true); }} onOpen={open} />;
   }
 
   if (!showMix) {
     return (
-      <main className="flex h-full flex-col">
+      <main key={screen} className={cn('flex h-full flex-col', motion.current)}>
         {/* the brand bar: Dizko's raised surface, its mark, and room above the library */}
         <header className="border-b border-toner-3 bg-surface px-4 pt-5 pb-4">
           <div className="flex items-center gap-2.5">
@@ -577,7 +599,7 @@ export default function App() {
   );
 
   return (
-    <main className="flex h-full flex-col">
+    <main key={screen} className={cn('flex h-full flex-col', motion.current)}>
       <header className="border-b border-toner-3 px-4 pt-3 pb-3.5">
         <button type="button" onClick={() => setLibrary(true)} className="-ml-1.5 flex min-h-9 items-center gap-1 pr-2 text-[16px] font-semibold hover:underline">
           <ChevronLeft className="size-6" strokeWidth={2.25} aria-hidden />
