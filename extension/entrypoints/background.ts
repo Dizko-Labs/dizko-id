@@ -520,6 +520,7 @@ function beatportOffer(t: any): Offer {
     bpm: t.bpm ?? undefined,
     key: t.key?.camelot_number ? { camelot: `${t.key.camelot_number}${t.key.camelot_letter ?? ''}`, name: t.key.name ?? '' } : undefined,
     length: t.length_ms ? Math.round(t.length_ms / 1000) : undefined,
+    sample: typeof t.sample_url === 'string' && t.sample_url.startsWith('https://') ? t.sample_url : undefined,
   };
 }
 

@@ -33,6 +33,8 @@ export interface Offer {
   key?: { camelot: string; name: string };
   /** seconds */
   length?: number;
+  /** Beatport's preview clip of this release */
+  sample?: string;
   release?: string;
   label?: string;
   /** ISO date, used to prefer original releases over later compilations */

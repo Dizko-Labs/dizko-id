@@ -28,6 +28,9 @@ export default defineConfig({
       'https://api-v2.soundcloud.com/*',
       // cover art for tracks saved without it
       'https://itunes.apple.com/*',
+      // track previews: Beatport's samples, Apple's 30 second previews
+      'https://geo-samples.beatport.com/*',
+      'https://audio-ssl.itunes.apple.com/*',
       // anonymous usage events, only after the DJ agrees
       'https://us.i.posthog.com/*',
       // linking to a Dizko account and importing taste

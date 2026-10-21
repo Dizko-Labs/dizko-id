@@ -1,3 +1,4 @@
+import { Settings } from 'lucide-react';
 import { DizkoMark } from '@/components/DizkoMark';
 
 /** Dizko ID on every screen: the mark opens dizko.app. */
@@ -8,6 +9,14 @@ export function BrandBar() {
         <DizkoMark className="h-[20px] w-auto text-ink" />
       </a>
       <span className="text-[18px] leading-none font-semibold tracking-[-0.02em]">Dizko ID</span>
+      <button
+        type="button"
+        onClick={() => window.dispatchEvent(new Event('dizko-settings'))}
+        aria-label="Settings"
+        className="ml-auto -mr-1.5 flex size-9 items-center justify-center rounded-full text-toner-1 hover:bg-paper hover:text-ink"
+      >
+        <Settings className="size-5" aria-hidden />
+      </button>
     </div>
   );
 }

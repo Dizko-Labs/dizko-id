@@ -35,7 +35,7 @@ export function DizkoLinkBar() {
   };
   const linked = !!a.access;
   return (
-    <section data-area="account" className="border-b border-toner-3 px-4 py-3.5 text-[13px]">
+    <section data-area="account" className="px-4 py-3 text-[13px]">
       {linked ? (
         <>
           <p className="leading-snug">

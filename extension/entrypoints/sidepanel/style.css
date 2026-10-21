@@ -42,8 +42,9 @@
   --radius: 0.75rem;
 }
 
+/* Light follows the system unless the DJ chose a theme in settings (data-theme on <html>) */
 @media (prefers-color-scheme: light) {
-  :root {
+  :root:not([data-theme="dark"]) {
     --paper: #ecece6;
     --surface: #deded7;
     --ink: #0d0d0d;
@@ -56,6 +57,19 @@
     --miss: #c0392b;
     --focus: #0d0d0d;
   }
+}
+:root[data-theme="light"] {
+    --paper: #ecece6;
+    --surface: #deded7;
+    --ink: #0d0d0d;
+    --toner-1: #45453f;
+    --toner-2: #6f6f68;
+    --toner-3: #c4c4bc;
+    --tick: #0d0d0d;
+    --on-tick: #c4f236;
+    --fill: #4e6b00;
+    --miss: #c0392b;
+    --focus: #0d0d0d;
 }
 
 @theme inline {

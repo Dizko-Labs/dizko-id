@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, ChevronDown, ChevronLeft } from 'lucide-react';
-import { UsageSetting } from './Consent';
-import { DizkoLinkBar } from './DizkoLinkBar';
+import { ArrowUpRight, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { PreviewButton, stopPreview } from './Preview';
+import { SettingsPage, useSettings } from './Settings';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -202,7 +202,11 @@ function djsOf(items: Saved[]): Dj[] {
 
 const TAB_ORDER = ['artists', 'mixes', 'tracks'];
 
-function Library({ items, onOpen, onArtist }: { items: Saved[]; onOpen: (url: string) => void; onArtist: (key: string) => void }) {
+function Library({ items, onOpen, onArtist, onAccount }: { items: Saved[]; onOpen: (url: string) => void; onArtist: (key: string) => void; onAccount: () => void }) {
+  const [linked, setLinked] = useState(true);
+  useEffect(() => {
+    browser.storage.local.get('dizkoAccount').then((r) => setLinked(!!(r.dizkoAccount as { access?: string } | undefined)?.access));
+  }, []);
   // the chosen tab survives a visit to a mix or an artist; the new tab slides in from the side it sits on
   const [tabValue, setTabValue] = useState(() => sessionStorage.getItem('library-tab') ?? 'artists');
   const [tabFrom, setTabFrom] = useState<'right' | 'left' | null>(null);
@@ -262,6 +266,12 @@ function Library({ items, onOpen, onArtist }: { items: Saved[]; onOpen: (url: st
       </TabsContent>
       <TabsContent value="artists" className={cn("px-4 pb-6", tabMotion)}>
         {!artists.length && <p className="py-5 text-[14px] text-toner-1">The DJs behind the mixes you open collect here.</p>}
+        {artists.length > 0 && !linked && (
+          <button type="button" onClick={onAccount} className="mt-3 flex w-full items-center justify-between gap-3 rounded-[0.75rem] bg-surface px-3.5 py-3 text-left text-[13px] hover:bg-toner-3/40">
+            <span><span className="font-semibold">Bring these DJs into your Dizko feed</span><span className="block text-toner-2">Link your Dizko account</span></span>
+            <ChevronRight className="size-4 shrink-0 text-toner-2" aria-hidden />
+          </button>
+        )}
         <ul>
           {artists.map(({ key, name, artist, avatar, mixes }) => {
             const next = artist?.events[0];
@@ -297,7 +307,10 @@ function Library({ items, onOpen, onArtist }: { items: Saved[]; onOpen: (url: st
         <ul>
           {[...picks.values()].map(({ row, mix }) => (
             <li key={`${row.track.artist}|${row.track.title}`} className="grid grid-cols-[52px_minmax(0,1fr)] gap-x-3 border-b border-toner-3 py-2.5">
-              <Cover src={row.track.art ?? row.offer?.art} />
+              <div className="flex flex-col items-center gap-2">
+                <Cover src={row.track.art ?? row.offer?.art} />
+                <PreviewButton row={row} />
+              </div>
               <div className="min-w-0">
               <p className="truncate text-[13px] font-semibold text-toner-1">{row.track.artist}</p>
               <p className="text-[16px] leading-[1.2] font-semibold tracking-[-0.01em]">
@@ -508,6 +521,14 @@ export default function App() {
   const [opened, setOpened] = useState<string | null>(null);
   // an artist's page, by DJ key; cleared by moving to another page or opening a mix
   const [artistKey, setArtistKey] = useState<string | null>(null);
+  // the settings screen, opened from the gear in the brand bar
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const prefs = useSettings();
+  useEffect(() => {
+    const show = () => setSettingsOpen(true);
+    window.addEventListener('dizko-settings', show);
+    return () => window.removeEventListener('dizko-settings', show);
+  }, []);
   const onMixPage = !!tab && MIX_SITES.test(tab.url);
   const sameMix = !!job && !!tab && mixKey(job.mix.url) === mixKey(tab.url);
   const fromLibrary = !!job && !!opened && !sameMix && mixKey(job.mix.url) === mixKey(opened);
@@ -517,6 +538,7 @@ export default function App() {
   useEffect(() => {
     setLibrary(false);
     setArtistKey(null);
+    setSettingsOpen(false);
     if (onMixPage) setOpened(null);
     if (tab && onMixPage && !sameMix && !busy) {
       send({ type: 'panel:read', tabId: tab.id }).then((r) => setError(r?.error ?? ''));
@@ -539,10 +561,10 @@ export default function App() {
   // button below only comes back if that listen could not start
   const started = useRef(new Set<string>());
   useEffect(() => {
-    if (!job || !sameMix || busy || job.phase !== 'reading' || job.rows.length || started.current.has(mixKey(job.mix.url))) return;
+    if (!prefs.ready || !prefs.autoListen || !job || !sameMix || busy || job.phase !== 'reading' || job.rows.length || started.current.has(mixKey(job.mix.url))) return;
     started.current.add(mixKey(job.mix.url));
     listen();
-  }, [job?.mix.url, job?.phase, sameMix]);
+  }, [job?.mix.url, job?.phase, sameMix, prefs.ready, prefs.autoListen]);
 
   /** Scan a mix from an artist page without opening it: the panel moves to it while it is read and heard. */
   async function scan(url: string) {
@@ -578,14 +600,19 @@ export default function App() {
   const showMix = !!job && !library && (sameMix || fromLibrary || busy);
 
   // Screens stack library < mix < artist: deeper arrives from the right, back from the left
-  const screen = artistKey ? `artist:${artistKey}` : peek ? `mix:${mixKey(peek.mix.url)}` : showMix ? `mix:${mixKey(job!.mix.url)}` : 'library';
-  const depth = artistKey ? 2 : showMix ? 1 : 0;
+  const screen = settingsOpen ? 'settings' : artistKey ? `artist:${artistKey}` : peek ? `mix:${mixKey(peek.mix.url)}` : showMix ? `mix:${mixKey(job!.mix.url)}` : 'library';
+  const depth = settingsOpen ? 3 : artistKey ? 2 : showMix ? 1 : 0;
   const last = useRef({ screen, depth });
   const motion = useRef<string | undefined>(undefined);
   if (last.current.screen !== screen) {
     motion.current = depth >= last.current.depth ? 'enter-right' : 'enter-left';
     last.current = { screen, depth };
   }
+
+  // a screen change stops any preview that was playing
+  useEffect(() => stopPreview(), [screen]);
+
+  if (settingsOpen) return <SettingsPage key="settings" motion={motion.current} onBack={() => setSettingsOpen(false)} />;
 
   if (artistKey) {
     const fromJob: Dj | undefined = job?.artist ? { key: artistKey, name: job.artist.name, artist: job.artist, mixes: [] } : undefined;
@@ -596,38 +623,26 @@ export default function App() {
   if (!showMix) {
     return (
       <main key={screen} className={cn('flex h-full flex-col overflow-y-auto', motion.current)}>
-        {/* the brand bar: Dizko's raised surface, its mark, and room above the library */}
-        {/* the brand bar above carries the mark and name; the library adds what Dizko ID does */}
-        <header data-area="claim" className="border-b border-toner-3 bg-surface px-4 pt-1 pb-5">
-          <h1 className="sr-only">Dizko ID library</h1>
-          <p className="max-w-[34ch] text-[14px] leading-snug text-toner-1">
-            Find every track in a DJ mix, see where the DJ plays next, and send the tracks to your Beatport or Bandcamp cart or a playlist.
-          </p>
-          <div className="mt-4 space-y-1.5 text-[13px] text-toner-1">
-            <p>
-              Are you a DJ?{' '}
-              <a href="https://build.dizko.app" target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1 underline-offset-2">Claim your page on Dizko</a>
-            </p>
-            <p>
-              <a href="https://www.instagram.com/dizko.world/" target="_blank" rel="noreferrer" data-content="instagram" className="font-semibold text-ink underline decoration-1 underline-offset-2">Follow Dizko on Instagram</a>
-            </p>
-          </div>
-        </header>
-        {!(onMixPage && !library) && items.length > 0 && <DizkoLinkBar />}
+        <h1 className="sr-only">Dizko ID library</h1>
         {job && library && (sameMix || busy) && (
-          <button type="button" onClick={() => setLibrary(false)} className="border-b border-toner-3 px-4 py-2.5 text-left text-[13px] font-semibold hover:underline">
-            Back to {job.mix.title}
+          <button type="button" onClick={() => setLibrary(false)} className="flex items-center gap-2.5 border-b border-toner-3 px-4 py-2.5 text-left text-[13px] hover:bg-surface">
+            {busy && <span className="size-2 shrink-0 animate-pulse rounded-full bg-acid" aria-hidden />}
+            <span className="shrink-0 text-toner-2">{busy ? 'Now listening' : 'Back to'}</span>
+            <span className="min-w-0 truncate font-semibold">{job.mix.title}</span>
           </button>
         )}
         {onMixPage && !library ? (
           <p className="px-4 py-5 text-[15px] text-toner-1">Reading this mix…</p>
         ) : items.length ? (
-          <Library items={items} onOpen={open} onArtist={setArtistKey} />
+          <Library items={items} onOpen={open} onArtist={setArtistKey} onAccount={() => setSettingsOpen(true)} />
         ) : (
-          <p className="px-4 py-5 text-[15px] leading-snug text-toner-1">Open a DJ mix on YouTube, SoundCloud or Mixcloud, and its tracklist appears here. Every mix you open is saved to your library.</p>
+          // first run: say what this is, once, where the library will be
+          <div className="px-4 py-6">
+            <p className="text-[20px] leading-[1.2] font-semibold tracking-[-0.02em]">Open a DJ mix on SoundCloud, YouTube or Mixcloud.</p>
+            <p className="mt-3 max-w-[36ch] text-[14px] leading-snug text-toner-1">Dizko ID finds every track, shows where the DJ plays next, and sends the tracks to your Beatport or Bandcamp cart or a playlist. Every mix you open is saved here.</p>
+          </div>
         )}
         {error && <p className="px-4 pb-3 text-[13px] text-miss">{error}</p>}
-        {!onMixPage && <UsageSetting />}
       </main>
     );
   }
@@ -651,12 +666,15 @@ export default function App() {
     <div>
       <p className="mb-1.5 text-[13px] font-semibold">Purchase</p>
       <div className="grid grid-cols-2 gap-2">
-        <Button disabled={!forBeatport} onClick={() => cartIn('beatport')} className="h-10 text-[14px] font-semibold">
-          Beatport{forBeatport ? ` (${forBeatport})` : ''}
-        </Button>
-        <Button variant="outline" disabled={!forBandcamp} onClick={() => cartIn('bandcamp')} className="h-10 border-toner-2 bg-transparent hover:bg-surface text-[14px] font-semibold">
-          Bandcamp{forBandcamp ? ` (${forBandcamp})` : ''}
-        </Button>
+        {(prefs.marketplace === 'bandcamp' ? (['bandcamp', 'beatport'] as const) : (['beatport', 'bandcamp'] as const)).map((store) => {
+          const count = store === 'beatport' ? forBeatport : forBandcamp;
+          const lead = store === prefs.marketplace;
+          return (
+            <Button key={store} variant={lead ? 'default' : 'outline'} disabled={!count} onClick={() => cartIn(store)} className={cn('h-10 text-[14px] font-semibold', !lead && 'border-toner-2 bg-transparent hover:bg-surface')}>
+              {STORE_NAME[store]}{count ? ` (${count})` : ''}
+            </Button>
+          );
+        })}
       </div>
     </div>
   );
@@ -703,10 +721,10 @@ export default function App() {
         {view.phase === 'reading' && !view.rows.length && (
           <>
             <p className="text-[14px] leading-snug">
-              {error ? 'Listening could not start.' : 'No tracklist in the description, so it listens to the mix.'}
+              {error ? 'Listening could not start.' : prefs.autoListen ? 'No tracklist in the description, so it listens to the mix.' : 'No tracklist in the description. Dizko ID can listen to the mix to find the tracks.'}
               {view.method === 'seek' ? ' This tab stays quiet while it jumps through.' : view.method === 'live' ? ' Press play and leave it running.' : ''}
             </p>
-            {error && <Button onClick={() => listen()} disabled={!sameMix} className="h-10 w-full text-[15px] font-semibold">Try again</Button>}
+            {(error || !prefs.autoListen) && <Button onClick={() => listen()} disabled={!sameMix || readOnly} className="h-10 w-full text-[15px] font-semibold">{error ? 'Try again' : 'Identify tracks'}</Button>}
           </>
         )}
         {(view.phase === 'identifying' || (view.phase === 'carting' && view.listening)) && (
@@ -887,7 +905,10 @@ function TrackRow({ row, index, locked }: { row: Row; index: number; locked: boo
     // Status shares the artist line so the track name, notes and links get the full width
     <li className="grid grid-cols-[22px_42px_minmax(0,1fr)] gap-x-2 border-b border-toner-3 py-2.5">
       <Checkbox id={id} checked={row.selected} disabled={locked} onCheckedChange={() => send({ type: 'panel:toggle', index })} className="mt-0.5 border-toner-2 data-[state=checked]:border-tick data-[state=checked]:bg-tick data-[state=checked]:text-on-tick" />
-      <span className="pt-0.5 text-[12px] font-semibold text-toner-2">{clock(row.track.at)}</span>
+      <div className="flex flex-col items-start gap-1.5">
+        <span className="pt-0.5 text-[12px] font-semibold text-toner-2">{clock(row.track.at)}</span>
+        <PreviewButton row={row} />
+      </div>
       <div className="min-w-0">
         <div className="flex items-baseline justify-between gap-3">
           <label htmlFor={id} className="min-w-0 cursor-pointer truncate text-[13px] font-semibold text-toner-1">{row.track.artist}</label>

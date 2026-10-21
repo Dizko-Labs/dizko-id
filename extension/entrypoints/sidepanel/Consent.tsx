@@ -27,14 +27,14 @@ export function ConsentBar() {
 }
 
 /** The standing switch, for after the first answer. */
-export function UsageSetting() {
+export function UsageSetting({ always = false }: { always?: boolean }) {
   const [answer, setAnswer] = useState<Consent | undefined>();
   useEffect(() => {
     consent().then(setAnswer);
   }, []);
-  if (!answer) return null;
+  if (!answer && !always) return null;
   const flip = async () => {
-    const next = answer === 'yes' ? 'no' : 'yes';
+    const next = answer === 'yes' ? 'no' : 'yes';  // unanswered counts as not shared
     await setConsent(next);
     setAnswer(next);
   };

@@ -3,6 +3,7 @@ import App from './App';
 import { BrandBar } from './BrandBar';
 import { ConsentBar } from './Consent';
 import { hostOf, track } from '@/lib/analytics';
+import { settings } from '@/lib/settings';
 import { utm } from '@/lib/utm';
 import './style.css';
 
@@ -25,6 +26,14 @@ function tagOutbound(e: MouseEvent) {
   a.dataset.tagged = a.href;
 }
 document.addEventListener('click', tagOutbound, true);
+
+// Appearance from settings: 'system' leaves it to the OS
+const applyTheme = () => settings().then((s) => {
+  if (s.theme === 'system') delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = s.theme;
+});
+applyTheme();
+browser.storage.onChanged.addListener((changes, area) => area === 'local' && 'settings' in changes && applyTheme());
 document.addEventListener('auxclick', tagOutbound, true);
 
 createRoot(document.getElementById('root')!).render(
