@@ -60,6 +60,8 @@ npm run compile   # typecheck
 
 ## Not done yet
 
+- Later: create a playlist of the mix on SoundCloud (we have app access) and on Spotify.
+- Later: add to carts through Beatport's v4 cart API and Bandcamp's cart request instead of pressing buttons in a background tab.
+
 - Mixcloud has only the generic "listen in real time" path.
 - The icons are the WXT placeholder.
-- A successful Beatport add has been tested only up to the login wall; the logged-in click path needs a real account run.
