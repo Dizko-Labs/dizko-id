@@ -236,6 +236,7 @@ async function read(tabId: number) {
     await setJob(job);
     // missing, or saved long enough ago that its dates may have moved: fetch again, showing the old copy meanwhile
     if (!job.artist || isStale(job.artist)) lookUpArtist(info);
+    if (!job.enriched) enrich().catch(() => {});
     return job;
   }
   const tracks = parseTracklist(info.description);
@@ -248,6 +249,7 @@ async function read(tabId: number) {
   };
   await setJob(job);
   lookUpArtist(info);
+  if (tracks.length) enrich().catch(() => {});
   return job;
 }
 
@@ -354,6 +356,7 @@ async function identify(tabId: number, streamId?: string, resume = false) {
     // a stopped listen keeps its place, so Keep listening can resume from there
     const stoppedEarly = stopListening;
     await update((job) => ({ ...job, phase: job.phase === 'identifying' ? 'review' : job.phase, listening: false, progress: stoppedEarly ? job.progress : 1 }));
+    enrich().catch(() => {});
   }
 }
 
@@ -458,6 +461,9 @@ function beatportOffer(t: any): Offer {
     label: t.release?.label?.name,
     released: t.publish_date ?? t.new_release_date,
     art: t.image?.uri ?? t.release?.image?.uri,
+    bpm: t.bpm ?? undefined,
+    key: t.key?.camelot_number ? { camelot: `${t.key.camelot_number}${t.key.camelot_letter ?? ''}`, name: t.key.name ?? '' } : undefined,
+    length: t.length_ms ? Math.round(t.length_ms / 1000) : undefined,
   };
 }
 
@@ -664,6 +670,32 @@ async function playlist(service: 'beatport' | 'spotify' | 'soundcloud') {
     await update((j) => ({ ...j, error: e instanceof Error ? e.message : String(e) }));
   } finally {
     await update((j) => ({ ...j, making: undefined }));
+  }
+}
+
+/**
+ * BPM, key and length for every track: one Beatport lookup each (the same match the cart uses, so the track's
+ * Beatport link also becomes the exact release), without carting anything. Once per mix, and only while nothing
+ * else is running; tracks Beatport does not have just stay without them.
+ */
+async function enrich() {
+  const job = await getJob();
+  if (!job || job.enriched || busy(job)) return;
+  const todo = job.rows.filter((r) => r.offer?.store !== 'beatport' && !r.missingFrom?.includes('beatport'));
+  if (!todo.length) return void (await update((j) => ({ ...j, enriched: true })));
+  const tab = await openTab('https://www.beatport.com/');
+  try {
+    if (await run(tab, storeCheck)) return;
+    for (const row of todo) {
+      const now = await getJob();
+      if (!now || mixKey(now.mix.url) !== mixKey(job.mix.url) || busy(now)) return;
+      const m = await matchBeatport(tab, row.track);
+      if (m.status === 'login-needed' || m.status === 'failed') return;
+      if (m.offer) await patchRow(keyOf(row.track), { offer: m.offer });
+    }
+    await update((j) => (mixKey(j.mix.url) === mixKey(job.mix.url) ? { ...j, enriched: true } : j));
+  } finally {
+    await browser.tabs.remove(tab).catch(() => {});
   }
 }
 

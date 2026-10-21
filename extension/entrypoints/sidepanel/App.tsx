@@ -286,6 +286,7 @@ function Library({ items, onOpen, onArtist }: { items: Saved[]; onOpen: (url: st
               <p className="text-[16px] leading-[1.2] font-semibold tracking-[-0.01em]">
                 <span className={row.status === 'carted' ? 'highlighter' : undefined}>{row.track.title}</span>
               </p>
+              <TrackFacts offer={row.offer} />
               <button type="button" onClick={() => onOpen(mix.mix.url)} className="mt-0.5 block max-w-full truncate text-left text-[12px] text-toner-2 hover:text-ink hover:underline">
                 From {mix.mix.title}
               </button>
@@ -709,7 +710,7 @@ export default function App() {
                   In your <a href={playlistUrl} target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1">Beatport playlist</a>; its Buy All puts them in the cart.
                 </p>
               )}
-              {job.phase === 'review' && job.method !== 'live' && paused != null && paused < 0.98 && (
+              {job.phase === 'review' && (job.method === 'stream' || job.method === 'seek') && paused != null && paused < (job.progress != null ? 0.98 : 0.85) && (
                 // A listen that stopped part way (a stop, a switch, an extension reload): the bar stays, in grey
                 <div className="space-y-1.5">
                   <div className="flex items-baseline justify-between">
@@ -802,6 +803,21 @@ const STATUS_TEXT: Partial<Record<Row['status'], string>> = {
 
 const STORE_NAME: Record<Store, string> = { beatport: 'Beatport', bandcamp: 'Bandcamp' };
 
+/** BPM, key and length from the Beatport release, the numbers a DJ plans a set with. */
+function TrackFacts({ offer }: { offer?: Row['offer'] }) {
+  if (!offer || (!offer.bpm && !offer.key && !offer.length)) return null;
+  // Camelot first (how most DJs mix in key), then the short musical key: "4A (Fm)"
+  const short = offer.key?.name.replace(/ Minor$/, 'm').replace(/ Major$/, '').replace(/ /g, '');
+  const key = offer.key && `${offer.key.camelot}${short ? ` (${short})` : ''}`;
+  const facts = [offer.bpm && `${Math.round(offer.bpm)} BPM`, key, offer.length && clock(offer.length)].filter(Boolean);
+  return (
+    <p className="mt-0.5 text-[12px] font-medium text-toner-1 tabular-nums" title={offer.key?.name || undefined}>
+      {facts.join('  ·  ')}
+      {offer.version ? <span className="text-toner-2">{`  ·  ${offer.version}`}</span> : null}
+    </p>
+  );
+}
+
 function TrackRow({ row, index, locked }: { row: Row; index: number; locked: boolean }) {
   const confirmed = row.track.hits >= 2;
   const where = row.missingFrom?.length ? row.missingFrom.map((s) => STORE_NAME[s]).join(' or ') : '';
@@ -825,6 +841,7 @@ function TrackRow({ row, index, locked }: { row: Row; index: number; locked: boo
         <label htmlFor={id} className={cn('block cursor-pointer leading-[1.08]', confirmed ? 'text-[19px] font-semibold tracking-[-0.02em]' : 'text-[15px] font-medium')}>
           <span className={row.status === 'carted' ? 'highlighter' : undefined}>{row.track.title}</span>
         </label>
+        <TrackFacts offer={row.offer} />
         {row.status === 'version-missing' && row.alternatives?.length ? (
           <p className="mt-0.5 text-[12px] text-toner-1">Available: {[...new Set(row.alternatives.map((a) => a.version || 'Original'))].join(', ')}</p>
         ) : null}

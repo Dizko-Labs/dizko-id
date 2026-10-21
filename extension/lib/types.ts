@@ -28,6 +28,11 @@ export interface Offer {
   price?: { value: number; currency: string; display: string };
   isrc?: string;
   art?: string;
+  bpm?: number;
+  /** Camelot notation, the way DJs mix in key (e.g. 8A), with the musical name */
+  key?: { camelot: string; name: string };
+  /** seconds */
+  length?: number;
   release?: string;
   label?: string;
   /** ISO date, used to prefer original releases over later compilations */
@@ -86,6 +91,8 @@ export interface Job {
   playlist?: { beatport?: number };
   /** playlists made from the ticked tracks, by service */
   made?: Partial<Record<PlaylistService, { url: string; added: number; missing: string[]; at: number }>>;
+  /** the tracks have been looked up on Beatport once for BPM, key and length */
+  enriched?: boolean;
   /** a playlist is being made right now */
   making?: PlaylistService;
   error?: string;
