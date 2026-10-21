@@ -67,6 +67,15 @@ function download(job: Job, kind: 'txt' | 'csv' | 'json') {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
+function DizkoLink() {
+  return (
+    <p className="mt-2.5 text-[13px]">
+      Are you a DJ?{' '}
+      <a href="https://build.dizko.app" target="_blank" rel="noreferrer" className="font-semibold underline decoration-1">Claim your page on Dizko</a>
+    </p>
+  );
+}
+
 export default function App() {
   const job = useJob();
   const tab = useActiveTab();
@@ -99,6 +108,7 @@ export default function App() {
       <main className="flex min-h-full flex-col">
         <header className="bg-pink px-4 pt-4 pb-3.5 text-on-pink">
           <h1 className="text-[34px] leading-[0.95] font-black [font-stretch:62%]">Mix to Cart</h1>
+          <DizkoLink />
         </header>
         <p className="px-4 py-5 text-[15px] leading-snug text-toner-1">
           {onMixPage ? 'Reading this mix…' : 'Open a DJ mix on YouTube, SoundCloud or Mixcloud, and its tracklist appears here.'}
@@ -112,46 +122,12 @@ export default function App() {
   const unconfirmed = job.rows.filter((r) => r.track.hits < 2).length;
   const carted = job.rows.filter((r) => r.status === 'carted');
   const busy = job.phase === 'identifying' || job.phase === 'carting';
+  const locked = job.phase === 'carting';
   const stores = STORE_PLANS.find((p) => p.id === plan)!.stores;
   const current = job.rows.findIndex((r) => r.status === 'searching');
   const source = /youtube\.com/.test(job.mix.url) ? 'YouTube' : /soundcloud\.com/.test(job.mix.url) ? 'SoundCloud' : /mixcloud\.com/.test(job.mix.url) ? 'Mixcloud' : '';
 
-  return (
-    <main className="flex h-full flex-col">
-      <header className="bg-pink px-4 pt-4 pb-3.5 text-on-pink">
-        <h1 className="line-clamp-3 text-[34px] leading-[0.95] font-black tracking-[-0.01em] [font-stretch:62%]">{job.mix.title}</h1>
-        <p className="mt-2 flex flex-wrap gap-x-3.5 text-[13px] font-semibold">
-          {source && <span>{source}</span>}
-          {job.mix.duration ? <span>{clock(job.mix.duration)}</span> : null}
-          {job.rows.length > 0 && <span>{job.rows.length} tracks</span>}
-          <span>{job.tracklistFound ? 'From the description' : job.rows.length ? 'Identified by listening' : ''}</span>
-        </p>
-      </header>
-
-      <section className="border-b-2 border-ink px-4 py-3">
-        {job.phase === 'reading' && !job.rows.length && (
-          <div className="space-y-2.5">
-            <p className="text-[14px] leading-snug">No tracklist in the description. Listen to the mix to identify its tracks{job.method === 'stream' ? '. This takes a couple of minutes.' : job.method === 'seek' ? '; this tab stays quiet while it jumps through.' : '; press play and leave it running.'}</p>
-            <Button onClick={listen} className="h-10 w-full text-[15px] font-extrabold">Identify tracks</Button>
-          </div>
-        )}
-        {job.phase === 'identifying' && (
-          <div className="space-y-2">
-            <div className="flex items-baseline justify-between">
-              <span className="text-[14px] font-semibold">Listening</span>
-              <span className="text-[20px] font-black [font-stretch:75%]">{Math.round((job.progress ?? 0) * 100)}%</span>
-            </div>
-            <Progress value={(job.progress ?? 0) * 100} className="h-1.5 bg-toner-3 [&>*]:bg-ink" />
-            <Button variant="outline" onClick={() => send({ type: 'panel:stop' })} className="h-9 w-full border-ink bg-transparent">Stop and use what was found</Button>
-          </div>
-        )}
-        {job.phase === 'review' && !job.rows.length && (
-          <div className="space-y-2.5">
-            {!job.error && <p className="text-[14px] leading-snug">No tracks were recognized in this mix.</p>}
-            <Button onClick={listen} className="h-10 w-full text-[15px] font-extrabold">Try again</Button>
-          </div>
-        )}
-        {job.phase === 'review' && job.rows.length > 0 && (
+  const cartRow = (
           <div className="flex gap-2">
             <Button disabled={!selected.length} onClick={() => send({ type: 'panel:cart', stores })} className="h-10 flex-1 text-[15px] font-extrabold">
               Add {selected.length} to cart
@@ -170,7 +146,46 @@ export default function App() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
+  );
+
+  return (
+    <main className="flex h-full flex-col">
+      <header className="bg-pink px-4 pt-4 pb-3.5 text-on-pink">
+        <h1 className="line-clamp-3 text-[34px] leading-[0.95] font-black tracking-[-0.01em] [font-stretch:62%]">{job.mix.title}</h1>
+        <p className="mt-2 flex flex-wrap gap-x-3.5 text-[13px] font-semibold">
+          {source && <span>{source}</span>}
+          {job.mix.duration ? <span>{clock(job.mix.duration)}</span> : null}
+          {job.rows.length > 0 && <span>{job.rows.length} tracks</span>}
+          <span>{job.tracklistFound ? 'From the description' : job.rows.length ? 'Identified by listening' : ''}</span>
+        </p>
+        <DizkoLink />
+      </header>
+
+      <section className="border-b-2 border-ink px-4 py-3">
+        {job.phase === 'reading' && !job.rows.length && (
+          <div className="space-y-2.5">
+            <p className="text-[14px] leading-snug">No tracklist in the description. Listen to the mix to identify its tracks{job.method === 'stream' ? '. This takes a couple of minutes.' : job.method === 'seek' ? '; this tab stays quiet while it jumps through.' : '; press play and leave it running.'}</p>
+            <Button onClick={listen} className="h-10 w-full text-[15px] font-extrabold">Identify tracks</Button>
+          </div>
         )}
+        {job.phase === 'identifying' && (
+          <div className="space-y-2">
+            <div className="flex items-baseline justify-between">
+              <span className="text-[14px] font-semibold">Listening</span>
+              <span className="text-[20px] font-black [font-stretch:75%]">{Math.round((job.progress ?? 0) * 100)}%</span>
+            </div>
+            <Progress value={(job.progress ?? 0) * 100} className="h-1.5 bg-toner-3 [&>*]:bg-ink" />
+            {job.rows.length > 0 && <div className="pt-1">{cartRow}</div>}
+            <Button variant="ghost" onClick={() => send({ type: 'panel:stop' })} className="h-8 w-full text-[13px] text-toner-2">Stop listening</Button>
+          </div>
+        )}
+        {job.phase === 'review' && !job.rows.length && (
+          <div className="space-y-2.5">
+            {!job.error && <p className="text-[14px] leading-snug">No tracks were recognized in this mix.</p>}
+            <Button onClick={listen} className="h-10 w-full text-[15px] font-extrabold">Try again</Button>
+          </div>
+        )}
+        {job.phase === 'review' && job.rows.length > 0 && cartRow}
         {job.phase === 'carting' && (
           <div className="space-y-1.5">
             <div className="flex items-baseline justify-between">
@@ -208,8 +223,8 @@ export default function App() {
         <div className="flex items-center justify-between border-b border-toner-3 px-4 py-1.5 text-[13px]">
           <span className="text-toner-2">{selected.length} of {job.rows.length} selected</span>
           <span className="flex">
-            <Button variant="ghost" size="sm" disabled={busy} onClick={() => send({ type: 'panel:select', all: true })} className="h-8 px-2 text-[13px]">Select all</Button>
-            <Button variant="ghost" size="sm" disabled={busy} onClick={() => send({ type: 'panel:select', all: false })} className="h-8 px-2 text-[13px]">Deselect all</Button>
+            <Button variant="ghost" size="sm" disabled={locked} onClick={() => send({ type: 'panel:select', all: true })} className="h-8 px-2 text-[13px]">Select all</Button>
+            <Button variant="ghost" size="sm" disabled={locked} onClick={() => send({ type: 'panel:select', all: false })} className="h-8 px-2 text-[13px]">Deselect all</Button>
           </span>
         </div>
       )}
@@ -217,14 +232,14 @@ export default function App() {
       <div className="flex-1 overflow-y-auto px-4 pb-4">
         {/* Billed like a flyer: confirmed tracks are the lineup, single-hit IDs go on the "plus" line */}
         <ol>
-          {job.rows.map((row, i) => row.track.hits >= 2 && <TrackRow key={`${row.track.artist}|${row.track.title}`} row={row} index={i} locked={busy} />)}
+          {job.rows.map((row, i) => row.track.hits >= 2 && <TrackRow key={`${row.track.artist}|${row.track.title}`} row={row} index={i} locked={locked} />)}
         </ol>
         {unconfirmed > 0 && (
           <>
             <h2 className="mt-5 border-b-2 border-ink pb-1.5 text-[19px] font-black [font-stretch:75%]">Plus {unconfirmed} unconfirmed</h2>
             <p className="pt-1.5 text-[12px] text-toner-2">Each heard in one clip only. Often a sample or a blend, so they start unticked.</p>
             <ol>
-              {job.rows.map((row, i) => row.track.hits < 2 && <TrackRow key={`${row.track.artist}|${row.track.title}`} row={row} index={i} locked={busy} />)}
+              {job.rows.map((row, i) => row.track.hits < 2 && <TrackRow key={`${row.track.artist}|${row.track.title}`} row={row} index={i} locked={locked} />)}
             </ol>
           </>
         )}

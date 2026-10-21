@@ -13,6 +13,7 @@ const NAME_YOUR_PRICE = 1;
 
 export default defineBackground(() => {
   browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+  recover();
   browser.runtime.onMessage.addListener((msg: PanelRequest & { streamId?: string }, _sender, reply) => {
     if (!msg.type?.startsWith('panel:')) return;
     handle(msg).then(reply, (e) => reply({ error: String(e) }));
@@ -36,6 +37,28 @@ async function patchRow(i: number, patch: Partial<Row>) {
 }
 
 let stopping = false;
+
+/**
+ * Chrome stops an idle extension worker after about 30 seconds, and a pending timer does not count as activity.
+ * Wait in short steps that touch extension storage so a long wait (a Shazam back-off, a login) keeps it alive.
+ */
+async function nap(ms: number) {
+  for (const end = Date.now() + ms; Date.now() < end && !stopping; ) {
+    await new Promise((r) => setTimeout(r, Math.min(10_000, end - Date.now())));
+    await browser.storage.session.get('job');
+  }
+}
+
+/** A fresh worker means any job that was running died with the old one: settle it so the panel is not stuck. */
+async function recover() {
+  const job = await getJob();
+  if (job?.phase === 'identifying') {
+    await setJob({ ...job, phase: 'review', error: 'Listening stopped part way. These are the tracks found before it did.' });
+  } else if (job?.phase === 'carting') {
+    const rows = job.rows.map((r) => (r.status === 'searching' ? { ...r, status: 'queued' as const } : r));
+    await setJob({ ...job, rows, phase: 'done', waitingFor: undefined, error: 'Adding to cart stopped part way. Press Add to cart again to finish.' });
+  }
+}
 
 async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknown> {
   switch (msg.type) {
@@ -64,6 +87,11 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
       return { ok: true };
     }
     case 'panel:cart':
+      // Carting while still listening: stop listening and cart what has been found so far
+      if ((await getJob())?.phase === 'identifying') {
+        stopping = true;
+        for (let i = 0; i < 120 && (await getJob())?.phase === 'identifying'; i++) await new Promise((r) => setTimeout(r, 250));
+      }
       stopping = false;
       cart(msg.stores).catch(async (e) => {
         const job = await getJob();
@@ -136,7 +164,8 @@ async function lookup(get: () => Promise<ClipResult>): Promise<ClipResult> {
     const r = await get();
     if (r.error !== 'shazam 429') return r;
     if (wait > 80_000 || stopping) throw new Error(RATE_LIMITED);
-    await new Promise((res) => setTimeout(res, wait));
+    await nap(wait);
+    if (stopping) return {};
   }
 }
 
@@ -154,11 +183,13 @@ async function identify(tabId: number, streamId?: string) {
   let failed = '';
   const publish = async (progress: number) => {
     job = (await getJob())!;
-    const prior = new Map(job.rows.map((r) => [`${r.track.artist}|${r.track.title}`, r.selected]));
+    const prior = new Map(job.rows.map((r) => [`${r.track.artist}|${r.track.title}`, r]));
     job.rows = collapse(hits).map((t) => {
       const row = rowFor(t);
       // keep a tick the DJ already set; a second hit ticks a row that was unticked by default
-      row.selected = row.selected || prior.get(`${t.artist}|${t.title}`) === true;
+      // keep the DJ's tick or untick; only a track's second hit ticks it automatically
+      const was = prior.get(`${t.artist}|${t.title}`);
+      if (was) row.selected = was.track.hits < 2 && t.hits >= 2 ? true : was.selected;
       return row;
     });
     await setJob({ ...job, phase: 'identifying', progress });
@@ -195,7 +226,7 @@ async function identify(tabId: number, streamId?: string) {
         const r = await lookup(() => offscreen<ClipResult>({ type: 'offscreen:clip', seconds: 10 }));
         if (r.track) hits.push({ at, ...r.track });
         await publish(Math.min(1, at / limit));
-        await new Promise((res) => setTimeout(res, 20_000));
+        await nap(20_000);
       }
     }
     // Every clip erroring is a broken run, not a mix with no known tracks
