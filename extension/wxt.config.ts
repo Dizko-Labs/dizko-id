@@ -6,12 +6,10 @@ export default defineConfig({
   vite: () => ({ plugins: [tailwindcss()] }),
   manifest: {
     name: 'Dizko ID',
-    description: 'Find every track in a DJ mix and add them to your Beatport or Bandcamp cart.',
+    description: 'Find every track in a SoundCloud DJ mix, see where the DJ plays next, and fill your Beatport or Bandcamp cart.',
     permissions: ['sidePanel', 'tabCapture', 'offscreen', 'scripting', 'storage', 'unlimitedStorage', 'tabs', 'identity'],
     host_permissions: [
-      'https://www.youtube.com/*',
       'https://soundcloud.com/*',
-      'https://www.mixcloud.com/*',
       'https://www.beatport.com/*',
       'https://*.bandcamp.com/*',
       'https://amp.shazam.com/*',

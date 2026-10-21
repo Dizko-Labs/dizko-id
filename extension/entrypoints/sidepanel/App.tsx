@@ -19,7 +19,8 @@ import { beatportPlaylistUrl } from '@/lib/stores';
 import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, coverage, type Job, trackKey, type Row, type Store } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
-const MIX_SITES = /^https:\/\/(www\.youtube\.com\/watch|soundcloud\.com\/[^/]+\/[^/]+|www\.mixcloud\.com\/[^/]+\/[^/]+)/;
+// SoundCloud only for the first release; YouTube (www\.youtube\.com\/watch) and Mixcloud come back in an update
+const MIX_SITES = /^https:\/\/soundcloud\.com\/[^/]+\/[^/]+/;
 
 const send = (msg: PanelRequest & { streamId?: string }) => browser.runtime.sendMessage(msg);
 const cartIn = (store: Store) => send({ type: 'panel:cart', stores: [store] });
@@ -584,7 +585,7 @@ export default function App() {
         ) : (
           // first run: say what this is, once, where the library will be
           <div className="px-4 py-6">
-            <p className="text-[20px] leading-[1.2] font-semibold tracking-[-0.02em]">Open a DJ mix on SoundCloud, YouTube or Mixcloud.</p>
+            <p className="text-[20px] leading-[1.2] font-semibold tracking-[-0.02em]">Open a DJ mix on SoundCloud.</p>
             <p className="mt-3 max-w-[36ch] text-[14px] leading-snug text-toner-1">Dizko ID finds every track, shows where the DJ plays next, and sends the tracks to your Beatport or Bandcamp cart or a playlist. Every mix you open is saved here.</p>
           </div>
         )}

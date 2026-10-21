@@ -6,7 +6,8 @@ import { avatarOf, soundcloudStream, soundOf } from '@/lib/soundcloudPage';
  * so the background can sample a clip every few seconds of mix without the DJ scrubbing by hand.
  */
 export default defineContentScript({
-  matches: ['https://www.youtube.com/*', 'https://soundcloud.com/*', 'https://www.mixcloud.com/*'],
+  // SoundCloud only for the first release; YouTube and Mixcloud work but wait on ad handling (see CLAUDE.md)
+  matches: ['https://soundcloud.com/*'],
   main() {
     browser.runtime.onMessage.addListener((msg: SourceRequest, _sender, reply) => {
       handle(msg).then(reply, (e) => reply({ error: String(e) }));

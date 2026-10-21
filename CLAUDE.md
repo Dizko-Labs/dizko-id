@@ -11,6 +11,10 @@ Two things live here:
 
 Branch state (2026-10-21): all extension work is on `extension` (pushed, not merged to `main`, no PR opened yet). Ask before merging to `main`.
 
+## First release scope
+
+SoundCloud only (2026-10-21, owner's call). YouTube and Mixcloud listening works from the page's own player (commit "hear YouTube and Mixcloud from the page's own player") but long unskippable YouTube ads still stall a listen. To bring them back in an update: add their URLs to `matches` in `source.content.ts`, to `MIX_SITES` in `App.tsx`, and to `host_permissions` in `wxt.config.ts`, restore the first-run copy, and test with ads. Store submission checklist: `CHROME_WEB_STORE.md`.
+
 ## How the extension works
 
 - `entrypoints/background.ts`: the service worker. One job in `storage.session` (`job`), every edit through `update()` (a queue so listening and carting never overwrite each other). Separate stop switches for listening, carting and the Beatport follower. `recover()` settles a job left running by a killed worker. Long runs pass their mix as `owner` to `update()`/`patchRow()` so their writes drop once the job is another mix; whole-job writes go through `replace()` in the same queue; `listening`/`carting`/`scanning` sets stop a double press starting a second run. `panel:*` messages are accepted only from `sidepanel.html`.
