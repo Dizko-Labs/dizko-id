@@ -47,6 +47,7 @@ SoundCloud only (2026-10-21, owner's call). YouTube and Mixcloud listening works
 - Real components (shadcn, or Arc UI from uiarc.dev). ui.shadcn.com does not resolve on the owner's network; fetch component source from raw.githubusercontent.com/shadcn-ui/ui.
 - Git: pull before changing, commit and push after, never commit to `main` without asking, stage by name, no secrets. Other repos (EventChat, dizko-mcp) have their own AGENTS.md rules: EventChat merges only after `scripts/ci.sh --report` is green from a clean worktree, and deploys only through its scripts.
 - Never enter passwords, never check out or pay, never bypass CAPTCHAs or bot detection. The owner logs in themselves.
+- Minimal UI copy: no labels, hints or summaries a control already conveys; where text is needed, make the control self-describing ("Beatport cart (2)", not a "Purchase" label over "Beatport").
 - The owner works fast and iterates visually from screenshots. Make the change, verify it in a real render, report plainly. Answer direct questions directly.
 
 ## Testing

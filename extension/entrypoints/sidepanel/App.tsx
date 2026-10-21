@@ -605,14 +605,13 @@ export default function App() {
 
   const cartButtons = (forBeatport > 0 || forBandcamp > 0) && (
     <div>
-      <p className="mb-1.5 text-[13px] font-semibold">Purchase</p>
       <div className="grid grid-cols-2 gap-2">
         {(prefs.marketplace === 'bandcamp' ? (['bandcamp', 'beatport'] as const) : (['beatport', 'bandcamp'] as const)).map((store) => {
           const count = store === 'beatport' ? forBeatport : forBandcamp;
           const lead = store === prefs.marketplace;
           return (
             <Button key={store} variant={lead ? 'default' : 'outline'} disabled={!count} onClick={() => cartIn(store)} className={cn('h-10 text-[14px] font-semibold', !lead && 'border-toner-2 bg-transparent hover:bg-surface')}>
-              {STORE_NAME[store]}{count ? ` (${count})` : ''}
+              {STORE_NAME[store]} cart{count ? ` (${count})` : ''}
             </Button>
           );
         })}

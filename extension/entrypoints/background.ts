@@ -160,7 +160,7 @@ async function recover() {
   if (!job || !busy(job)) return;
   const rows = job.rows.map((r) => (r.status === 'searching' ? { ...r, status: 'queued' as const } : r));
   const error = job.phase === 'carting'
-    ? 'Adding to your cart stopped part way. Press Beatport or Bandcamp under Purchase again to finish.'
+    ? 'Adding to your cart stopped part way. Press the cart button again to finish.'
     : 'Listening stopped part way. These are the tracks found before it did.';
   await replace({ ...job, rows, phase: job.phase === 'carting' ? 'done' : 'review', listening: false, following: false, waitingFor: undefined, error });
 }
@@ -655,7 +655,7 @@ async function cart(stores: Store[]) {
 }
 
 async function cartRun(stores: Store[], owner: string) {
-  // The tracks ticked when a Purchase button was pressed; tracks found later by the still running listen wait for the next press
+  // The tracks ticked when a cart button was pressed; tracks found later by the still running listen wait for the next press
   const job = await update((j) => ({ ...j, phase: 'carting', error: undefined }), owner);
   if (!job) return;
   const patch = (key: string, p: Partial<Row>) => patchRow(key, p, owner);
