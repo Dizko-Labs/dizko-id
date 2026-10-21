@@ -9,7 +9,12 @@ export interface Artist {
   genres: string[];
   cities: string[];
   events: { title: string; date: string; city: string; venue: string; url: string }[];
+  /** when this was fetched: dates go stale, so a saved artist is refreshed after a while */
+  fetchedAt?: number;
 }
+
+/** A saved artist worth fetching again: older than 12 hours, or saved before fetch times were kept. */
+export const isStale = (a?: Artist) => !a?.fetchedAt || Date.now() - a.fetchedAt > 12 * 3600 * 1000;
 
 const tag = (url: string) => {
   const u = new URL(url);
@@ -29,7 +34,7 @@ async function getArtist(query: string): Promise<any> {
       method: 'tools/call',
       params: {
         name: 'get_artist',
-        arguments: { query, limit: 5 },
+        arguments: { query, limit: 20 },
         _meta: { 'io.modelcontextprotocol/protocolVersion': '2026-07-28', 'io.modelcontextprotocol/clientCapabilities': {} },
       },
     }),
@@ -82,6 +87,7 @@ export async function findArtist(title: string, uploader?: string): Promise<Arti
       name: e.name,
       url: tag(r.page?.page_url ?? e.dizko_url),
       claimed: !!r.page?.published,
+      fetchedAt: Date.now(),
       genres: (e.genres ?? []).slice(0, 3),
       cities: (e.cities ?? []).slice(0, 3),
       events: [...(e.upcoming_appearances ?? [])]

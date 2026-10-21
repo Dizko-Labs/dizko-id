@@ -463,7 +463,7 @@ export default function App() {
         <p className="mt-2 flex flex-wrap gap-x-3.5 text-[13px] font-semibold">
           <a href={job.mix.url} target="_blank" rel="noreferrer" className="underline decoration-1 underline-offset-2">{sourceOf(job.mix.url)}</a>
           {job.mix.duration ? <span>{clock(job.mix.duration)}</span> : null}
-          {job.rows.length > 0 && <span>{job.rows.length} tracks</span>}
+          {job.rows.length > 0 && <span>{job.rows.length} {job.rows.length === 1 ? "track" : "tracks"}</span>}
         </p>
       </header>
 
