@@ -353,7 +353,7 @@ function ArtistPage({ entry, onBack, onOpen }: { entry: Dj; onBack: () => void; 
                   <button type="button" onClick={() => setPlaying(playing === u.url ? null : u.url)} className={cn(LINK, 'ml-auto font-semibold')}>
                     {playing === u.url ? 'Hide player' : 'Listen'}
                   </button>
-                  <Button onClick={() => send({ type: 'panel:scan', url: u.url })} className="h-8 px-3.5 text-[13px] font-semibold">Scan mix</Button>
+                  <Button variant="outline" onClick={() => send({ type: 'panel:scan', url: u.url })} className="h-8 border-toner-2 bg-transparent px-3.5 text-[13px] font-semibold hover:bg-surface">Scan mix</Button>
                 </div>
                 {playing === u.url && <Player url={u.url} />}
               </li>
