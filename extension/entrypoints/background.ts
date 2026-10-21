@@ -51,6 +51,8 @@ export default defineBackground(() => {
       return true;
     }
     if (!msg.type?.startsWith('panel:')) return;
+    // panel:* commands come only from the extension's own side panel, never a content script on a page
+    if (!sender.url?.startsWith(browser.runtime.getURL('/sidepanel.html'))) return;
     handle(msg).then(reply, (e) => reply({ error: String(e) }));
     return true;
   });

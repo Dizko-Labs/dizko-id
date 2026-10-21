@@ -23,3 +23,14 @@ describe('cleanMixUrl', () => {
     expect(cleanMixUrl('https://soundcloud.com/kerri-chandler/boiler-room-mix?utm_source=dizko_id&si=abc#t=1:00')).toBe('https://soundcloud.com/kerri-chandler/boiler-room-mix');
   });
 });
+
+import { toCsv } from '../lib/export';
+
+describe('toCsv', () => {
+  it('keeps formula-looking cells as text', () => {
+    const job = { mix: { title: 'm', url: 'https://soundcloud.com/a/b' }, phase: 'review', rows: [{ track: { at: 0, artist: '=HYPERLINK("http://x")', title: '-1+2', hits: 2, source: 'shazam' }, selected: true, status: 'queued' }] } as any;
+    const csv = toCsv(job);
+    expect(csv).toContain(`"'=HYPERLINK(""http://x"")"`);
+    expect(csv).toContain(`'-1+2`);
+  });
+});

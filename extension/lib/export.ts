@@ -22,7 +22,9 @@ export function toText(job: Job): string {
 }
 
 const csvCell = (v: string | number | undefined) => {
-  const s = v == null ? '' : String(v);
+  let s = v == null ? '' : String(v);
+  // a cell a spreadsheet would read as a formula (titles come from Shazam and uploaders) is kept as text
+  if (typeof v === 'string' && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 
