@@ -225,7 +225,7 @@ Near-black and off-white with one acid green; colour is semantic and scarce.
 - **Display** (600, 26px, 1.05, -0.03em): the mix title in the header (up to three lines) and the "Mix to Cart" name on the library view.
 - **Headline** (600, 19px, 1.08, -0.02em): confirmed track names.
 - **Title** (600, 18px, 1.15, -0.02em): mix titles in the library list and the listening percentage. The DJ name in the Dizko block sits beside it at 17px.
-- **Title Small** (600, 16px, 1.2, -0.01em): the "Plus N unconfirmed" heading and track names in the Picks tab.
+- **Title Small** (600, 16px, 1.2, -0.01em): the "Plus N unconfirmed" heading and track names in the Tracks tab.
 - **Track Small** (500, 15px, 1.08): unconfirmed track names. Empty and reading states use 15px regular in Secondary Text.
 - **Body** (400, 14px, 1.375, -0.005em): sentences in the status section, button labels (set to 600 on buttons).
 - **Label** (600, 13px): artist lines, header meta, section labels such as "Playlist of the N ticked", tabs, ghost buttons at 13px regular.
@@ -269,7 +269,7 @@ Dizko pills, sentence case.
 - **Disabled:** 50% opacity, no pointer events.
 
 ### Text actions and links
-Underlined links use a Hairline underline that darkens to Text on hover, 2 to 3px offset. Quiet actions (Stop, Remove, the "From" line in Picks) are plain Tertiary Text that turns Text and underlines on hover.
+Underlined links use a Hairline underline that darkens to Text on hover, 2 to 3px offset. Quiet actions (Stop, Remove, the "From" line in Tracks) are plain Tertiary Text that turns Text and underlines on hover.
 
 ### Checkbox
 - **Style:** 16px, 4px corners, 1px Tertiary Text border; checked fills acid with an Acid Ink check.
@@ -280,7 +280,7 @@ Underlined links use a Hairline underline that darkens to Text on hover, 2 to 3p
 - **Focus:** border turns acid, plus the global focus outline.
 
 ### Tabs
-The library's Mixes and Picks tabs use the line variant: 40px row, 20px apart, 14px semibold labels at 60% Text, the active tab in full Text with a 2px Text underline. The tab row sits on a hairline.
+The library's Mixes, Artists and Tracks tabs use the line variant: 40px row, 20px apart, 14px semibold labels at 60% Text, the active tab in full Text with a 2px Text underline. The tab row sits on a hairline.
 
 ### Dropdown Menu
 - **Style:** Surface fill, 12px corners, 4px inner padding, no shadow. Items are 14px with 10px corners and a Surface focus fill.
@@ -299,7 +299,7 @@ The DJ behind the mix: name at 17px semibold linking to Dizko, genres and base c
 The signature component. See The Billing Rule. Store status sits at the right of the artist line in Status type: "In cart" and "In playlist" in Text, Searching and not-stocked messages in Tertiary Text, failures in Miss. Store links (Beatport, Bandcamp, Spotify, YouTube) are Caption links.
 
 ### In Your Cart Marker
-A carted track's name gets an acid band from 12% to 92% of the line box with Acid Ink text, 3px bleed either side and 3px corners, wrapping cleanly across lines. It draws in left to right over 420ms on cubic-bezier(0.16, 1, 0.3, 1) (Dizko's enter easing) when the track is carted, and appears instantly under reduced motion. Used in the tracklist and the Picks tab.
+A carted track's name gets an acid band from 12% to 92% of the line box with Acid Ink text, 3px bleed either side and 3px corners, wrapping cleanly across lines. It draws in left to right over 420ms on cubic-bezier(0.16, 1, 0.3, 1) (Dizko's enter easing) when the track is carted, and appears instantly under reduced motion. Used in the tracklist and the Tracks tab.
 
 ### SoundCloud Launcher
 A "Mix to Cart" pill with a cart glyph, appended after the last button in SoundCloud's own action row: on a track page (14px text, height from SoundCloud's Share button, minimum 28px) and on each single track in a listing such as a profile or stream (12px text, height from the row's first button, minimum 22px; albums and sets get none). Acid fill, Acid Ink semibold text in SoundCloud's page font, a full pill where SoundCloud's buttons are round and their corner radius where they are square, Acid Lift on hover, a 2px focus outline in the page's own text colour (acid could not be seen on SoundCloud's light page). If Chrome will not open the panel, the label changes to "Open from toolbar".

@@ -174,7 +174,7 @@ function Library({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => v
       <TabsList variant="line" className="h-10 w-full justify-start gap-5 border-b border-toner-3 px-4">
         <TabsTrigger value="mixes" className="flex-none px-0 text-[14px] font-semibold">Mixes {items.length}</TabsTrigger>
         <TabsTrigger value="artists" className="flex-none px-0 text-[14px] font-semibold">Artists {artists.length}</TabsTrigger>
-        <TabsTrigger value="picks" className="flex-none px-0 text-[14px] font-semibold">Picks {picks.size}</TabsTrigger>
+        <TabsTrigger value="tracks" className="flex-none px-0 text-[14px] font-semibold">Tracks {picks.size}</TabsTrigger>
       </TabsList>
       <TabsContent value="mixes" className="overflow-y-auto px-4">
         <ul>
@@ -189,7 +189,7 @@ function Library({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => v
                 {dj(h) && <p className="mt-0.5 truncate text-[13px] font-semibold text-toner-1">{dj(h)}</p>}
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] font-semibold whitespace-nowrap text-toner-2">
                   <a href={h.mix.url} target="_blank" rel="noreferrer" className={cn(LINK, 'text-ink')}>{sourceOf(h.mix.url)}</a>
-                  <span>{ticked} of {h.rows.length} picked</span>
+                  <span>{ticked} of {h.rows.length} ticked</span>
                   {carted > 0 && <span className="text-ink">{carted} in cart</span>}
                   <span>{when(h.savedAt)}</span>
                   <button type="button" onClick={() => send({ type: 'panel:forget', url: h.mix.url })} className="ml-auto text-toner-2 hover:text-ink hover:underline">
@@ -235,7 +235,7 @@ function Library({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => v
           })}
         </ul>
       </TabsContent>
-      <TabsContent value="picks" className="overflow-y-auto px-4">
+      <TabsContent value="tracks" className="overflow-y-auto px-4">
         {!picks.size && <p className="py-5 text-[14px] text-toner-1">Tracks you tick in a mix collect here.</p>}
         <ul>
           {[...picks.values()].map(({ row, mix }) => (
