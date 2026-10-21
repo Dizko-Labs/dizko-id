@@ -20,6 +20,33 @@
         ],
         "createdAt": "2026-10-20T15:02:36.562Z",
         "reason": "Claude: archived decision-round sketch, kept as the record of the options the user chose between; never shipped"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/assigned.html"
+        ],
+        "createdAt": "2026-10-21T04:02:25.174Z",
+        "reason": "Claude: archived decision-round sketch showing a candidate direction's own type; never shipped (the shipped panel uses Archivo Variable per DESIGN.md)"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/model-pick.html"
+        ],
+        "createdAt": "2026-10-21T04:02:25.174Z",
+        "reason": "Claude: archived decision-round sketch showing a candidate direction's own type; never shipped (the shipped panel uses Archivo Variable per DESIGN.md)"
+      },
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/decision/challenger-transit.html"
+        ],
+        "createdAt": "2026-10-21T04:02:25.174Z",
+        "reason": "Claude: archived decision-round sketch showing a candidate direction's own type; never shipped (the shipped panel uses Archivo Variable per DESIGN.md)"
       }
     ]
   }
