@@ -56,6 +56,7 @@ function patchRow(key: string, patch: Partial<Row>) {
 /** Separate switches, so stopping the cart run leaves listening going and the other way round. */
 let stopListening = false;
 let stopCarting = false;
+let stopFollowing = false;
 
 /**
  * Chrome stops an idle extension worker after about 30 seconds, and a pending timer does not count as activity.
@@ -71,12 +72,12 @@ async function nap(ms: number, stopped = () => stopListening) {
 /** A fresh worker means any job that was running died with the old one: settle it so the panel is not stuck. */
 async function recover() {
   const job = await getJob();
-  if (!job || (job.phase !== 'identifying' && job.phase !== 'carting' && !job.listening)) return;
+  if (!job || (job.phase !== 'identifying' && job.phase !== 'carting' && !job.listening && !job.following)) return;
   const rows = job.rows.map((r) => (r.status === 'searching' ? { ...r, status: 'queued' as const } : r));
   const error = job.phase === 'carting'
     ? 'Adding to cart stopped part way. Press Add to cart again to finish.'
     : 'Listening stopped part way. These are the tracks found before it did.';
-  await setJob({ ...job, rows, phase: job.phase === 'carting' ? 'done' : 'review', listening: false, waitingFor: undefined, error });
+  await setJob({ ...job, rows, phase: job.phase === 'carting' ? 'done' : 'review', listening: false, following: false, waitingFor: undefined, error });
 }
 
 async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknown> {
@@ -123,6 +124,7 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
       // Start over means scan this mix afresh, so it leaves the history too
       stopListening = true;
       stopCarting = true;
+      stopFollowing = true;
       const job = await getJob();
       if (job) await forget(job.mix.url);
       await setJob(null);
@@ -422,6 +424,7 @@ async function cart(stores: Store[]) {
   let bandcampTab: number | undefined;
   let playlist: number | null = null;
   let playlistCarted = false;
+  let handOff = false;
   try {
     if (stores.includes('beatport') && keys.length) {
       beatportTab = await openTab('https://www.beatport.com/');
@@ -461,6 +464,8 @@ async function cart(stores: Store[]) {
           }
         }
       }
+      // Still listening: keep this tab and put each new find in the playlist as it comes
+      handOff = !!playlist && !stopCarting && !!(await getJob())?.listening;
     }
     for (const key of toBandcamp) {
       if (stopCarting) break;
@@ -475,7 +480,7 @@ async function cart(stores: Store[]) {
       await new Promise((r) => setTimeout(r, 800)); // human pace between tracks
     }
   } finally {
-    for (const tab of [beatportTab, bandcampTab]) if (tab) await browser.tabs.remove(tab).catch(() => {});
+    for (const tab of [handOff ? undefined : beatportTab, bandcampTab]) if (tab) await browser.tabs.remove(tab).catch(() => {});
     await update((j) => ({
       ...j,
       phase: j.listening ? 'identifying' : 'done',
@@ -486,5 +491,39 @@ async function cart(stores: Store[]) {
     for (const url of Object.values(carts)) await browser.tabs.create({ url, active: false });
     // Buy All did not go through: hand the DJ the playlist, where it is one press
     if (playlist && !playlistCarted) await browser.tabs.create({ url: beatportPlaylistUrl(playlist), active: true });
+    if (handOff) follow(beatportTab!).catch(() => {});
+  }
+}
+
+/**
+ * After a playlist run started mid-listen: every track the listen confirms from then on (ticked by default) goes
+ * into the mix's Beatport playlist within a few seconds. Not into the cart; the DJ curates the playlist and its
+ * Buy All covers the rest. Ends with one last pass once listening finishes.
+ */
+async function follow(tab: number) {
+  stopFollowing = false;
+  await update((j) => ({ ...j, following: true }));
+  try {
+    for (;;) {
+      const job = await getJob();
+      if (!job || stopFollowing || job.phase === 'carting') break;
+      const fresh = job.rows.filter((r) => r.selected && r.status === 'queued');
+      const matched: { key: string; offer: Offer }[] = [];
+      for (const row of fresh) {
+        if (stopFollowing) break;
+        const key = keyOf(row.track);
+        const m = await matchBeatport(tab, row.track);
+        if (m.offer) matched.push({ key, offer: m.offer });
+        else await patchRow(key, { status: m.status, alternatives: m.alternatives?.slice(0, 4) });
+      }
+      if (matched.length && (await fillPlaylist(tab, (await getJob())!, matched.map((m) => m.offer.id)))) {
+        for (const m of matched) await patchRow(m.key, { status: 'in-playlist', offer: m.offer });
+      }
+      if (!job.listening) break;
+      await nap(5000, () => stopFollowing);
+    }
+  } finally {
+    await browser.tabs.remove(tab).catch(() => {});
+    await update((j) => ({ ...j, following: false }));
   }
 }

@@ -65,6 +65,8 @@ export interface Job {
   waitingFor?: 'beatport-login' | 'store-check';
   /** still identifying in the background; true alongside a cart run started mid-listen */
   listening?: boolean;
+  /** new finds go straight into the mix's Beatport playlist while listening continues */
+  following?: boolean;
   /**
    * Where to review each store's cart. Beatport has a cart page; Bandcamp's cart is a sidebar on any
    * item page, so its link is the last track added.

@@ -88,16 +88,16 @@ function History({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => v
           {items.map((h) => {
             const carted = h.rows.filter((r) => r.status === 'carted').length;
             return (
-              <li key={h.mix.url} className="border-b border-toner-3">
-                <button type="button" onClick={() => onOpen(h.mix.url)} className="block w-full py-3 text-left">
+              <li key={h.mix.url} className="border-b border-toner-3 py-3">
+                <button type="button" onClick={() => onOpen(h.mix.url)} className="block w-full text-left">
                   <span className="line-clamp-2 text-[21px] leading-[1.05] font-black [font-stretch:64%]">{h.mix.title}</span>
-                  <span className="mt-1 flex flex-wrap gap-x-3 text-[12px] font-semibold text-toner-2">
-                    <span>{sourceOf(h.mix.url)}</span>
-                    <span>{h.rows.length} tracks</span>
-                    {carted > 0 && <span className="text-ink">{carted} in cart</span>}
-                    <span>{when(h.savedAt)}</span>
-                  </span>
                 </button>
+                <p className="mt-1 flex flex-wrap gap-x-3 text-[12px] font-semibold text-toner-2">
+                  <a href={h.mix.url} target="_blank" rel="noreferrer" className="text-ink underline decoration-toner-3 hover:decoration-ink">{sourceOf(h.mix.url) || 'Mix'}</a>
+                  <span>{h.rows.length} tracks</span>
+                  {carted > 0 && <span className="text-ink">{carted} in cart</span>}
+                  <span>{when(h.savedAt)}</span>
+                </p>
               </li>
             );
           })}
@@ -257,7 +257,7 @@ export default function App() {
           {fromHistory ? <a href={job.mix.url} target="_blank" rel="noreferrer" className="hover:underline">{job.mix.title}</a> : job.mix.title}
         </h1>
         <p className="mt-2 flex flex-wrap gap-x-3.5 text-[13px] font-semibold">
-          {source && <span>{source}</span>}
+          {source && <a href={job.mix.url} target="_blank" rel="noreferrer" className="underline decoration-1 underline-offset-2">{source}</a>}
           {job.mix.duration ? <span>{clock(job.mix.duration)}</span> : null}
           {job.rows.length > 0 && <span>{job.rows.length} tracks</span>}
           <span>{job.tracklistFound ? 'From the description' : job.rows.length ? 'Identified by listening' : ''}</span>
@@ -279,6 +279,12 @@ export default function App() {
               <span className="text-[20px] font-black [font-stretch:75%]">{Math.round((job.progress ?? 0) * 100)}%</span>
             </div>
             <Progress value={(job.progress ?? 0) * 100} className="h-1.5 bg-toner-3 [&>*]:bg-ink" />
+            {job.following && job.playlist?.beatport && (
+              <p className="text-[13px] text-toner-1">
+                New finds go straight into your{' '}
+                <a href={beatportPlaylistUrl(job.playlist.beatport)} target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1">Beatport playlist</a>.
+              </p>
+            )}
             {job.rows.length > 0 && <div className="pt-1">{cartRow}</div>}
             <Button variant="ghost" onClick={() => send({ type: 'panel:stop' })} className="h-8 w-full text-[13px] text-toner-2">Stop listening</Button>
           </div>
