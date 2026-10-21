@@ -95,7 +95,7 @@
 
 @layer base {
   * { border-color: var(--border); }
-  html, body { height: 100%; }
+  html, body, #root { height: 100%; }
   body {
     background: var(--paper);
     color: var(--ink);

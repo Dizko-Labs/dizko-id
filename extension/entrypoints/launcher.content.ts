@@ -9,6 +9,16 @@ export default defineContentScript({
   allFrames: true,
   main() {
     const MARK = 'data-mix-to-cart';
+    // Reloading the extension leaves this script's buttons in open tabs, cut off from the new extension. Each run
+    // stamps its own buttons, replaces anyone else's, and turns its own into a reload prompt once it is cut off.
+    const RUN = crypto.randomUUID();
+    const alive = () => {
+      try {
+        return !!browser.runtime?.id;
+      } catch {
+        return false;
+      }
+    };
     const ACID = '#c4f236';
     const ACID_HOVER = '#d4f75f';
     const CART =
@@ -36,7 +46,7 @@ export default defineContentScript({
       const height = Math.max(small ? 22 : 28, Math.round(reference.getBoundingClientRect().height) || (small ? 22 : 32));
       const button = document.createElement('button');
       button.type = 'button';
-      button.setAttribute(MARK, '');
+      button.setAttribute(MARK, RUN);
       button.setAttribute('aria-label', 'Dizko ID: find the tracks in this mix');
       button.title = 'Find the tracks in this mix';
       button.innerHTML = `${CART}<span>Dizko ID</span>`;
@@ -78,6 +88,11 @@ export default defineContentScript({
 
     /** Ask the extension to open its panel; if Chrome refuses, say how to open it (it starts by itself then). */
     function launch(button: HTMLElement, url?: string) {
+      if (!alive()) {
+        // this copy belongs to a replaced extension: only a page reload brings the new one in
+        location.reload();
+        return;
+      }
       browser.runtime
         .sendMessage({ type: 'launch', url })
         .then((r: { opened?: boolean } | undefined) => {
@@ -86,7 +101,10 @@ export default defineContentScript({
             button.querySelector('span')!.textContent = 'Open from toolbar';
           }
         })
-        .catch(() => {});
+        .catch(() => {
+          button.title = 'Reload this page to use Dizko ID';
+          button.querySelector('span')!.textContent = 'Reload page';
+        });
     }
 
     const placeOnTrack = () => {
@@ -117,18 +135,27 @@ export default defineContentScript({
     };
 
     const place = () => {
+      if (!alive()) {
+        // cut off from a reloaded extension: stop, and leave the page to the new copy
+        observer.disconnect();
+        document.querySelectorAll(`[${MARK}="${RUN}"]`).forEach((b) => b.remove());
+        return;
+      }
+      // buttons left by an earlier copy of the extension do nothing; replace them with this copy's
+      document.querySelectorAll(`[${MARK}]:not([${MARK}="${RUN}"])`).forEach((b) => b.remove());
       if (onTrack()) placeOnTrack();
       else placeInList();
     };
-    place();
     let queued = false;
-    new MutationObserver(() => {
+    const observer = new MutationObserver(() => {
       if (queued) return;
       queued = true;
       requestAnimationFrame(() => {
         queued = false;
         place();
       });
-    }).observe(document.documentElement, { childList: true, subtree: true });
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+    place();
   },
 });

@@ -1,5 +1,6 @@
 import { createRoot } from 'react-dom/client';
 import App from './App';
+import { BrandBar } from './BrandBar';
 import { ConsentBar } from './Consent';
 import { hostOf, track } from '@/lib/analytics';
 import { utm } from '@/lib/utm';
@@ -27,8 +28,12 @@ document.addEventListener('click', tagOutbound, true);
 document.addEventListener('auxclick', tagOutbound, true);
 
 createRoot(document.getElementById('root')!).render(
-  <>
-    <App />
+  <div className="flex h-full flex-col">
+    <BrandBar />
+    {/* the brand bar stays; each screen scrolls as one beneath it */}
+    <div className="min-h-0 flex-1 overflow-hidden">
+      <App />
+    </div>
     <ConsentBar />
-  </>,
+  </div>,
 );

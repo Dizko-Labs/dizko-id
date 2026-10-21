@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, ChevronDown, ChevronLeft } from 'lucide-react';
-import { DizkoMark } from '@/components/DizkoMark';
 import { UsageSetting } from './Consent';
 import { DizkoLinkBar } from './DizkoLinkBar';
 import { Button } from '@/components/ui/button';
@@ -223,13 +222,13 @@ function Library({ items, onOpen, onArtist }: { items: Saved[]; onOpen: (url: st
   }
   const artists = djsOf(items);
   return (
-    <Tabs data-area="library" value={tabValue} onValueChange={pickTab} className="min-h-0 flex-1 gap-0 overflow-x-clip">
+    <Tabs data-area="library" value={tabValue} onValueChange={pickTab} className="gap-0 overflow-x-clip">
       <TabsList variant="line" className="mt-2 h-11 w-full justify-start gap-6 border-b border-toner-3 px-4">
         <TabsTrigger value="artists" className="flex-none px-0 text-[14px] font-semibold">Artists {artists.length}</TabsTrigger>
         <TabsTrigger value="mixes" className="flex-none px-0 text-[14px] font-semibold">Mixes {items.length}</TabsTrigger>
         <TabsTrigger value="tracks" className="flex-none px-0 text-[14px] font-semibold">Tracks {picks.size}</TabsTrigger>
       </TabsList>
-      <TabsContent value="mixes" className={cn("overflow-y-auto px-4", tabMotion)}>
+      <TabsContent value="mixes" className={cn("px-4 pb-6", tabMotion)}>
         <ul>
           {items.map((h) => {
             const ticked = h.rows.filter((r) => r.selected).length;
@@ -261,7 +260,7 @@ function Library({ items, onOpen, onArtist }: { items: Saved[]; onOpen: (url: st
           })}
         </ul>
       </TabsContent>
-      <TabsContent value="artists" className={cn("overflow-y-auto px-4", tabMotion)}>
+      <TabsContent value="artists" className={cn("px-4 pb-6", tabMotion)}>
         {!artists.length && <p className="py-5 text-[14px] text-toner-1">The DJs behind the mixes you open collect here.</p>}
         <ul>
           {artists.map(({ key, name, artist, avatar, mixes }) => {
@@ -293,7 +292,7 @@ function Library({ items, onOpen, onArtist }: { items: Saved[]; onOpen: (url: st
           })}
         </ul>
       </TabsContent>
-      <TabsContent value="tracks" className={cn("overflow-y-auto px-4", tabMotion)}>
+      <TabsContent value="tracks" className={cn("px-4 pb-6", tabMotion)}>
         {!picks.size && <p className="py-5 text-[14px] text-toner-1">Tracks you tick in a mix collect here.</p>}
         <ul>
           {[...picks.values()].map(({ row, mix }) => (
@@ -578,16 +577,12 @@ export default function App() {
 
   if (!showMix) {
     return (
-      <main key={screen} className={cn('flex h-full flex-col', motion.current)}>
+      <main key={screen} className={cn('flex h-full flex-col overflow-y-auto', motion.current)}>
         {/* the brand bar: Dizko's raised surface, its mark, and room above the library */}
-        <header data-area="claim" className="border-b border-toner-3 bg-surface px-4 pt-6 pb-5">
-          <div className="flex items-center gap-2.5">
-            <a href="https://www.dizko.app" target="_blank" rel="noreferrer" data-content="dizko_logo" aria-label="Dizko" className="rounded-[4px]">
-              <DizkoMark className="h-[24px] w-auto text-ink" />
-            </a>
-            <h1 className="text-[28px] leading-none font-semibold tracking-[-0.03em]">Dizko ID</h1>
-          </div>
-          <p className="mt-3.5 max-w-[34ch] text-[14px] leading-snug text-toner-1">
+        {/* the brand bar above carries the mark and name; the library adds what Dizko ID does */}
+        <header data-area="claim" className="border-b border-toner-3 bg-surface px-4 pt-1 pb-5">
+          <h1 className="sr-only">Dizko ID library</h1>
+          <p className="max-w-[34ch] text-[14px] leading-snug text-toner-1">
             Find every track in a DJ mix, see where the DJ plays next, and send the tracks to your Beatport or Bandcamp cart or a playlist.
           </p>
           <div className="mt-4 space-y-1.5 text-[13px] text-toner-1">
@@ -645,7 +640,7 @@ export default function App() {
   );
 
   return (
-    <main key={screen} className={cn('flex h-full flex-col', motion.current)}>
+    <main key={screen} className={cn('flex h-full flex-col overflow-y-auto', motion.current)}>
       <header data-area="mix" className="border-b border-toner-3 px-4 pt-3 pb-3.5">
         <button type="button" onClick={() => setLibrary(true)} className="-ml-1.5 flex min-h-9 items-center gap-1 pr-2 text-[16px] font-semibold hover:underline">
           <ChevronLeft className="size-6" strokeWidth={2.25} aria-hidden />
@@ -799,7 +794,7 @@ export default function App() {
         </div>
       )}
 
-      <div data-area="tracklist" className="flex-1 overflow-y-auto px-4 pb-4">
+      <div data-area="tracklist" className="px-4 pb-24">
         {/* Billing: confirmed tracks set large, single-hit IDs on the smaller "plus" line */}
         <ol>
           {job.rows.map((row, i) => row.track.hits >= 2 && <TrackRow key={`${row.track.artist}|${row.track.title}`} row={row} index={i} locked={locked} />)}
