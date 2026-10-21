@@ -1,3 +1,4 @@
+import { findArtist, isPlatform } from './dizko';
 import type { Job } from './types';
 
 /** A mix the DJ has scanned, kept across sessions so the panel can show it again without listening again. */
@@ -57,6 +58,28 @@ export async function backfillUploaders() {
   // re-read: a mix may have been saved while the pages were loading
   const now = await history();
   for (const h of now) h.mix.uploader ??= found.get(mixKey(h.mix.url));
+  await browser.storage.local.set({ [KEY]: now });
+}
+
+/**
+ * Saved mixes with no DJ yet, or a hosting channel taken for one: ask Dizko from the title and uploader. Each mix is
+ * asked at most once a week, since the worker restarts often.
+ */
+export async function backfillArtists() {
+  const week = 7 * 24 * 3600 * 1000;
+  const found = new Map<string, NonNullable<Job['artist']> | null>();
+  for (const h of await history()) {
+    if ((h.artist && !isPlatform(h.artist.name)) || Date.now() - (h.mix.artistCheckedAt ?? 0) < week) continue;
+    found.set(mixKey(h.mix.url), (await findArtist(h.mix.title, h.mix.uploader).catch(() => undefined)) ?? null);
+  }
+  if (!found.size) return;
+  const now = await history();
+  for (const h of now) {
+    if (!found.has(mixKey(h.mix.url))) continue;
+    const a = found.get(mixKey(h.mix.url));
+    h.mix.artistCheckedAt = Date.now();
+    if (a && (!h.artist || isPlatform(h.artist.name))) h.artist = a;
+  }
   await browser.storage.local.set({ [KEY]: now });
 }
 

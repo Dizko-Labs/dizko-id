@@ -6,7 +6,7 @@ import {
   beatportApi, beatportBuyAll, beatportPlaylistUrl, storeCheck,
 } from '@/lib/stores';
 import { findArtist, isPlatform } from '@/lib/dizko';
-import { backfillUploaders, forget, mixKey, remember, saved } from '@/lib/history';
+import { backfillArtists, backfillUploaders, forget, mixKey, remember, saved } from '@/lib/history';
 import { setApp } from '@/lib/oauth';
 import { soundcloudPlaylist, spotifyPlaylist } from '@/lib/playlists';
 import { parseTracklist } from '@/lib/tracklist';
@@ -18,7 +18,7 @@ const NAME_YOUR_PRICE = 1;
 export default defineBackground(() => {
   browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
   recover();
-  backfillUploaders().catch(() => {});
+  backfillUploaders().then(backfillArtists).catch(() => {});
   browser.runtime.onMessage.addListener((msg: PanelRequest & { streamId?: string }, sender, reply) => {
     // The button on the SoundCloud page: open the panel on that tab (the click is the user gesture it needs)
     // and leave a note so the panel starts identifying once it has read the mix

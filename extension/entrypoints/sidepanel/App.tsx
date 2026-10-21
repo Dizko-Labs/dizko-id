@@ -157,10 +157,23 @@ function Library({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => v
       if (!picks.has(key)) picks.set(key, { row, mix: h });
     }
   }
+  // DJs scanned so far, most mixes first: Dizko's profile where it knows them, else the uploader's name
+  const byDj = new Map<string, { name: string; artist?: Artist; mixes: Saved[] }>();
+  for (const h of items) {
+    const name = dj(h);
+    if (!name) continue;
+    const key = norm(name);
+    const entry = byDj.get(key) ?? { name, mixes: [] };
+    entry.artist ??= h.artist && !isPlatform(h.artist.name) ? h.artist : undefined;
+    entry.mixes.push(h);
+    byDj.set(key, entry);
+  }
+  const artists = [...byDj.values()].sort((a, b) => b.mixes.length - a.mixes.length);
   return (
     <Tabs defaultValue="mixes" className="min-h-0 flex-1 gap-0">
       <TabsList variant="line" className="h-10 w-full justify-start gap-5 border-b border-toner-3 px-4">
         <TabsTrigger value="mixes" className="flex-none px-0 text-[14px] font-semibold">Mixes {items.length}</TabsTrigger>
+        <TabsTrigger value="artists" className="flex-none px-0 text-[14px] font-semibold">Artists {artists.length}</TabsTrigger>
         <TabsTrigger value="picks" className="flex-none px-0 text-[14px] font-semibold">Picks {picks.size}</TabsTrigger>
       </TabsList>
       <TabsContent value="mixes" className="overflow-y-auto px-4">
@@ -183,6 +196,40 @@ function Library({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => v
                     Remove
                   </button>
                 </div>
+              </li>
+            );
+          })}
+        </ul>
+      </TabsContent>
+      <TabsContent value="artists" className="overflow-y-auto px-4">
+        {!artists.length && <p className="py-5 text-[14px] text-toner-1">The DJs behind the mixes you open collect here.</p>}
+        <ul>
+          {artists.map(({ name, artist, mixes }) => {
+            const next = artist?.events[0];
+            return (
+              <li key={name} className="border-b border-toner-3 py-3">
+                <div className="flex items-baseline justify-between gap-3">
+                  {artist ? (
+                    <a href={artist.url} target="_blank" rel="noreferrer" className="truncate text-[18px] leading-[1.15] font-semibold tracking-[-0.02em] hover:underline">{name}</a>
+                  ) : (
+                    <span className="truncate text-[18px] leading-[1.15] font-semibold tracking-[-0.02em]">{name}</span>
+                  )}
+                  {artist && <a href={artist.url} target="_blank" rel="noreferrer" className={cn(LINK, 'shrink-0 text-[12px] font-semibold')}>Dizko</a>}
+                </div>
+                {next && (
+                  <a href={next.url} target="_blank" rel="noreferrer" className="mt-0.5 block truncate text-[13px] text-toner-1 hover:text-ink hover:underline">
+                    Next: {new Date(`${next.date}T12:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}, {titleCase(next.city)}
+                  </a>
+                )}
+                <ul className="mt-1.5 space-y-0.5">
+                  {mixes.map((h) => (
+                    <li key={h.mix.url}>
+                      <button type="button" onClick={() => onOpen(h.mix.url)} className="block max-w-full truncate text-left text-[13px] font-semibold hover:underline">
+                        {h.mix.title}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
               </li>
             );
           })}
