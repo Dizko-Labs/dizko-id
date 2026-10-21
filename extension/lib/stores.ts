@@ -14,7 +14,7 @@ export function storeCheck(): boolean {
 }
 
 /** Beatport search results ship as JSON in __NEXT_DATA__; read them instead of the rendered rows. */
-export function beatportReadSearch(): { loggedIn: boolean; offers: Offer[] } | null {
+export function beatportReadSearch(): { loggedIn?: boolean; offers: Offer[] } | null {
   const el = document.getElementById('__NEXT_DATA__');
   if (!el) return null;
   const props = JSON.parse(el.textContent || '{}')?.props?.pageProps ?? {};
@@ -33,7 +33,11 @@ export function beatportReadSearch(): { loggedIn: boolean; offers: Offer[] } | n
     label: r.label?.label_name,
     released: r.publish_date ?? r.release_date,
   }));
-  return { loggedIn: !props.anonSession, offers };
+  // pageProps.anonSession is present logged in or not, so read the page chrome instead: a logged-in header has an
+  // account menu with "Log Out", a logged-out one has "Log In". Before the header renders, neither is there.
+  const texts = [...document.querySelectorAll('a, button')].map((e) => e.textContent?.trim().toLowerCase());
+  const loggedIn = texts.includes('log out') ? true : texts.includes('log in') ? false : undefined;
+  return { loggedIn, offers };
 }
 
 /**

@@ -5,6 +5,7 @@ import {
   BEATPORT_CART, bandcampAddToCart, bandcampReadSearch, bandcampReadTrack, bandcampSearchUrl,
   beatportAddToCart, beatportReadSearch, beatportSearchUrl, storeCheck,
 } from '@/lib/stores';
+import { forget, remember, saved } from '@/lib/history';
 import { parseTracklist } from '@/lib/tracklist';
 import type { Job, Offer, Row, Store, Track } from '@/lib/types';
 
@@ -28,6 +29,7 @@ async function getJob(): Promise<Job | null> {
 }
 async function setJob(job: Job | null) {
   await browser.storage.session.set({ job });
+  if (job) await remember(job);
 }
 async function patchRow(i: number, patch: Partial<Row>) {
   const job = await getJob();
@@ -64,6 +66,13 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
   switch (msg.type) {
     case 'panel:read':
       return read(msg.tabId);
+    case 'panel:open': {
+      const before = await saved(msg.url);
+      if (!before || (await getJob())?.phase === 'identifying' || (await getJob())?.phase === 'carting') return { ok: false };
+      const { savedAt: _, ...job } = before;
+      await setJob(job);
+      return { ok: true };
+    }
     case 'panel:identify':
       stopping = false;
       identify(msg.tabId, msg.streamId).catch(async (e) => {
@@ -101,10 +110,14 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
     case 'panel:stop':
       stopping = true;
       return { ok: true };
-    case 'panel:reset':
+    case 'panel:reset': {
+      // Start over means scan this mix afresh, so it leaves the history too
       stopping = true;
+      const job = await getJob();
+      if (job) await forget(job.mix.url);
       await setJob(null);
       return { ok: true };
+    }
   }
 }
 
@@ -124,6 +137,13 @@ const rowFor = (track: Track): Row => ({ track, selected: track.hits >= 2, statu
 
 async function read(tabId: number) {
   const info = await ask<SourceInfo>(tabId, { type: 'source:info' });
+  // A mix scanned before opens as it was left, ticks and cart results included, instead of listening again
+  const before = await saved(info.url);
+  if (before) {
+    const { savedAt: _, ...job } = before;
+    await setJob(job);
+    return job;
+  }
   const tracks = parseTracklist(info.description);
   const job: Job = {
     mix: { title: info.title, url: info.url, duration: info.duration },
@@ -291,7 +311,7 @@ async function beatportLogin(worker: number, probe: string): Promise<boolean> {
   for (let i = 0; i < 100 && !stopping; i++) {
     await new Promise((r) => setTimeout(r, 3000));
     await load(worker, probe, 600);
-    if ((await run(worker, beatportReadSearch))?.loggedIn) {
+    if ((await run(worker, beatportReadSearch))?.loggedIn === true) {
       await browser.tabs.remove(login.id!).catch(() => {});
       await setJob({ ...(await getJob())!, waitingFor: undefined });
       return true;
@@ -309,14 +329,19 @@ async function tryBeatport(worker: number, track: Track): Promise<{ status: Row[
   }
   let page = await run(worker, beatportReadSearch);
   if (!page) return { status: 'failed' };
-  if (!page.loggedIn) {
+  if (page.loggedIn === false) {
     if (!(await beatportLogin(worker, url))) return { status: 'login-needed' };
     await load(worker, url);
     page = (await run(worker, beatportReadSearch))!;
   }
   const { best, alternatives } = pick(track, page.offers);
   if (!best) return { status: alternatives.length ? 'version-missing' : 'not-found', alternatives };
-  const r = await run(worker, beatportAddToCart, best.id);
+  let r = await run(worker, beatportAddToCart, best.id);
+  // The press itself is the final word on login: Beatport answers a logged-out add with its login wall
+  if (r === 'login' && (await beatportLogin(worker, url))) {
+    await load(worker, url);
+    r = await run(worker, beatportAddToCart, best.id);
+  }
   if (r === 'carted' || r === 'in-cart') return { status: 'carted', offer: best };
   return { status: r === 'login' ? 'login-needed' : 'failed', offer: best };
 }

@@ -37,6 +37,7 @@ export interface ClipResult {
 /** side panel -> background */
 export type PanelRequest =
   | { type: 'panel:read'; tabId: number }
+  | { type: 'panel:open'; url: string }
   | { type: 'panel:identify'; tabId: number }
   | { type: 'panel:toggle'; index: number }
   | { type: 'panel:select'; all: boolean }

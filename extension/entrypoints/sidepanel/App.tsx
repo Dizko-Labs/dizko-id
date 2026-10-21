@@ -6,8 +6,11 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { fileName, toCsv, toJson, toText } from '@/lib/export';
+import { mixKey, type Saved } from '@/lib/history';
 import { links } from '@/lib/links';
+import { norm } from '@/lib/match';
 import type { PanelRequest } from '@/lib/messages';
 import type { Job, Row, Store } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -39,6 +42,90 @@ function useJob() {
     return () => browser.storage.onChanged.removeListener(onChange);
   }, []);
   return job;
+}
+
+function useHistory() {
+  const [items, setItems] = useState<Saved[]>([]);
+  useEffect(() => {
+    browser.storage.local.get('history').then((r) => setItems((r.history as Saved[]) ?? []));
+    const onChange = (changes: Record<string, { newValue?: unknown }>, area: string) => {
+      if (area === 'local' && 'history' in changes) setItems((changes.history!.newValue as Saved[]) ?? []);
+    };
+    browser.storage.onChanged.addListener(onChange);
+    return () => browser.storage.onChanged.removeListener(onChange);
+  }, []);
+  return items;
+}
+
+const sourceOf = (url: string) =>
+  /youtube\.com/.test(url) ? 'YouTube' : /soundcloud\.com/.test(url) ? 'SoundCloud' : /mixcloud\.com/.test(url) ? 'Mixcloud' : '';
+
+function when(t: number) {
+  const days = Math.floor((new Date().setHours(0, 0, 0, 0) - new Date(t).setHours(0, 0, 0, 0)) / 86_400_000);
+  return days === 0 ? 'Today' : days === 1 ? 'Yesterday' : new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+
+/** Off a mix page: the mixes scanned so far, and every track across them. */
+function History({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => void }) {
+  const tracks = new Map<string, { row: Row; mix: string }>();
+  for (const h of items) {
+    for (const row of h.rows) {
+      const key = norm(row.track.artist + row.track.title).replace(/\s/g, '');
+      // newest mix first, but a carted copy of a track wins over an older uncarted one
+      const seen = tracks.get(key);
+      if (!seen || (row.status === 'carted' && seen.row.status !== 'carted')) tracks.set(key, { row, mix: h.mix.title });
+    }
+  }
+  return (
+    <Tabs defaultValue="mixes" className="gap-0">
+      <TabsList variant="line" className="h-10 w-full justify-start gap-4 border-b border-toner-3 px-4">
+        <TabsTrigger value="mixes" className="flex-none px-0 text-[14px] font-semibold">Mixes {items.length}</TabsTrigger>
+        <TabsTrigger value="tracks" className="flex-none px-0 text-[14px] font-semibold">Tracks {tracks.size}</TabsTrigger>
+      </TabsList>
+      <TabsContent value="mixes" className="px-4">
+        <ul>
+          {items.map((h) => {
+            const carted = h.rows.filter((r) => r.status === 'carted').length;
+            return (
+              <li key={h.mix.url} className="border-b border-toner-3">
+                <button type="button" onClick={() => onOpen(h.mix.url)} className="block w-full py-3 text-left">
+                  <span className="line-clamp-2 text-[21px] leading-[1.05] font-black [font-stretch:64%]">{h.mix.title}</span>
+                  <span className="mt-1 flex flex-wrap gap-x-3 text-[12px] font-semibold text-toner-2">
+                    <span>{sourceOf(h.mix.url)}</span>
+                    <span>{h.rows.length} tracks</span>
+                    {carted > 0 && <span className="text-ink">{carted} in cart</span>}
+                    <span>{when(h.savedAt)}</span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </TabsContent>
+      <TabsContent value="tracks" className="px-4">
+        <ul>
+          {[...tracks.values()].map(({ row, mix }) => {
+            const l = links(row);
+            return (
+              <li key={`${row.track.artist}|${row.track.title}|${mix}`} className="border-b border-toner-3 py-2.5">
+                <p className="truncate text-[13px] font-semibold text-toner-1">{row.track.artist}</p>
+                <p className="text-[16px] leading-[1.1] font-extrabold [font-stretch:75%]">
+                  <span className={row.status === 'carted' ? 'highlighter' : undefined}>{row.track.title}</span>
+                </p>
+                <p className="mt-0.5 truncate text-[12px] text-toner-2">{mix}</p>
+                <p className="mt-1 flex flex-wrap gap-x-3 text-[12px] font-medium">
+                  <a href={l.beatport} target="_blank" rel="noreferrer" className="underline decoration-toner-3 hover:decoration-ink">Beatport</a>
+                  <a href={l.bandcamp} target="_blank" rel="noreferrer" className="underline decoration-toner-3 hover:decoration-ink">Bandcamp</a>
+                  <a href={l.spotify} target="_blank" rel="noreferrer" className="underline decoration-toner-3 hover:decoration-ink">Spotify</a>
+                  <a href={l.youtube} target="_blank" rel="noreferrer" className="underline decoration-toner-3 hover:decoration-ink">YouTube</a>
+                </p>
+              </li>
+            );
+          })}
+        </ul>
+      </TabsContent>
+    </Tabs>
+  );
 }
 
 function useActiveTab() {
@@ -81,11 +168,16 @@ export default function App() {
   const tab = useActiveTab();
   const [plan, setPlan] = useState('both');
   const [error, setError] = useState('');
+  const items = useHistory();
+  // a mix opened from the history, shown while the DJ is on some other page
+  const [opened, setOpened] = useState<string | null>(null);
   const onMixPage = !!tab && MIX_SITES.test(tab.url);
-  const sameMix = !!job && !!tab && job.mix.url.split('&')[0] === tab.url.split('&')[0];
+  const sameMix = !!job && !!tab && mixKey(job.mix.url) === mixKey(tab.url);
+  const fromHistory = !!job && !!opened && !sameMix && mixKey(job.mix.url) === mixKey(opened);
 
   // Read the page as soon as the panel opens on a mix that is not already loaded
   useEffect(() => {
+    if (onMixPage) setOpened(null);
     if (tab && onMixPage && !sameMix && job?.phase !== 'identifying' && job?.phase !== 'carting') {
       send({ type: 'panel:read', tabId: tab.id }).then((r) => setError(r?.error ?? ''));
     }
@@ -103,16 +195,24 @@ export default function App() {
     }
   }
 
-  if (!job || (!sameMix && job.phase !== 'identifying' && job.phase !== 'carting')) {
+  async function open(url: string) {
+    if ((await send({ type: 'panel:open', url }))?.ok) setOpened(url);
+  }
+
+  if (!job || (!sameMix && !fromHistory && job.phase !== 'identifying' && job.phase !== 'carting')) {
     return (
       <main className="flex min-h-full flex-col">
         <header className="bg-pink px-4 pt-4 pb-3.5 text-on-pink">
           <h1 className="text-[34px] leading-[0.95] font-black [font-stretch:62%]">Mix to Cart</h1>
           <DizkoLink />
         </header>
-        <p className="px-4 py-5 text-[15px] leading-snug text-toner-1">
-          {onMixPage ? 'Reading this mix…' : 'Open a DJ mix on YouTube, SoundCloud or Mixcloud, and its tracklist appears here.'}
-        </p>
+        {onMixPage || !items.length ? (
+          <p className="px-4 py-5 text-[15px] leading-snug text-toner-1">
+            {onMixPage ? 'Reading this mix…' : 'Open a DJ mix on YouTube, SoundCloud or Mixcloud, and its tracklist appears here.'}
+          </p>
+        ) : (
+          <History items={items} onOpen={open} />
+        )}
         {error && <p className="px-4 text-[13px] text-miss">{error}</p>}
       </main>
     );
@@ -121,16 +221,17 @@ export default function App() {
   const selected = job.rows.filter((r) => r.selected);
   const unconfirmed = job.rows.filter((r) => r.track.hits < 2).length;
   const carted = job.rows.filter((r) => r.status === 'carted');
+  const toAdd = selected.filter((r) => r.status !== 'carted');
   const busy = job.phase === 'identifying' || job.phase === 'carting';
   const locked = job.phase === 'carting';
   const stores = STORE_PLANS.find((p) => p.id === plan)!.stores;
   const current = job.rows.findIndex((r) => r.status === 'searching');
-  const source = /youtube\.com/.test(job.mix.url) ? 'YouTube' : /soundcloud\.com/.test(job.mix.url) ? 'SoundCloud' : /mixcloud\.com/.test(job.mix.url) ? 'Mixcloud' : '';
+  const source = sourceOf(job.mix.url);
 
   const cartRow = (
           <div className="flex gap-2">
-            <Button disabled={!selected.length} onClick={() => send({ type: 'panel:cart', stores })} className="h-10 flex-1 text-[15px] font-extrabold">
-              Add {selected.length} to cart
+            <Button disabled={!toAdd.length} onClick={() => send({ type: 'panel:cart', stores })} className="h-10 flex-1 text-[15px] font-extrabold">
+              Add {toAdd.length} to cart
             </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -151,7 +252,9 @@ export default function App() {
   return (
     <main className="flex h-full flex-col">
       <header className="bg-pink px-4 pt-4 pb-3.5 text-on-pink">
-        <h1 className="line-clamp-3 text-[34px] leading-[0.95] font-black tracking-[-0.01em] [font-stretch:62%]">{job.mix.title}</h1>
+        <h1 className="line-clamp-3 text-[34px] leading-[0.95] font-black tracking-[-0.01em] [font-stretch:62%]">
+          {fromHistory ? <a href={job.mix.url} target="_blank" rel="noreferrer" className="hover:underline">{job.mix.title}</a> : job.mix.title}
+        </h1>
         <p className="mt-2 flex flex-wrap gap-x-3.5 text-[13px] font-semibold">
           {source && <span>{source}</span>}
           {job.mix.duration ? <span>{clock(job.mix.duration)}</span> : null}
@@ -214,6 +317,7 @@ export default function App() {
                 </Button>
               ))}
             </div>
+            {toAdd.length > 0 && cartRow}
           </div>
         )}
         {(error || job.error) && <p className="mt-2 text-[13px] text-miss">{error || job.error}</p>}
@@ -258,8 +362,16 @@ export default function App() {
               <DropdownMenuItem onSelect={() => download(job, 'json')}>JSON</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          {!busy && (
-            <Button variant="ghost" className="ml-auto h-9 text-[13px] text-toner-2" onClick={() => send({ type: 'panel:reset' })}>Start over</Button>
+          {fromHistory && !busy ? (
+            <Button variant="ghost" className="ml-auto h-9 text-[13px] text-toner-2" onClick={() => setOpened(null)}>Back to history</Button>
+          ) : !busy && (
+            <Button
+              variant="ghost"
+              className="ml-auto h-9 text-[13px] text-toner-2"
+              onClick={() => send({ type: 'panel:reset' }).then(() => tab && onMixPage && send({ type: 'panel:read', tabId: tab.id }))}
+            >
+              Start over
+            </Button>
           )}
         </footer>
       )}
