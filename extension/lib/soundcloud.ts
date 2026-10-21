@@ -21,15 +21,18 @@ async function getClientId(): Promise<string> {
   throw new Error('No SoundCloud client id');
 }
 
-/** Long uploads (20 minutes or more, so mixes rather than single tracks) from a SoundCloud profile, newest first. */
-export async function profileMixes(profileUrl: string): Promise<Upload[]> {
+/** A SoundCloud profile's picture and its long uploads (20 minutes or more, so mixes rather than single tracks). */
+export async function profileMixes(profileUrl: string): Promise<{ avatar?: string; mixes: Upload[] }> {
   const cid = await getClientId();
   const user = await fetch(`https://api-v2.soundcloud.com/resolve?url=${encodeURIComponent(profileUrl)}&client_id=${cid}`).then((r) => r.json());
-  if (user?.kind !== 'user') return [];
+  if (user?.kind !== 'user') return { mixes: [] };
+  // SoundCloud serves avatars in named sizes; -large is 100px, t500x500 is sharp at any panel size
+  const avatar: string | undefined = user.avatar_url && !/default_avatar/.test(user.avatar_url) ? user.avatar_url.replace('-large', '-t500x500') : undefined;
   const list = await fetch(`https://api-v2.soundcloud.com/users/${user.id}/tracks?limit=50&client_id=${cid}`).then((r) => r.json());
-  return (list?.collection ?? [])
+  const mixes: Upload[] = (list?.collection ?? [])
     .filter((t: any) => t.duration >= 20 * 60 * 1000)
     .map((t: any) => ({ title: t.title, url: t.permalink_url, duration: t.duration / 1000, at: t.created_at, art: (t.artwork_url ?? t.user?.avatar_url)?.replace('-large', '-t200x200') }));
+  return { avatar, mixes };
 }
 
 /** The SoundCloud profile behind a mix URL: https://soundcloud.com/<user>/<track> -> https://soundcloud.com/<user> */

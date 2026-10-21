@@ -135,7 +135,7 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
     case 'panel:read':
       return read(msg.tabId);
     case 'panel:profile-mixes':
-      return { mixes: await profileMixes(msg.url).catch(() => []) };
+      return await profileMixes(msg.url).catch(() => ({ mixes: [] }));
     case 'panel:scan':
       // a new tab on the mix: the panel follows the active tab, reads it and starts listening
       await browser.tabs.create({ url: msg.url, active: true });

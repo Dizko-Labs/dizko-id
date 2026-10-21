@@ -315,10 +315,14 @@ function ArtistPage({ entry, onBack, onOpen, motion }: { entry: Dj; onBack: () =
     artist?.soundcloud ??
     mixes.map((h) => (h.mix.uploader && norm(h.mix.uploader) === entry.key ? profileOf(h.mix.url) : undefined)).find(Boolean);
   const [more, setMore] = useState<Upload[] | null>(null);
+  const [avatar, setAvatar] = useState<string | undefined>();
   const [playing, setPlaying] = useState<string | null>(null);
   useEffect(() => {
     if (!profile) return setMore([]);
-    send({ type: 'panel:profile-mixes', url: profile }).then((r: { mixes?: Upload[] }) => setMore(r?.mixes ?? []));
+    send({ type: 'panel:profile-mixes', url: profile }).then((r: { avatar?: string; mixes?: Upload[] }) => {
+      setAvatar(r?.avatar);
+      setMore(r?.mixes ?? []);
+    });
   }, [profile]);
   const scanned = new Set(mixes.map((h) => mixKey(h.mix.url)));
   const unscanned = (more ?? []).filter((u) => !scanned.has(mixKey(u.url)));
@@ -329,7 +333,15 @@ function ArtistPage({ entry, onBack, onOpen, motion }: { entry: Dj; onBack: () =
           <ChevronLeft className="size-6" strokeWidth={2.25} aria-hidden />
           Library
         </button>
-        <h1 className="mt-2 text-[26px] leading-[1.05] font-semibold tracking-[-0.03em]">{name}</h1>
+        <div className="mt-2 flex items-center gap-3.5">
+          {/* their SoundCloud picture; a blank surface circle holds the place while it loads or if there is none */}
+          {avatar ? (
+            <img src={avatar} alt="" className="enter-down size-16 shrink-0 rounded-full bg-surface object-cover" />
+          ) : (
+            <span className="size-16 shrink-0 rounded-full bg-surface" aria-hidden />
+          )}
+          <h1 className="min-w-0 text-[26px] leading-[1.05] font-semibold tracking-[-0.03em]">{name}</h1>
+        </div>
       </header>
       {artist && <ArtistBlock artist={artist} hideName />}
       <section className="border-b border-toner-3 px-4 py-3">
