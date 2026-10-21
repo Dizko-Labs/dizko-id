@@ -60,7 +60,9 @@ npm run compile   # typecheck
 
 ## Not done yet
 
-- Later: create a playlist of the mix on SoundCloud (we have app access) and on Spotify.
+- Later: a shareable playlist page (needs hosting, such as GitHub Pages).
+- Later: Dizko artist panel in the header (upcoming dates, socials, sound, base, with More info to the Dizko page).
+- Later: YouTube Music and Apple Music playlists through the logged-in web apps.
 - Later: add to carts through Beatport's v4 cart API and Bandcamp's cart request instead of pressing buttons in a background tab.
 
 - Mixcloud has only the generic "listen in real time" path.

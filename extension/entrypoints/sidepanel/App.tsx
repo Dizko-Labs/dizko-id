@@ -6,14 +6,16 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { redirectUri, type App as ServiceApp, type Service } from '@/lib/oauth';
 import { fileName, toCsv, toJson, toText } from '@/lib/export';
 import { mixKey, type Saved } from '@/lib/history';
 import { links } from '@/lib/links';
 import { beatportPlaylistUrl } from '@/lib/stores';
 import { norm } from '@/lib/match';
 import type { PanelRequest } from '@/lib/messages';
-import type { Job, Row, Store } from '@/lib/types';
+import type { Job, PlaylistService, Row, Store } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 const MIX_SITES = /^https:\/\/(www\.youtube\.com\/watch|soundcloud\.com\/[^/]+\/[^/]+|www\.mixcloud\.com\/[^/]+\/[^/]+)/;
@@ -126,6 +128,104 @@ function History({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => v
         </ul>
       </TabsContent>
     </Tabs>
+  );
+}
+
+function useApps() {
+  const [apps, setApps] = useState<Partial<Record<Service, ServiceApp>>>({});
+  useEffect(() => {
+    browser.storage.local.get('apps').then((r) => setApps((r.apps as typeof apps) ?? {}));
+    const onChange = (changes: Record<string, { newValue?: unknown }>, area: string) => {
+      if (area === 'local' && 'apps' in changes) setApps((changes.apps!.newValue as typeof apps) ?? {});
+    };
+    browser.storage.onChanged.addListener(onChange);
+    return () => browser.storage.onChanged.removeListener(onChange);
+  }, []);
+  return apps;
+}
+
+const SERVICES: { id: PlaylistService; name: string; app?: { where: string; url: string; secret: boolean } }[] = [
+  { id: 'beatport', name: 'Beatport' },
+  { id: 'spotify', name: 'Spotify', app: { where: 'Spotify developer dashboard', url: 'https://developer.spotify.com/dashboard', secret: false } },
+  { id: 'soundcloud', name: 'SoundCloud', app: { where: 'SoundCloud app settings', url: 'https://soundcloud.com/you/apps', secret: true } },
+];
+
+/** One playlist per service from the ticked tracks; Spotify and SoundCloud go through the DJ's own developer app. */
+function Playlists({ job }: { job: Job }) {
+  const apps = useApps();
+  const [connecting, setConnecting] = useState<Service | null>(null);
+  const ticked = job.rows.filter((r) => r.selected).length;
+  const urlFor = (id: PlaylistService) => job.made?.[id]?.url ?? (id === 'beatport' && job.playlist?.beatport ? beatportPlaylistUrl(job.playlist.beatport) : undefined);
+  return (
+    <section className="border-t-2 border-ink px-4 py-3">
+      <h2 className="text-[14px] font-semibold">Make a playlist of the {ticked} ticked</h2>
+      <div className="mt-2 flex flex-wrap gap-2">
+        {SERVICES.map((s) => {
+          const url = urlFor(s.id);
+          if (url) {
+            return (
+              <Button key={s.id} asChild variant="outline" className="h-9 border-ink bg-transparent text-[13px] font-semibold">
+                <a href={url} target="_blank" rel="noreferrer">Open on {s.name}</a>
+              </Button>
+            );
+          }
+          const needsApp = s.app && !apps[s.id as Service]?.clientId;
+          return (
+            <Button
+              key={s.id}
+              variant="outline"
+              disabled={!ticked || !!job.making}
+              onClick={() => (needsApp ? setConnecting(s.id as Service) : send({ type: 'panel:playlist', service: s.id }))}
+              className="h-9 border-ink bg-transparent text-[13px] font-semibold"
+            >
+              {job.making === s.id ? 'Making…' : s.name}
+            </Button>
+          );
+        })}
+      </div>
+      {SERVICES.map(({ id, name }) => {
+        const m = job.made?.[id];
+        return m?.missing.length ? (
+          <p key={id} className="mt-1.5 text-[12px] text-toner-2">{name}: {m.added} added, {m.missing.length} not there ({m.missing.slice(0, 3).join('; ')}{m.missing.length > 3 ? '…' : ''})</p>
+        ) : null;
+      })}
+      {connecting && <Connect service={connecting} onDone={() => setConnecting(null)} />}
+    </section>
+  );
+}
+
+function Connect({ service, onDone }: { service: Service; onDone: () => void }) {
+  const s = SERVICES.find((x) => x.id === service)!;
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+  const redirect = redirectUri(service);
+  async function save() {
+    await send({ type: 'panel:connect', service, app: { clientId: clientId.trim(), ...(s.app!.secret ? { clientSecret: clientSecret.trim() } : {}) } });
+    onDone();
+    await send({ type: 'panel:playlist', service });
+  }
+  return (
+    <div className="mt-3 space-y-2 border-t border-toner-3 pt-3 text-[13px]">
+      <p className="leading-snug">
+        {s.name} playlists go through your own developer app. In the{' '}
+        <a href={s.app!.url} target="_blank" rel="noreferrer" className="font-semibold underline decoration-1">{s.app!.where}</a>, add this redirect URI, then paste the app's details here. They stay in this browser.
+      </p>
+      <p className="break-all bg-accent px-2 py-1.5 font-mono text-[12px] select-all">{redirect}</p>
+      <label className="block">
+        <span className="font-semibold">Client ID</span>
+        <Input value={clientId} onChange={(e) => setClientId(e.target.value)} className="mt-1 border-ink" autoComplete="off" spellCheck={false} />
+      </label>
+      {s.app!.secret && (
+        <label className="block">
+          <span className="font-semibold">Client secret</span>
+          <Input type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} className="mt-1 border-ink" autoComplete="off" />
+        </label>
+      )}
+      <div className="flex gap-2 pt-1">
+        <Button onClick={save} disabled={!clientId.trim() || (s.app!.secret && !clientSecret.trim())} className="h-9 flex-1 text-[14px] font-extrabold">Save and make playlist</Button>
+        <Button variant="ghost" onClick={onDone} className="h-9 text-[13px] text-toner-2">Cancel</Button>
+      </div>
+    </div>
   );
 }
 
@@ -371,6 +471,8 @@ export default function App() {
         )}
         {job.phase === 'identifying' && !job.rows.length && <p className="py-6 text-[14px] text-toner-2">Tracks appear here as they are recognized.</p>}
       </div>
+
+      {job.rows.length > 0 && <Playlists job={job} />}
 
       {job.rows.length > 0 && (
         <footer className="flex items-center gap-2 border-t-2 border-ink px-4 py-3">

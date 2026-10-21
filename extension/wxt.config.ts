@@ -7,7 +7,7 @@ export default defineConfig({
   manifest: {
     name: 'Mix to Cart',
     description: 'Find every track in a DJ mix and add them to your Beatport or Bandcamp cart.',
-    permissions: ['sidePanel', 'tabCapture', 'offscreen', 'scripting', 'storage', 'tabs'],
+    permissions: ['sidePanel', 'tabCapture', 'offscreen', 'scripting', 'storage', 'tabs', 'identity'],
     host_permissions: [
       'https://www.youtube.com/*',
       'https://soundcloud.com/*',
@@ -17,6 +17,11 @@ export default defineConfig({
       'https://amp.shazam.com/*',
       // SoundCloud mixes are fingerprinted from their HLS segments
       'https://playback.media-streaming.soundcloud.cloud/*',
+      // playlists through the DJ's own Spotify and SoundCloud developer apps
+      'https://api.spotify.com/*',
+      'https://accounts.spotify.com/*',
+      'https://api.soundcloud.com/*',
+      'https://secure.soundcloud.com/*',
     ],
     action: { default_title: 'Mix to Cart' },
     side_panel: { default_path: 'sidepanel.html' },
