@@ -6,7 +6,7 @@ import {
   beatportApi, beatportBuyAll, beatportPlaylistUrl, storeCheck,
 } from '@/lib/stores';
 import { findArtist } from '@/lib/dizko';
-import { forget, mixKey, remember, saved } from '@/lib/history';
+import { backfillUploaders, forget, mixKey, remember, saved } from '@/lib/history';
 import { setApp } from '@/lib/oauth';
 import { soundcloudPlaylist, spotifyPlaylist } from '@/lib/playlists';
 import { parseTracklist } from '@/lib/tracklist';
@@ -18,6 +18,7 @@ const NAME_YOUR_PRICE = 1;
 export default defineBackground(() => {
   browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
   recover();
+  backfillUploaders().catch(() => {});
   browser.runtime.onMessage.addListener((msg: PanelRequest & { streamId?: string }, sender, reply) => {
     // The button on the SoundCloud page: open the panel on that tab (the click is the user gesture it needs)
     // and leave a note so the panel starts identifying once it has read the mix
@@ -181,13 +182,14 @@ async function read(tabId: number) {
   const before = await saved(info.url);
   if (before) {
     const { savedAt: _, ...job } = before;
+    job.mix.uploader ??= info.uploader;
     await setJob(job);
     if (!job.artist) lookUpArtist(info);
     return job;
   }
   const tracks = parseTracklist(info.description);
   const job: Job = {
-    mix: { title: info.title, url: info.url, duration: info.duration },
+    mix: { title: info.title, url: info.url, duration: info.duration, uploader: info.uploader },
     rows: tracks.map(rowFor),
     phase: tracks.length ? 'review' : 'reading',
     tracklistFound: tracks.length > 0,

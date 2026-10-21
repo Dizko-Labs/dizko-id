@@ -8,6 +8,8 @@ export default defineContentScript({
   allFrames: true,
   main() {
     const MARK = 'data-mix-to-cart';
+    const GREEN = '#4ade80';
+    const GREEN_HOVER = '#6ee7a0';
     // A single track (a mix is one long upload), not a set, station, profile or listing
     const NOT_A_TRACK = /^(discover|stations|search|you|feed|charts|upload|settings|messages|notifications|pages|terms-of-use|tags|n)$/;
     const onTrack = () => {
@@ -29,10 +31,8 @@ export default defineContentScript({
       const share = document.querySelector<HTMLElement>('button[aria-label="Share"]');
       const row = share?.parentElement;
       if (!share || !row || row.querySelector(`[${MARK}]`)) return;
-      // Our own pill, dressed in the Share button's computed look so it sits in either SoundCloud layout: the
-      // new one rings its round icon buttons with an outline, the classic one draws a border
+      // Our own pill, sized and shaped from the Share button so it sits in either SoundCloud layout
       const look = getComputedStyle(share);
-      const ringed = look.outlineStyle !== 'none' && parseFloat(look.outlineWidth) > 0;
       const height = Math.max(28, Math.round(share.getBoundingClientRect().height) || 32);
       const button = document.createElement('button');
       button.type = 'button';
@@ -52,21 +52,23 @@ export default defineContentScript({
         padding: '0 12px 0 10px',
         marginLeft: '8px',
         boxSizing: 'border-box',
-        border: ringed || look.borderTopStyle === 'none' ? '0' : `${look.borderTopWidth} ${look.borderTopStyle} ${look.borderTopColor}`,
-        outline: ringed ? `${look.outlineWidth} ${look.outlineStyle} ${look.outlineColor}` : 'none',
-        outlineOffset: look.outlineOffset,
+        border: '0',
+        outline: 'none',
         borderRadius: radius,
-        background: look.backgroundColor,
-        color: look.color,
+        // filled green so it reads as ours among SoundCloud's grey controls; near-black text keeps it legible
+        background: GREEN,
+        color: '#0b0b0b',
         // the page's type, not the button's (SoundCloud's icon buttons inherit a fallback font)
         font: `600 14px/1 ${getComputedStyle(document.body).fontFamily}`,
         whiteSpace: 'nowrap',
         cursor: 'pointer',
         flex: 'none',
       });
-      const rest = look.backgroundColor;
-      button.addEventListener('mouseenter', () => (button.style.background = `color-mix(in srgb, ${look.color} 12%, ${rest === 'rgba(0, 0, 0, 0)' ? 'transparent' : rest})`));
-      button.addEventListener('mouseleave', () => (button.style.background = rest));
+      button.addEventListener('mouseenter', () => (button.style.background = GREEN_HOVER));
+      button.addEventListener('mouseleave', () => (button.style.background = GREEN));
+      button.addEventListener('focus', () => (button.style.outline = `2px solid ${GREEN}`));
+      button.addEventListener('blur', () => (button.style.outline = 'none'));
+      button.style.outlineOffset = '2px';
       button.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();

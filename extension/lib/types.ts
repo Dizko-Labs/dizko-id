@@ -58,7 +58,7 @@ export interface Row {
 import type { Artist } from './dizko';
 
 export interface Job {
-  mix: { title: string; url: string; duration?: number };
+  mix: { title: string; url: string; duration?: number; uploader?: string };
   /** the DJ, when Dizko knows them */
   artist?: Artist;
   rows: Row[];

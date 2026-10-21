@@ -161,7 +161,8 @@ function Library({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => v
                 <button type="button" onClick={() => onOpen(h.mix.url)} className="block w-full text-left hover:underline">
                   <span className="line-clamp-2 text-[21px] leading-[1.05] font-black [font-stretch:64%]">{h.mix.title}</span>
                 </button>
-                <div className="mt-1 flex items-center gap-x-3 text-[12px] font-semibold text-toner-2">
+                {(h.artist?.name ?? h.mix.uploader) && <p className="mt-0.5 truncate text-[13px] font-semibold text-toner-1">{h.artist?.name ?? h.mix.uploader}</p>}
+                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] font-semibold whitespace-nowrap text-toner-2">
                   <a href={h.mix.url} target="_blank" rel="noreferrer" className={cn(LINK, 'text-ink')}>{sourceOf(h.mix.url)}</a>
                   <span>{ticked} of {h.rows.length} picked</span>
                   {carted > 0 && <span className="text-ink">{carted} in cart</span>}
