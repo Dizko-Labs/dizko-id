@@ -40,7 +40,7 @@ export function splitTitle(title: string): { base: string; version: string } {
 /** Versions that all mean "the record as released", so any of them satisfies a Shazam title with no version. */
 const GENERIC = /^(?:original|extended|club|main|album|full length|full|vocal|radio|single)?\s*(?:mix|version|edit)?$/;
 
-export function isGenericVersion(v: string): boolean {
+function isGenericVersion(v: string): boolean {
   const n = norm(v);
   return n === '' || GENERIC.test(n);
 }
@@ -55,7 +55,7 @@ export function artistNames(credit: string): string[] {
 
 const NOT_THE_RECORD = /\b(karaoke|tribute|made famous|in the style of|originally performed|cover version|8 bit|lullaby)\b/;
 
-export type Verdict =
+type Verdict =
   | { ok: true; score: number }
   | { ok: false; reason: 'artist' | 'title' | 'version' | 'imitation' };
 

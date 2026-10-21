@@ -1,3 +1,5 @@
+import { avatarOf, clientIdFrom } from './soundcloudPage';
+
 /** A DJ's other SoundCloud uploads, read from SoundCloud's public web API (the same reads soundcloud.com makes). */
 export interface Upload {
   title: string;
@@ -13,12 +15,9 @@ let clientId: string | undefined;
 /** SoundCloud's public web client id, read from its own scripts as the content script does for streams. */
 async function getClientId(): Promise<string> {
   if (clientId) return clientId;
-  const html = await fetch('https://soundcloud.com/discover').then((r) => r.text());
-  for (const src of [...html.matchAll(/<script crossorigin src="([^"]+)"/g)].map((m) => m[1]!).reverse()) {
-    const found = (await fetch(src).then((r) => r.text())).match(/client_id[:=]"(\w{20,})"/)?.[1];
-    if (found) return (clientId = found);
-  }
-  throw new Error('No SoundCloud client id');
+  const found = await clientIdFrom(await fetch('https://soundcloud.com/discover').then((r) => r.text()));
+  if (!found) throw new Error('No SoundCloud client id');
+  return (clientId = found);
 }
 
 /** A SoundCloud profile's picture and its long uploads (20 minutes or more, so mixes rather than single tracks). */
@@ -26,8 +25,7 @@ export async function profileMixes(profileUrl: string): Promise<{ avatar?: strin
   const cid = await getClientId();
   const user = await fetch(`https://api-v2.soundcloud.com/resolve?url=${encodeURIComponent(profileUrl)}&client_id=${cid}`).then((r) => r.json());
   if (user?.kind !== 'user') return { mixes: [] };
-  // SoundCloud serves avatars in named sizes; -large is 100px, t500x500 is sharp at any panel size
-  const avatar: string | undefined = user.avatar_url && !/default_avatar/.test(user.avatar_url) ? user.avatar_url.replace('-large', '-t500x500') : undefined;
+  const avatar = avatarOf(user.avatar_url);
   const list = await fetch(`https://api-v2.soundcloud.com/users/${user.id}/tracks?limit=50&client_id=${cid}`).then((r) => r.json());
   const mixes: Upload[] = (list?.collection ?? [])
     .filter((t: any) => t.duration >= 20 * 60 * 1000)
@@ -39,7 +37,7 @@ export async function profileMixes(profileUrl: string): Promise<{ avatar?: strin
 export async function profileAvatar(profileUrl: string): Promise<string | undefined> {
   const cid = await getClientId();
   const user = await fetch(`https://api-v2.soundcloud.com/resolve?url=${encodeURIComponent(profileUrl)}&client_id=${cid}`).then((r) => r.json());
-  return user?.kind === 'user' && user.avatar_url && !/default_avatar/.test(user.avatar_url) ? user.avatar_url.replace('-large', '-t500x500') : undefined;
+  return user?.kind === 'user' ? avatarOf(user.avatar_url) : undefined;
 }
 
 /** The SoundCloud profile behind a mix URL: https://soundcloud.com/<user>/<track> -> https://soundcloud.com/<user> */

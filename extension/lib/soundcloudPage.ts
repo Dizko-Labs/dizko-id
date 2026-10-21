@@ -12,6 +12,17 @@ export function soundOf(html: string): any {
   return hydration ? JSON.parse(hydration).find((h: any) => h.hydratable === 'sound')?.data ?? null : null;
 }
 
+/** A SoundCloud picture sized for the panel (-large is 100px), or nothing for the default silhouette. */
+export const avatarOf = (url: string | undefined) => (url && !/default_avatar/.test(url) ? url.replace('-large', '-t500x500') : undefined);
+
+/** SoundCloud's public web client id, read from the scripts a SoundCloud page loads. */
+export async function clientIdFrom(html: string): Promise<string | undefined> {
+  for (const src of [...html.matchAll(/<script crossorigin src="([^"]+)"/g)].map((m) => m[1]!).reverse()) {
+    const found = (await fetch(src).then((r) => r.text())).match(/client_id[:=]"(\w{20,})"/)?.[1];
+    if (found) return found;
+  }
+}
+
 const meta = (html: string, property: string) =>
   html.match(new RegExp(`<meta[^>]+property="og:${property}"[^>]+content="([^"]*)"`))?.[1]?.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, "'") ?? '';
 
@@ -20,11 +31,7 @@ export async function soundcloudStream(html: string, sound: any): Promise<Stream
   const transcodings: any[] = sound?.media?.transcodings ?? [];
   const tc = transcodings.find((t) => t.format?.protocol === 'hls' && /mp4/.test(t.format?.mime_type ?? '')) ?? transcodings[0];
   if (!tc) return undefined;
-  let clientId = '';
-  for (const src of [...html.matchAll(/<script crossorigin src="([^"]+)"/g)].map((m) => m[1]!).reverse()) {
-    clientId = (await fetch(src).then((r) => r.text())).match(/client_id[:=]"(\w{20,})"/)?.[1] ?? '';
-    if (clientId) break;
-  }
+  const clientId = await clientIdFrom(html);
   if (!clientId) return undefined;
   const resolve = new URL(tc.url);
   resolve.searchParams.set('client_id', clientId);
@@ -50,7 +57,6 @@ export async function soundcloudStream(html: string, sound: any): Promise<Stream
 export async function soundcloudInfo(url: string): Promise<SourceInfo> {
   const html = await fetch(url, { credentials: 'include' }).then((r) => r.text());
   const sound = soundOf(html);
-  const pic: string | undefined = sound?.user?.avatar_url;
   return {
     title: sound?.title ?? meta(html, 'title'),
     url,
@@ -58,7 +64,7 @@ export async function soundcloudInfo(url: string): Promise<SourceInfo> {
     duration: sound?.duration ? sound.duration / 1000 : undefined,
     seekable: false,
     uploader: sound?.user?.username,
-    uploaderAvatar: pic && !/default_avatar/.test(pic) ? pic.replace('-large', '-t500x500') : undefined,
+    uploaderAvatar: avatarOf(sound?.user?.avatar_url),
     art: meta(html, 'image') || undefined,
     stream: await soundcloudStream(html, sound).catch(() => undefined),
   };

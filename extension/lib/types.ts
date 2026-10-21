@@ -60,7 +60,6 @@ export interface Row {
   offer?: Offer;
   /** other versions seen, so a version-missing row can say what does exist */
   alternatives?: Offer[];
-  note?: string;
   /** stores that were searched and did not have it (or not this version) */
   missingFrom?: Store[];
 }
@@ -115,3 +114,6 @@ export function coverage(job: Job): number | undefined {
 export const BEATPORT_CARTABLE: Status[] = ['queued', 'failed', 'login-needed', 'in-playlist'];
 /** Bandcamp also takes what Beatport did not have */
 export const BANDCAMP_CARTABLE: Status[] = ['queued', 'failed', 'login-needed', 'not-found', 'version-missing'];
+
+/** One track's identity across a job, the library and previews. */
+export const trackKey = (r: { track: { artist: string; title: string } }) => `${r.track.artist}|${r.track.title}`;

@@ -1,7 +1,8 @@
 import { exportLinks } from './links';
 import type { Job, Row } from './types';
 
-const time = (s: number | null) => {
+/** A position in a mix as h:mm:ss or m:ss. */
+export const time = (s: number | null | undefined) => {
   if (s == null) return '';
   const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = Math.floor(s % 60);
   return h ? `${h}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}` : `${m}:${String(x).padStart(2, '0')}`;

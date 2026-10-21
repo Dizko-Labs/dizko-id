@@ -77,7 +77,7 @@ export function SettingsPage({ onBack, motion }: { onBack: () => void; motion?: 
 
       <section className="px-4 pt-4">
         <h2 className="text-[12px] font-semibold text-toner-2">Usage</h2>
-        <div className="-mx-4"><UsageSetting always /></div>
+        <div className="-mx-4"><UsageSetting /></div>
       </section>
 
       <section data-area="claim" className="mt-auto border-t border-toner-3 px-4 py-5 text-[13px] text-toner-1">

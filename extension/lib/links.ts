@@ -3,7 +3,7 @@ import { bandcampSearchUrl, beatportSearchUrl } from './stores';
 import type { Row } from './types';
 import { utm } from './utm';
 
-export interface Links {
+interface Links {
   beatport: string;
   bandcamp: string;
   spotify: string;

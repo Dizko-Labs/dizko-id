@@ -6,14 +6,13 @@ import {
   beatportApi, beatportBuyAll, beatportPlaylistUrl, storeCheck,
 } from '@/lib/stores';
 import { findArtist, isPlatform, isStale } from '@/lib/dizko';
-import { backfillArt, backfillArtists, backfillAvatars, backfillUploaders, forget, mixKey, remember, saved } from '@/lib/history';
+import { backfillArt, backfillArtists, backfillAvatars, backfillUploaders, forget, history, mixKey, remember, saved } from '@/lib/history';
 import { setApp } from '@/lib/oauth';
 import { profileAvatar, profileMixes } from '@/lib/soundcloud';
 import { soundcloudInfo } from '@/lib/soundcloudPage';
 import { cleanMixUrl, utm } from '@/lib/utm';
 import { track } from '@/lib/analytics';
 import { account as dizkoAccount, link as dizkoLink, sync as dizkoSync, unlink as dizkoUnlink } from '@/lib/dizkoAccount';
-import { history } from '@/lib/history';
 import { soundcloudPlaylist, spotifyPlaylist } from '@/lib/playlists';
 import { parseTracklist } from '@/lib/tracklist';
 import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, coverage, type Job, type Offer, type Row, type Store, type Track } from '@/lib/types';
@@ -27,8 +26,8 @@ export default defineBackground(() => {
   syncTaste(60 * 60 * 1000);
   backfillUploaders().then(backfillArtists).then(backfillAvatars).then(backfillArt).catch(() => {});
   browser.runtime.onMessage.addListener((msg: PanelRequest & { streamId?: string }, sender, reply) => {
-    // The button on the SoundCloud page: open the panel on that tab (the click is the user gesture it needs)
-    // and leave a note so the panel starts identifying once it has read the mix
+    // The button on the SoundCloud page: open the panel on that tab (the click is the user gesture it needs);
+    // the panel reads the mix and starts identifying when auto-listen is on
     if ((msg as { type: string }).type === 'launch' && sender.tab?.id) {
       const tabId = sender.tab.id;
       const target = (msg as { url?: string }).url ?? sender.tab.url ?? '';
@@ -133,7 +132,7 @@ async function recover() {
   if (!job || (job.phase !== 'identifying' && job.phase !== 'carting' && !job.listening && !job.following)) return;
   const rows = job.rows.map((r) => (r.status === 'searching' ? { ...r, status: 'queued' as const } : r));
   const error = job.phase === 'carting'
-    ? 'Adding to cart stopped part way. Press Add to cart again to finish.'
+    ? 'Adding to your cart stopped part way. Press Beatport or Bandcamp under Purchase again to finish.'
     : 'Listening stopped part way. These are the tracks found before it did.';
   await setJob({ ...job, rows, phase: job.phase === 'carting' ? 'done' : 'review', listening: false, following: false, waitingFor: undefined, error });
 }
@@ -488,8 +487,6 @@ async function tryBandcamp(worker: number, track: Track): Promise<{ status: Row[
   return { status: alternatives.length ? 'version-missing' : 'not-found', alternatives };
 }
 
-const CARTABLE = BEATPORT_CARTABLE;
-
 /** A miss names the store, so the row can say "Not on Beatport" rather than a bare "Not found". */
 const missing = (row: Row | undefined, store: Store, status: Row['status']): Partial<Row> =>
   status === 'not-found' || status === 'version-missing' ? { missingFrom: [...new Set([...(row?.missingFrom ?? []), store])] } : {};
@@ -571,9 +568,9 @@ async function fillPlaylist(tab: number, job: Job, trackIds: string[]): Promise<
 }
 
 async function cart(stores: Store[]) {
-  // The tracks ticked when Add to cart was pressed; tracks found later by the still running listen wait for the next press
+  // The tracks ticked when a Purchase button was pressed; tracks found later by the still running listen wait for the next press
   const job = (await update((j) => ({ ...j, phase: 'carting', error: undefined })))!;
-  const cartable = stores.includes('beatport') ? CARTABLE : BANDCAMP_CARTABLE;
+  const cartable = stores.includes('beatport') ? BEATPORT_CARTABLE : BANDCAMP_CARTABLE;
   const keys = job.rows.filter((r) => r.selected && cartable.includes(r.status)).map((r) => keyOf(r.track));
   const rowFor = async (key: string) => (await getJob())!.rows.find((r) => keyOf(r.track) === key);
   const carts: Partial<Record<Store, string>> = {};

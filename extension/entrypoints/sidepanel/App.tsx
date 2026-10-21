@@ -9,15 +9,15 @@ import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { isPlatform, type Artist } from '@/lib/dizko';
-import { fileName, toCsv, toJson, toText } from '@/lib/export';
-import { mixKey, type Saved } from '@/lib/history';
+import { fileName, time, toCsv, toJson, toText } from '@/lib/export';
+import { djOf, mixKey, type Saved } from '@/lib/history';
 import { links } from '@/lib/links';
 import { norm } from '@/lib/match';
 import type { PanelRequest } from '@/lib/messages';
 import { redirectUri, type App as ServiceApp, type Service } from '@/lib/oauth';
 import { profileOf, type Upload } from '@/lib/soundcloud';
 import { beatportPlaylistUrl } from '@/lib/stores';
-import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, coverage, type Job, type PlaylistService, type Row, type Store } from '@/lib/types';
+import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, coverage, type Job, type PlaylistService, trackKey, type Row, type Store } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 const MIX_SITES = /^https:\/\/(www\.youtube\.com\/watch|soundcloud\.com\/[^/]+\/[^/]+|www\.mixcloud\.com\/[^/]+\/[^/]+)/;
@@ -26,12 +26,6 @@ const send = (msg: PanelRequest & { streamId?: string }) => browser.runtime.send
 const cartIn = (store: Store) => send({ type: 'panel:cart', stores: [store] });
 
 const LINK = 'underline decoration-toner-3 underline-offset-2 hover:decoration-ink';
-
-function clock(s: number | null | undefined) {
-  if (s == null) return '';
-  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = Math.floor(s % 60);
-  return h ? `${h}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}` : `${m}:${String(x).padStart(2, '0')}`;
-}
 
 const sourceOf = (url: string) =>
   /youtube\.com/.test(url) ? 'YouTube' : /soundcloud\.com/.test(url) ? 'SoundCloud' : /mixcloud\.com/.test(url) ? 'Mixcloud' : 'Mix';
@@ -107,11 +101,9 @@ function ArtistBlock({ artist, onName, hideName }: { artist: Artist; onName?: ()
     .join('. ');
   return (
     <section data-area="dizko" className="border-b border-toner-3 px-4 py-3 text-[13px]">
-      {!hideName && (onName ? (
+      {!hideName && onName && (
         <button type="button" onClick={onName} className="text-left text-[17px] font-semibold tracking-[-0.02em] hover:underline">{artist.name}</button>
-      ) : (
-        <a href={artist.url} target="_blank" rel="noreferrer" className="text-[17px] font-semibold tracking-[-0.02em] hover:underline">{artist.name}</a>
-      ))}
+      )}
       {about && <p className={cn('text-toner-1', !hideName && 'mt-0.5')}>{about}.</p>}
       <a href={artist.url} target="_blank" rel="noreferrer" className={cn(LINK, 'mt-1 inline-block text-[12px] font-semibold')}>More on Dizko</a>
       {artist.events.length > 0 && (
@@ -172,8 +164,6 @@ function Cover({ src, size = 52 }: { src?: string; size?: number }) {
 
 // ---- library: saved mixes and the tracks ticked across them
 
-/** The DJ for a saved mix: Dizko's match, else the uploader unless that is a channel hosting other DJs' sets. */
-const dj = (h: Saved) => (h.artist && !isPlatform(h.artist.name) ? h.artist.name : isPlatform(h.mix.uploader) ? undefined : h.mix.uploader);
 
 interface Dj {
   key: string;
@@ -187,7 +177,7 @@ interface Dj {
 function djsOf(items: Saved[]): Dj[] {
   const byDj = new Map<string, Dj>();
   for (const h of items) {
-    const name = dj(h);
+    const name = djOf(h);
     if (!name) continue;
     const key = norm(name);
     const entry = byDj.get(key) ?? { key, name, mixes: [] };
@@ -203,10 +193,8 @@ function djsOf(items: Saved[]): Dj[] {
 const TAB_ORDER = ['artists', 'mixes', 'tracks'];
 
 function Library({ items, onOpen, onArtist, onAccount }: { items: Saved[]; onOpen: (url: string) => void; onArtist: (key: string) => void; onAccount: () => void }) {
-  const [linked, setLinked] = useState(true);
-  useEffect(() => {
-    browser.storage.local.get('dizkoAccount').then((r) => setLinked(!!(r.dizkoAccount as { access?: string } | undefined)?.access));
-  }, []);
+  // follows the link made or undone in Settings
+  const linked = !!useStored<{ access?: string } | null>('local', 'dizkoAccount', null)?.access;
   // the chosen tab survives a visit to a mix or an artist; the new tab slides in from the side it sits on
   const [tabValue, setTabValue] = useState(() => sessionStorage.getItem('library-tab') ?? 'artists');
   const [tabFrom, setTabFrom] = useState<'right' | 'left' | null>(null);
@@ -244,9 +232,9 @@ function Library({ items, onOpen, onArtist, onAccount }: { items: Saved[]; onOpe
                 <button type="button" onClick={() => onOpen(h.mix.url)} className="block w-full text-left hover:underline">
                   <span className="line-clamp-2 text-[18px] leading-[1.15] font-semibold tracking-[-0.02em]">{h.mix.title}</span>
                 </button>
-                {dj(h) && (
-                  <button type="button" onClick={() => onArtist(norm(dj(h)!))} className="mt-0.5 block max-w-full truncate text-left text-[13px] font-semibold text-toner-1 hover:text-ink hover:underline">
-                    {dj(h)}
+                {djOf(h) && (
+                  <button type="button" onClick={() => onArtist(norm(djOf(h)!))} className="mt-0.5 block max-w-full truncate text-left text-[13px] font-semibold text-toner-1 hover:text-ink hover:underline">
+                    {djOf(h)}
                   </button>
                 )}
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] font-semibold whitespace-nowrap text-toner-2">
@@ -306,7 +294,7 @@ function Library({ items, onOpen, onArtist, onAccount }: { items: Saved[]; onOpe
         {!picks.size && <p className="py-5 text-[14px] text-toner-1">Tracks you tick in a mix collect here.</p>}
         <ul>
           {[...picks.values()].map(({ row, mix }) => (
-            <li key={`${row.track.artist}|${row.track.title}`} className="grid grid-cols-[52px_minmax(0,1fr)] gap-x-3 border-b border-toner-3 py-2.5">
+            <li key={trackKey(row)} className="grid grid-cols-[52px_minmax(0,1fr)] gap-x-3 border-b border-toner-3 py-2.5">
               <div className="flex flex-col items-center gap-2">
                 <Cover src={row.track.art ?? row.offer?.art} />
                 <PreviewButton row={row} />
@@ -407,7 +395,7 @@ function ArtistPage({ entry, onBack, onOpen, onScan, motion }: { entry: Dj; onBa
                   <p className="min-w-0 text-[15px] font-semibold">{u.title}</p>
                 </div>
                 <div className="mt-1 flex items-center gap-3 text-[12px]">
-                  <span className="text-toner-2">{clock(u.duration)} · {new Date(u.at).getFullYear()}</span>
+                  <span className="text-toner-2">{time(u.duration)} · {new Date(u.at).getFullYear()}</span>
                   <button type="button" onClick={() => setPlaying(playing === u.url ? null : u.url)} className={cn(LINK, 'ml-auto font-semibold')}>
                     {playing === u.url ? 'Hide player' : 'Listen'}
                   </button>
@@ -689,7 +677,7 @@ export default function App() {
         <h1 className="mt-2 line-clamp-3 text-[26px] leading-[1.05] font-semibold tracking-[-0.03em]">{view.mix.title}</h1>
         <p className="mt-2 flex flex-wrap gap-x-3.5 text-[13px] font-semibold">
           <a href={view.mix.url} target="_blank" rel="noreferrer" className="underline decoration-1 underline-offset-2">{sourceOf(view.mix.url)}</a>
-          {view.mix.duration ? <span>{clock(view.mix.duration)}</span> : null}
+          {view.mix.duration ? <span>{time(view.mix.duration)}</span> : null}
           {view.rows.length > 0 && <span>{view.rows.length} {view.rows.length === 1 ? "track" : "tracks"}</span>}
         </p>
       </header>
@@ -845,14 +833,14 @@ export default function App() {
       <div data-area="tracklist" className="px-4 pb-24">
         {/* Billing: confirmed tracks set large, single-hit IDs on the smaller "plus" line */}
         <ol>
-          {view.rows.map((row, i) => row.track.hits >= 2 && <TrackRow key={`${row.track.artist}|${row.track.title}`} row={row} index={i} locked={locked} />)}
+          {view.rows.map((row, i) => row.track.hits >= 2 && <TrackRow key={trackKey(row)} row={row} index={i} locked={locked} />)}
         </ol>
         {unconfirmed > 0 && (
           <>
             <h2 className="mt-5 border-b border-toner-3 pb-1.5 text-[16px] font-semibold tracking-[-0.01em]">Plus {unconfirmed} unconfirmed</h2>
             <p className="pt-1.5 text-[12px] text-toner-2">Each heard in one clip only. Often a sample or a blend, so they start unticked.</p>
             <ol>
-              {view.rows.map((row, i) => row.track.hits < 2 && <TrackRow key={`${row.track.artist}|${row.track.title}`} row={row} index={i} locked={locked} />)}
+              {view.rows.map((row, i) => row.track.hits < 2 && <TrackRow key={trackKey(row)} row={row} index={i} locked={locked} />)}
             </ol>
           </>
         )}
@@ -882,7 +870,7 @@ function TrackFacts({ offer }: { offer?: Row['offer'] }) {
   // Camelot first (how most DJs mix in key), then the short musical key: "4A (Fm)"
   const short = offer.key?.name.replace(/ Minor$/, 'm').replace(/ Major$/, '').replace(/ /g, '');
   const key = offer.key && `${offer.key.camelot}${short ? ` (${short})` : ''}`;
-  const facts = [offer.bpm && `${Math.round(offer.bpm)} BPM`, key, offer.length && clock(offer.length)].filter(Boolean);
+  const facts = [offer.bpm && `${Math.round(offer.bpm)} BPM`, key, offer.length && time(offer.length)].filter(Boolean);
   return (
     <p className="mt-0.5 text-[12px] font-medium text-toner-1 tabular-nums" title={offer.key?.name || undefined}>
       {facts.join('  ·  ')}
@@ -906,7 +894,7 @@ function TrackRow({ row, index, locked }: { row: Row; index: number; locked: boo
     <li className="grid grid-cols-[22px_42px_minmax(0,1fr)] gap-x-2 border-b border-toner-3 py-2.5">
       <Checkbox id={id} checked={row.selected} disabled={locked} onCheckedChange={() => send({ type: 'panel:toggle', index })} className="mt-0.5 border-toner-2 data-[state=checked]:border-tick data-[state=checked]:bg-tick data-[state=checked]:text-on-tick" />
       <div className="flex flex-col items-start gap-1.5">
-        <span className="pt-0.5 text-[12px] font-semibold text-toner-2">{clock(row.track.at)}</span>
+        <span className="pt-0.5 text-[12px] font-semibold text-toner-2">{time(row.track.at)}</span>
         <PreviewButton row={row} />
       </div>
       <div className="min-w-0">

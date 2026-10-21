@@ -86,7 +86,7 @@ export default defineContentScript({
       return button;
     }
 
-    /** Ask the extension to open its panel; if Chrome refuses, say how to open it (it starts by itself then). */
+    /** Ask the extension to open its panel; if Chrome refuses, say how to open it. */
     function launch(button: HTMLElement, url?: string) {
       if (!alive()) {
         // this copy belongs to a replaced extension: only a page reload brings the new one in
@@ -97,7 +97,7 @@ export default defineContentScript({
         .sendMessage({ type: 'launch', url })
         .then((r: { opened?: boolean } | undefined) => {
           if (r?.opened === false) {
-            button.title = 'Click the Dizko ID icon in the toolbar to open it; it starts listening by itself';
+            button.title = 'Click the Dizko ID icon in the toolbar to open it on this mix';
             button.querySelector('span')!.textContent = 'Open from toolbar';
           }
         })

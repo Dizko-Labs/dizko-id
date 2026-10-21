@@ -1,6 +1,7 @@
 import { findArtist, isPlatform } from './dizko';
-import { artistNames, norm, splitTitle } from './match';
-import type { Job } from './types';
+import { itunesMatches } from './itunes';
+import { soundOf } from './soundcloudPage';
+import { trackKey, type Job } from './types';
 import { cleanMixUrl } from './utm';
 import { profileAvatar, profileOf } from './soundcloud';
 
@@ -10,6 +11,9 @@ export interface Saved extends Job {
 }
 
 const KEY = 'history';
+
+/** The DJ for a saved mix: Dizko's match, else the uploader unless that is a channel hosting other DJs' sets. */
+export const djOf = (h: Saved) => (h.artist && !isPlatform(h.artist.name) ? h.artist.name : isPlatform(h.mix.uploader) ? undefined : h.mix.uploader);
 const LIMIT = 50;
 
 /** One entry per mix: YouTube's extra query parameters (playlist, start time) do not make a new mix. */
@@ -50,8 +54,7 @@ export async function backfillUploaders() {
   for (const h of await history()) {
     if ((h.mix.uploader || h.artist) && h.mix.art) continue;
     const html = await fetch(h.mix.url, { credentials: 'include' }).then((r) => r.text()).catch(() => '');
-    const hydration = html.match(/__sc_hydration\s*=\s*(\[[\s\S]*?\]);\s*<\/script>/)?.[1];
-    const sound = hydration ? JSON.parse(hydration).find((x: any) => x.hydratable === 'sound')?.data : null;
+    const sound = (() => { try { return soundOf(html); } catch { return null; } })();
     const channel = html.match(/"ownerChannelName":"((?:[^"\\]|\\.)*)"/)?.[1];
     const name: string | undefined = sound?.user?.username ?? (channel ? JSON.parse(`"${channel}"`) : undefined);
     const art = html.match(/<meta[^>]+property="og:image"[^>]+content="([^"]+)"/)?.[1]?.replace(/&amp;/g, '&');
@@ -124,31 +127,21 @@ export async function backfillAvatars() {
  * iTunes Search API lookup each (public, no key), a few a second, at most 60 per run.
  */
 export async function backfillArt() {
-  const keyOf = (r: { track: { artist: string; title: string } }) => `${r.track.artist}|${r.track.title}`;
   const art = new Map<string, string>();
   const tried = new Set<string>();
   for (const h of await history()) {
     for (const r of h.rows) {
-      const key = keyOf(r);
+      const key = trackKey(r);
       if (!r.selected || r.track.art || r.offer?.art || tried.has(key) || tried.size >= 60) continue;
       tried.add(key);
-      const q = encodeURIComponent(`${r.track.artist} ${r.track.title.replace(/\s*[([][^)\]]*[)\]]/g, '')}`);
-      const hits = await fetch(`https://itunes.apple.com/search?term=${q}&entity=song&limit=8`).then((x) => x.json()).catch(() => null);
-      // iTunes search is loose ("Dam Swindle That's Right" finds Cole Swindell): wrong art is worse than none,
-      // so take only a result whose artist and title both match
-      const want = artistNames(r.track.artist);
-      const title = norm(splitTitle(r.track.title).base);
-      const match = (hits?.results ?? []).find(
-        (x: any) => artistNames(String(x.artistName ?? '')).some((a) => want.includes(a)) && norm(splitTitle(String(x.trackName ?? '')).base) === title,
-      );
-      const url: string | undefined = match?.artworkUrl100;
+      const url: string | undefined = (await itunesMatches(r.track.artist, r.track.title))[0]?.artworkUrl100;
       if (url) art.set(key, url.replace('100x100bb', '200x200bb'));
       await new Promise((ok) => setTimeout(ok, 350));
     }
   }
   if (!art.size) return;
   const now = await history();
-  for (const h of now) for (const r of h.rows) r.track.art ??= art.get(keyOf(r));
+  for (const h of now) for (const r of h.rows) r.track.art ??= art.get(trackKey(r));
   await browser.storage.local.set({ [KEY]: now });
 }
 

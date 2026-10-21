@@ -1,5 +1,5 @@
 import type { SourceInfo, SourceRequest, Stream } from '@/lib/messages';
-import { soundcloudStream, soundOf } from '@/lib/soundcloudPage';
+import { avatarOf, soundcloudStream, soundOf } from '@/lib/soundcloudPage';
 
 /**
  * Runs on mix pages. Reports the mix's title and any written tracklist, and seeks the page's player
@@ -46,8 +46,7 @@ async function info(): Promise<SourceInfo> {
     description = sound?.description ?? '';
     if (sound?.duration) duration = sound.duration / 1000;
     uploader = sound?.user?.username;
-    const pic: string | undefined = sound?.user?.avatar_url;
-    if (pic && !/default_avatar/.test(pic)) uploaderAvatar = pic.replace('-large', '-t500x500');
+    uploaderAvatar = avatarOf(sound?.user?.avatar_url);
     stream = await soundcloudStream(html, sound).catch(() => undefined);
   } else if (!location.hostname.includes('youtube.com')) description = scriptString(html, 'description');
   description ||= og('description');

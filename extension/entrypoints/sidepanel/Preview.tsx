@@ -2,7 +2,7 @@ import { useSyncExternalStore } from 'react';
 import { Pause, Play } from 'lucide-react';
 import { previewUrl } from '@/lib/preview';
 import { settings } from '@/lib/settings';
-import type { Row } from '@/lib/types';
+import { trackKey, type Row } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { useSettings } from './Settings';
 
@@ -19,10 +19,8 @@ const set = (next: State) => {
 audio.addEventListener('ended', () => set({ key: state.key, status: 'idle' }));
 audio.addEventListener('pause', () => state.status === 'playing' && set({ key: state.key, status: 'idle' }));
 
-const keyOf = (row: Row) => `${row.track.artist}|${row.track.title}`;
-
 async function toggle(row: Row) {
-  const key = keyOf(row);
+  const key = trackKey(row);
   if (state.key === key && state.status === 'playing') return audio.pause();
   audio.pause();
   set({ key, status: 'loading' });
@@ -46,7 +44,7 @@ export function PreviewButton({ row }: { row: Row }) {
   const s = useSyncExternalStore((l) => (listeners.add(l), () => listeners.delete(l)), () => state);
   const { preview } = useSettings();
   if (preview === 'off') return null;
-  const mine = s.key === keyOf(row);
+  const mine = s.key === trackKey(row);
   const playing = mine && s.status === 'playing';
   const missing = mine && s.status === 'none';
   const label = playing ? `Pause ${row.track.title}` : missing ? 'No preview found' : `Preview ${row.track.title}`;
