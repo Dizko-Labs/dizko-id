@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, ChevronDown, ChevronLeft } from 'lucide-react';
 import { DizkoMark } from '@/components/DizkoMark';
 import { UsageSetting } from './Consent';
+import { DizkoLinkBar } from './DizkoLinkBar';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -424,9 +425,9 @@ function Playlists({ job, ticked }: { job: Job; ticked: number }) {
   const [connecting, setConnecting] = useState<Service | null>(null);
   const urlFor = (id: PlaylistService) => job.made?.[id]?.url ?? (id === 'beatport' && job.playlist?.beatport ? beatportPlaylistUrl(job.playlist.beatport) : undefined);
   return (
-    <section data-area="playlist" className="border-t border-toner-3 px-4 py-3">
-      <p className="text-[13px] font-semibold">Playlist of the {ticked} ticked</p>
-      <div className="mt-2 grid grid-cols-3 gap-2">
+    <div data-area="playlist">
+      <p className="mb-1.5 text-[13px] font-semibold">Playlist</p>
+      <div className="grid grid-cols-3 gap-2">
         {SERVICES.map((s) => {
           const url = urlFor(s.id);
           if (url) {
@@ -457,7 +458,7 @@ function Playlists({ job, ticked }: { job: Job; ticked: number }) {
         ) : null;
       })}
       {connecting && <Connect service={connecting} onDone={() => setConnecting(null)} />}
-    </section>
+    </div>
   );
 }
 
@@ -581,7 +582,9 @@ export default function App() {
         {/* the brand bar: Dizko's raised surface, its mark, and room above the library */}
         <header data-area="claim" className="border-b border-toner-3 bg-surface px-4 pt-6 pb-5">
           <div className="flex items-center gap-2.5">
-            <DizkoMark className="h-[24px] w-auto text-ink" />
+            <a href="https://www.dizko.app" target="_blank" rel="noreferrer" data-content="dizko_logo" aria-label="Dizko" className="rounded-[4px]">
+              <DizkoMark className="h-[24px] w-auto text-ink" />
+            </a>
             <h1 className="text-[28px] leading-none font-semibold tracking-[-0.03em]">Dizko ID</h1>
           </div>
           <p className="mt-3.5 max-w-[34ch] text-[14px] leading-snug text-toner-1">
@@ -597,6 +600,7 @@ export default function App() {
             </p>
           </div>
         </header>
+        {!(onMixPage && !library) && items.length > 0 && <DizkoLinkBar />}
         {job && library && (sameMix || busy) && (
           <button type="button" onClick={() => setLibrary(false)} className="border-b border-toner-3 px-4 py-2.5 text-left text-[13px] font-semibold hover:underline">
             Back to {job.mix.title}
@@ -757,6 +761,28 @@ export default function App() {
                 </div>
               )}
               {cartButtons}
+              <Playlists job={job} ticked={selected.length} />
+              <div className="flex items-center gap-2 pt-0.5">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" className="h-9 gap-1 border-toner-2 bg-transparent text-[13px] font-semibold hover:bg-surface">Export tracklist<ChevronDown className="size-4" /></Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="start">
+                    <DropdownMenuItem onSelect={() => download(job, 'txt')}>Text, with links</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => download(job, 'csv')}>Spreadsheet (CSV)</DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => download(job, 'json')}>JSON</DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                {sameMix && !busy && (
+                  <Button
+                    variant="ghost"
+                    className="ml-auto h-9 text-[13px] text-toner-2"
+                    onClick={() => send({ type: 'panel:reset' }).then(() => tab && send({ type: 'panel:read', tabId: tab.id }))}
+                  >
+                    Scan again
+                  </Button>
+                )}
+              </div>
             </>
           )
         )}
@@ -790,31 +816,6 @@ export default function App() {
         {job.phase === 'identifying' && !job.rows.length && <p className="py-6 text-[14px] text-toner-2">Tracks appear here as they are recognized.</p>}
       </div>
 
-      {job.rows.length > 0 && <Playlists job={job} ticked={selected.length} />}
-
-      {job.rows.length > 0 && (
-        <footer className="flex items-center gap-2 border-t border-toner-3 px-4 py-3">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="h-9 gap-1 border-toner-2 bg-transparent hover:bg-surface text-[14px] font-semibold">Export tracklist<ChevronDown className="size-4" /></Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem onSelect={() => download(job, 'txt')}>Text, with links</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => download(job, 'csv')}>Spreadsheet (CSV)</DropdownMenuItem>
-              <DropdownMenuItem onSelect={() => download(job, 'json')}>JSON</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          {sameMix && !busy && (
-            <Button
-              variant="ghost"
-              className="ml-auto h-9 text-[13px] text-toner-2"
-              onClick={() => send({ type: 'panel:reset' }).then(() => tab && send({ type: 'panel:read', tabId: tab.id }))}
-            >
-              Scan again
-            </Button>
-          )}
-        </footer>
-      )}
     </main>
   );
 }

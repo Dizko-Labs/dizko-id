@@ -17,7 +17,7 @@ export async function setConsent(value: Consent) {
   await browser.storage.local.set({ analytics: value });
 }
 
-async function installId(): Promise<string> {
+export async function installId(): Promise<string> {
   const stored = (await browser.storage.local.get('installId')).installId as string | undefined;
   if (stored) return stored;
   const id = crypto.randomUUID();

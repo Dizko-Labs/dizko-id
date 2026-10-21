@@ -10,7 +10,7 @@ import './style.css';
  * data-area), the content is the link's own label. Middle clicks count too. This is the one place outbound
  * clicks pass through.
  */
-const KNOWN_LABELS = /^(instagram|artist_name|follow on dizko|beatport|bandcamp|spotify|youtube|soundcloud|mixcloud|more on dizko|claim this page|claim your page on dizko|open beatport|open bandcamp|beatport playlist|open the mix to finish|.*(spotify|soundcloud|beatport) playlist)$/i;
+const KNOWN_LABELS = /^(dizko_logo|instagram|artist_name|follow on dizko|beatport|bandcamp|spotify|youtube|soundcloud|mixcloud|more on dizko|claim this page|claim your page on dizko|open beatport|open bandcamp|beatport playlist|open the mix to finish|.*(spotify|soundcloud|beatport) playlist)$/i;
 
 function tagOutbound(e: MouseEvent) {
   const a = (e.target as Element | null)?.closest?.('a[href]') as HTMLAnchorElement | null;

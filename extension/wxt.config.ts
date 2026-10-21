@@ -30,6 +30,8 @@ export default defineConfig({
       'https://itunes.apple.com/*',
       // anonymous usage events, only after the DJ agrees
       'https://us.i.posthog.com/*',
+      // linking to a Dizko account and importing taste
+      'https://api.dizko.app/*',
     ],
     action: { default_title: 'Dizko ID' },
     side_panel: { default_path: 'sidepanel.html' },

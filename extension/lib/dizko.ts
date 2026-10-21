@@ -2,6 +2,8 @@ import { norm } from './match';
 
 /** What the panel shows about the DJ behind a mix, from Dizko's public event graph. */
 export interface Artist {
+  /** Dizko's directory id (e.g. kerri-chandler), used to follow the DJ on Dizko */
+  id?: string;
   name: string;
   url: string;
   /** the DJ has published their Dizko page; otherwise the panel invites them to claim it */
@@ -86,6 +88,7 @@ export async function findArtist(title: string, uploader?: string): Promise<Arti
     return {
       name: e.name,
       url: r.page?.page_url ?? e.dizko_url,
+      id: typeof e.id === 'string' ? e.id : undefined,
       claimed: !!r.page?.published,
       fetchedAt: Date.now(),
       v: 2,

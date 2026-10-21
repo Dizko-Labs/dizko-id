@@ -48,6 +48,9 @@ export type PanelRequest =
   | { type: 'panel:forget'; url: string }
   | { type: 'panel:profile-mixes'; url: string }
   | { type: 'panel:scan'; url: string }
+  | { type: 'panel:dizko-link'; follow: boolean }
+  | { type: 'panel:dizko-sync' }
+  | { type: 'panel:dizko-unlink' }
   | { type: 'panel:identify'; tabId: number; resume?: boolean }
   | { type: 'panel:switch'; tabId: number }
   | { type: 'panel:toggle'; index: number }

@@ -11,6 +11,8 @@ import { setApp } from '@/lib/oauth';
 import { profileAvatar, profileMixes } from '@/lib/soundcloud';
 import { cleanMixUrl, utm } from '@/lib/utm';
 import { track } from '@/lib/analytics';
+import { account as dizkoAccount, link as dizkoLink, sync as dizkoSync, unlink as dizkoUnlink } from '@/lib/dizkoAccount';
+import { history } from '@/lib/history';
 import { soundcloudPlaylist, spotifyPlaylist } from '@/lib/playlists';
 import { parseTracklist } from '@/lib/tracklist';
 import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, coverage, type Job, type Offer, type Row, type Store, type Track } from '@/lib/types';
@@ -21,6 +23,7 @@ const NAME_YOUR_PRICE = 1;
 export default defineBackground(() => {
   browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
   recover();
+  syncTaste(60 * 60 * 1000);
   backfillUploaders().then(backfillArtists).then(backfillAvatars).then(backfillArt).catch(() => {});
   browser.runtime.onMessage.addListener((msg: PanelRequest & { streamId?: string }, sender, reply) => {
     // The button on the SoundCloud page: open the panel on that tab (the click is the user gesture it needs)
@@ -142,6 +145,21 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
       track('scan_from_artist_page');
       // a new tab on the mix: the panel follows the active tab, reads it and starts listening
       await browser.tabs.create({ url: msg.url, active: true });
+      return { ok: true };
+    case 'panel:dizko-link':
+      try {
+        await dizkoLink(msg.follow);
+        await dizkoSync(await history());
+        track('dizko_linked', { follow: msg.follow });
+        return { ok: true };
+      } catch (e) {
+        return { error: e instanceof Error ? e.message : String(e) };
+      }
+    case 'panel:dizko-sync':
+      return dizkoSync(await history()).then(() => ({ ok: true }), (e) => ({ error: e instanceof Error ? e.message : String(e) }));
+    case 'panel:dizko-unlink':
+      await dizkoUnlink();
+      track('dizko_unlinked');
       return { ok: true };
     case 'panel:forget':
       await forget(msg.url);
@@ -367,6 +385,7 @@ async function identify(tabId: number, streamId?: string, resume = false) {
     track('identify_end', { method: info.stream ? 'stream' : info.seekable ? 'seek' : 'live', tracks: finished.length, confirmed: finished.filter((r) => r.track.hits >= 2).length, stopped: stoppedEarly, resumed: resume });
     await update((job) => ({ ...job, phase: job.phase === 'identifying' ? 'review' : job.phase, listening: false, progress: stoppedEarly ? job.progress : 1 }));
     enrich().catch(() => {});
+    syncTaste();
   }
 }
 
@@ -593,6 +612,7 @@ async function cart(stores: Store[]) {
     }
   } finally {
     for (const tab of [handOff ? undefined : beatportTab, bandcampTab]) if (tab) await browser.tabs.remove(tab).catch(() => {});
+    syncTaste();
     const after = (await getJob())?.rows ?? [];
     track('cart_run', { store: stores.join('+'), asked: keys.length, carted: after.filter((r) => keys.includes(keyOf(r.track)) && r.status === 'carted').length, playlist: !!playlist, buy_all: playlistCarted });
     await update((j) => ({
@@ -710,5 +730,14 @@ async function enrich() {
   } finally {
     await browser.tabs.remove(tab).catch(() => {});
   }
+}
+
+/** Keep a linked Dizko account's imported taste current; quiet, and not more often than `every`. */
+function syncTaste(every = 5 * 60 * 1000) {
+  (async () => {
+    const a = await dizkoAccount();
+    if (!a.access || Date.now() - (a.syncedAt ?? 0) < every) return;
+    await dizkoSync(await history());
+  })().catch(() => {});
 }
 
