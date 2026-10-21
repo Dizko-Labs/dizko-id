@@ -463,17 +463,37 @@ export default function App() {
     }
   }, [tab?.id, tab?.url]);
 
+  // Chrome hands over a tab's audio only after the DJ invokes the extension on that tab (its toolbar icon);
+  // a click inside the panel does not count. Until then the panel asks for that click and keeps trying.
+  const [needsIcon, setNeedsIcon] = useState<{ tabId: number; resume: boolean } | null>(null);
   async function listen(resume = false) {
     if (!tab) return;
     try {
       // SoundCloud is fingerprinted from its own stream; other sites need the tab's audio
       const streamId = job?.method === 'stream' ? undefined : await browser.tabCapture.getMediaStreamId({ targetTabId: tab.id });
       setError('');
+      setNeedsIcon(null);
       await send({ type: 'panel:identify', tabId: tab.id, streamId, resume });
     } catch (e) {
-      setError(`Could not listen to this tab: ${String(e).replace(/^Error: /, '')}`);
+      const why = String(e).replace(/^Error: /, '');
+      if (/not been invoked|activeTab/i.test(why)) {
+        setError('');
+        setNeedsIcon({ tabId: tab.id, resume });
+      } else setError(`Could not listen to this tab: ${why}`);
     }
   }
+  useEffect(() => {
+    if (!needsIcon) return;
+    if (tab?.id !== needsIcon.tabId || !sameMix) return setNeedsIcon(null);
+    const timer = setInterval(async () => {
+      const streamId = await browser.tabCapture.getMediaStreamId({ targetTabId: needsIcon.tabId }).catch(() => null);
+      if (!streamId) return;
+      clearInterval(timer);
+      setNeedsIcon(null);
+      send({ type: 'panel:identify', tabId: needsIcon.tabId, streamId, resume: needsIcon.resume });
+    }, 1500);
+    return () => clearInterval(timer);
+  }, [needsIcon, tab?.id, sameMix]);
 
   // A mix with no written tracklist starts identifying as soon as the panel has read it, once per mix; the
   // button below only comes back if that listen could not start
@@ -643,10 +663,10 @@ export default function App() {
         {view.phase === 'reading' && !view.rows.length && (
           <>
             <p className="text-[14px] leading-snug">
-              {error ? 'Listening could not start.' : prefs.autoListen ? 'No tracklist in the description, so it listens to the mix.' : 'No tracklist in the description. Dizko ID can listen to the mix to find the tracks.'}
-              {view.method === 'seek' ? ' This tab stays quiet while it jumps through.' : view.method === 'live' ? ' Press play and leave it running.' : ''}
+              {needsIcon ? 'Chrome needs one click on the Dizko ID icon in your toolbar before it lets Dizko ID hear this tab. Click it and listening starts.' : error ? 'Listening could not start.' : prefs.autoListen ? 'No tracklist in the description, so it listens to the mix.' : 'No tracklist in the description. Dizko ID can listen to the mix to find the tracks.'}
+              {needsIcon ? '' : view.method === 'seek' ? ' This tab stays quiet while it jumps through.' : view.method === 'live' ? ' Press play and leave it running.' : ''}
             </p>
-            {(error || !prefs.autoListen) && <Button onClick={() => listen()} disabled={!sameMix || readOnly} className="h-10 w-full text-[15px] font-semibold">{error ? 'Try again' : 'Identify tracks'}</Button>}
+            {!needsIcon && (error || !prefs.autoListen) && <Button onClick={() => listen()} disabled={!sameMix || readOnly} className="h-10 w-full text-[15px] font-semibold">{error ? 'Try again' : 'Identify tracks'}</Button>}
           </>
         )}
         {(view.phase === 'identifying' || (view.phase === 'carting' && view.listening)) && (
@@ -734,6 +754,9 @@ export default function App() {
           )
         )}
         {(error || view.error) && <p className="text-[13px] text-miss">{error || view.error}</p>}
+        {needsIcon && view.phase !== 'reading' && (
+          <p className="text-[14px] leading-snug">Chrome needs one click on the Dizko ID icon in your toolbar before it lets Dizko ID hear this tab. Click it and listening starts.</p>
+        )}
       </section>
 
       {view.rows.length > 0 && (
