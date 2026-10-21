@@ -318,6 +318,14 @@ export default function App() {
     }
   }
 
+  // Opened from the button on the SoundCloud page: start identifying as soon as the mix has been read
+  const autostart = useStored<{ tabId: number; at: number } | null>('session', 'autostart', null);
+  useEffect(() => {
+    if (!autostart || !tab || autostart.tabId !== tab.id || !sameMix) return;
+    browser.storage.session.remove('autostart');
+    if (Date.now() - autostart.at < 60_000 && job?.phase === 'reading' && !job.rows.length) listen();
+  }, [autostart, tab?.id, sameMix, job?.phase]);
+
   async function open(url: string) {
     if (job && mixKey(job.mix.url) === mixKey(url)) {
       setLibrary(false);

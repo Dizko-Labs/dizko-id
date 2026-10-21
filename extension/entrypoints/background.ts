@@ -18,7 +18,14 @@ const NAME_YOUR_PRICE = 1;
 export default defineBackground(() => {
   browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
   recover();
-  browser.runtime.onMessage.addListener((msg: PanelRequest & { streamId?: string }, _sender, reply) => {
+  browser.runtime.onMessage.addListener((msg: PanelRequest & { streamId?: string }, sender, reply) => {
+    // The button on the SoundCloud page: open the panel on that tab (the click is the user gesture it needs)
+    // and leave a note so the panel starts identifying once it has read the mix
+    if ((msg as { type: string }).type === 'launch' && sender.tab?.id) {
+      browser.sidePanel.open({ tabId: sender.tab.id }).catch(() => {});
+      browser.storage.session.set({ autostart: { tabId: sender.tab.id, at: Date.now() } });
+      return;
+    }
     if (!msg.type?.startsWith('panel:')) return;
     handle(msg).then(reply, (e) => reply({ error: String(e) }));
     return true;
