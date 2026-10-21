@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { ArrowUpRight, ChevronDown, ChevronLeft } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { ArrowUpRight, ChevronDown, ChevronLeft, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -97,6 +97,8 @@ function StoreLinks({ row }: { row: Row }) {
 
 /** The DJ behind the mix, from Dizko: what they play, where they are based, and where they play next. */
 function ArtistBlock({ artist }: { artist: Artist }) {
+  const [allDates, setAllDates] = useState(false);
+  const shown = allDates ? artist.events : artist.events.slice(0, 3);
   const about = [artist.genres.map(titleCase).join(', '), artist.cities.length ? `Based around ${artist.cities.join(', ')}` : '']
     .filter(Boolean)
     .join('. ');
@@ -107,7 +109,7 @@ function ArtistBlock({ artist }: { artist: Artist }) {
       <a href={artist.url} target="_blank" rel="noreferrer" className={cn(LINK, 'mt-1 inline-block text-[12px] font-semibold')}>More on Dizko</a>
       {artist.events.length > 0 && (
         <ul className="mt-2 space-y-1.5">
-          {artist.events.map((e) => (
+          {shown.map((e) => (
             <li key={e.url}>
               <a href={e.url} target="_blank" rel="noreferrer" className="group grid grid-cols-[76px_minmax(0,1fr)] gap-x-2">
                 <span className="font-semibold">{new Date(`${e.date}T12:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}</span>
@@ -119,6 +121,17 @@ function ArtistBlock({ artist }: { artist: Artist }) {
             </li>
           ))}
         </ul>
+      )}
+      {artist.events.length > 3 && (
+        <button
+          type="button"
+          onClick={() => setAllDates(!allDates)}
+          aria-expanded={allDates}
+          className="mt-1.5 flex items-center gap-1 text-[12px] font-semibold text-toner-1 hover:text-ink"
+        >
+          {allDates ? 'Fewer dates' : `${artist.events.length - 3} more dates`}
+          {allDates ? <ChevronUp className="size-3.5" aria-hidden /> : <ChevronDown className="size-3.5" aria-hidden />}
+        </button>
       )}
       {!artist.claimed && (
         <p className="mt-2 text-[12px] text-toner-2">
@@ -318,13 +331,14 @@ export default function App() {
     }
   }
 
-  // Opened from the button on the SoundCloud page: start identifying as soon as the mix has been read
-  const autostart = useStored<{ tabId: number; at: number } | null>('session', 'autostart', null);
+  // A mix with no written tracklist starts identifying as soon as the panel has read it, once per mix; the
+  // button below only comes back if that listen could not start
+  const started = useRef(new Set<string>());
   useEffect(() => {
-    if (!autostart || !tab || autostart.tabId !== tab.id || !sameMix) return;
-    browser.storage.session.remove('autostart');
-    if (Date.now() - autostart.at < 60_000 && job?.phase === 'reading' && !job.rows.length) listen();
-  }, [autostart, tab?.id, sameMix, job?.phase]);
+    if (!job || !sameMix || busy || job.phase !== 'reading' || job.rows.length || started.current.has(mixKey(job.mix.url))) return;
+    started.current.add(mixKey(job.mix.url));
+    listen();
+  }, [job?.mix.url, job?.phase, sameMix]);
 
   async function open(url: string) {
     if (job && mixKey(job.mix.url) === mixKey(url)) {
@@ -420,10 +434,10 @@ export default function App() {
         {job.phase === 'reading' && !job.rows.length && (
           <>
             <p className="text-[14px] leading-snug">
-              No tracklist in the description. Listen to the mix to identify its tracks
-              {job.method === 'stream' ? '. This takes a couple of minutes.' : job.method === 'seek' ? '; this tab stays quiet while it jumps through.' : '; press play and leave it running.'}
+              {error ? 'Listening could not start.' : 'No tracklist in the description, so it listens to the mix.'}
+              {job.method === 'seek' ? ' This tab stays quiet while it jumps through.' : job.method === 'live' ? ' Press play and leave it running.' : ''}
             </p>
-            <Button onClick={() => listen()} disabled={!sameMix} className="h-10 w-full text-[15px] font-semibold">Identify tracks</Button>
+            {error && <Button onClick={() => listen()} disabled={!sameMix} className="h-10 w-full text-[15px] font-semibold">Try again</Button>}
           </>
         )}
         {(job.phase === 'identifying' || (job.phase === 'carting' && job.listening)) && (
@@ -435,7 +449,7 @@ export default function App() {
                 <span className="text-[18px] font-semibold tabular-nums">{progress}%</span>
               </span>
             </div>
-            <Progress value={progress} className="h-1.5 bg-toner-3 [&>*]:bg-acid" />
+            <Progress value={progress} className="h-1.5 bg-toner-3 [&>*]:bg-fill" />
             {job.following && playlistUrl && (
               <p className="text-[13px] text-toner-1">
                 New finds go straight into your <a href={playlistUrl} target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1">Beatport playlist</a>.
@@ -513,7 +527,7 @@ export default function App() {
       )}
 
       <div className="flex-1 overflow-y-auto px-4 pb-4">
-        {/* Billed like a flyer: confirmed tracks are the lineup, single-hit IDs go on the "plus" line */}
+        {/* Billing: confirmed tracks set large, single-hit IDs on the smaller "plus" line */}
         <ol>
           {job.rows.map((row, i) => row.track.hits >= 2 && <TrackRow key={`${row.track.artist}|${row.track.title}`} row={row} index={i} locked={locked} />)}
         </ol>
@@ -584,7 +598,7 @@ function TrackRow({ row, index, locked }: { row: Row; index: number; locked: boo
   return (
     // Status shares the artist line so the track name, notes and links get the full width
     <li className="grid grid-cols-[22px_42px_minmax(0,1fr)] gap-x-2 border-b border-toner-3 py-2.5">
-      <Checkbox id={id} checked={row.selected} disabled={locked} onCheckedChange={() => send({ type: 'panel:toggle', index })} className="mt-0.5 border-toner-2 data-[state=checked]:border-acid data-[state=checked]:bg-acid data-[state=checked]:text-on-acid" />
+      <Checkbox id={id} checked={row.selected} disabled={locked} onCheckedChange={() => send({ type: 'panel:toggle', index })} className="mt-0.5 border-toner-2 data-[state=checked]:border-tick data-[state=checked]:bg-tick data-[state=checked]:text-on-tick" />
       <span className="pt-0.5 text-[12px] font-semibold text-toner-2">{clock(row.track.at)}</span>
       <div className="min-w-0">
         <div className="flex items-baseline justify-between gap-3">

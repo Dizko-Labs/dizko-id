@@ -24,14 +24,24 @@ export default defineBackground(() => {
     // and leave a note so the panel starts identifying once it has read the mix
     if ((msg as { type: string }).type === 'launch' && sender.tab?.id) {
       const tabId = sender.tab.id;
-      browser.sidePanel.open({ tabId }).catch(() => {});
-      (async () => {
-        // Another mix still listening or carting: stop it (its finds stay in the library) and read this one
-        const job = await getJob();
-        if (job && mixKey(job.mix.url) !== mixKey(sender.tab!.url ?? '') && busy(job)) await switchTo(tabId);
-        await browser.storage.session.set({ autostart: { tabId, at: Date.now() } });
-      })().catch(() => {});
-      return;
+      const target = (msg as { url?: string }).url ?? sender.tab.url ?? '';
+      // Opened inside the click's user gesture; for the whole window if the tab-specific open is refused
+      browser.sidePanel
+        .open({ tabId })
+        .catch(() => browser.sidePanel.open({ windowId: sender.tab!.windowId }))
+        .then(() => true, () => false)
+        .then(async (opened) => {
+          // Another mix still listening or carting: stop it (its finds stay in the library) and read this one
+          const job = await getJob();
+          if (job && mixKey(job.mix.url) !== mixKey(target) && busy(job)) {
+            await settle();
+            // On the mix's own page read it now; from a listing the page is about to change and the panel reads it then
+            if (mixKey(sender.tab!.url ?? '') === mixKey(target)) await read(tabId);
+          }
+          reply({ opened });
+        })
+        .catch(() => reply({ opened: false }));
+      return true;
     }
     if (!msg.type?.startsWith('panel:')) return;
     handle(msg).then(reply, (e) => reply({ error: String(e) }));
@@ -91,6 +101,11 @@ const busy = (j: Job) => j.phase === 'identifying' || j.phase === 'carting' || !
 
 /** Stop whatever the current mix is doing, wait for it to settle (it is saved as it goes), then read another tab. */
 async function switchTo(tabId: number) {
+  await settle();
+  return read(tabId);
+}
+
+async function settle() {
   stopListening = stopCarting = stopFollowing = true;
   for (let i = 0; i < 80; i++) {
     const j = await getJob();
@@ -101,7 +116,6 @@ async function switchTo(tabId: number) {
   // A stuck job is saved as it stands so the new mix can start
   if (left && busy(left)) await setJob({ ...left, phase: 'review', listening: false, following: false, waitingFor: undefined });
   stopListening = stopCarting = stopFollowing = false;
-  return read(tabId);
 }
 
 /** A fresh worker means any job that was running died with the old one: settle it so the panel is not stuck. */

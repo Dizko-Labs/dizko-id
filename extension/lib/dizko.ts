@@ -86,7 +86,7 @@ export async function findArtist(title: string, uploader?: string): Promise<Arti
       cities: (e.cities ?? []).slice(0, 3),
       events: [...(e.upcoming_appearances ?? [])]
         .sort((a, b) => String(a.date).localeCompare(String(b.date)))
-        .slice(0, 3)
+        .slice(0, 10)
         .map((ev) => ({ title: ev.title, date: ev.date, city: ev.city, venue: ev.venue, url: /dizko\.app/.test(ev.event_url) ? tag(ev.event_url) : ev.event_url })),
     };
   }

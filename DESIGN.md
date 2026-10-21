@@ -194,7 +194,7 @@ The tracklist keeps the lineup billing from the previous world: tracks confirmed
 Near-black and off-white with one acid green; colour is semantic and scarce.
 
 ### Primary
-- **Dizko Acid** (acid): fill of the primary button, checked checkboxes, the listening progress fill, the in-your-cart marker and the SoundCloud page button. Identical in both themes.
+- **Dizko Acid** (acid): fill of the primary button, the in-your-cart marker and the SoundCloud page button in both themes; checked checkboxes and the listening progress fill on dark only. On light, acid barely separates from the paper, so checked boxes are ink with an acid check and the progress fill is Dizko's deep acid #4e6b00.
 - **Acid Ink** (on-acid): the near-black text and check glyph on every acid fill, in both themes.
 - **Acid Lift** (acid-hover): the SoundCloud page button's hover fill only. The panel's primary button hovers to 90% acid instead.
 
@@ -302,7 +302,7 @@ The signature component. See The Billing Rule. Store status sits at the right of
 A carted track's name gets an acid band from 12% to 92% of the line box with Acid Ink text, 3px bleed either side and 3px corners, wrapping cleanly across lines. It draws in left to right over 420ms on cubic-bezier(0.16, 1, 0.3, 1) (Dizko's enter easing) when the track is carted, and appears instantly under reduced motion. Used in the tracklist and the Picks tab.
 
 ### SoundCloud Launcher
-A "Mix to Cart" pill with a cart glyph, appended after the last button in SoundCloud's own action row. Acid fill, Acid Ink 14px semibold text in SoundCloud's page font, height and corner radius copied from SoundCloud's Share button (minimum 28px), Acid Lift on hover, a 2px acid focus outline offset 2px.
+A "Mix to Cart" pill with a cart glyph, appended after the last button in SoundCloud's own action row: on a track page (14px text, height from SoundCloud's Share button, minimum 28px) and on each single track in a listing such as a profile or stream (12px text, height from the row's first button, minimum 22px; albums and sets get none). Acid fill, Acid Ink semibold text in SoundCloud's page font, a full pill where SoundCloud's buttons are round and their corner radius where they are square, Acid Lift on hover, a 2px focus outline in the page's own text colour (acid could not be seen on SoundCloud's light page). If Chrome will not open the panel, the label changes to "Open from toolbar".
 
 ## Do's and Don'ts
 

@@ -14,9 +14,12 @@
   --toner-2: #898985;
   --toner-3: #2d2d2b;
   --acid: #c4f236;
-  /* acid as text on the ground: the same hue dark, Dizko's deep acid on light */
-  --acid-text: #c4f236;
   --on-acid: #0d0d0d;
+  /* ticks and the progress fill: acid on the dark ground; on light, acid barely separates from the paper,
+     so ticks go ink with an acid check and the fill uses Dizko's deep acid */
+  --tick: #c4f236;
+  --on-tick: #0d0d0d;
+  --fill: #c4f236;
   --miss: #f87171;
   --focus: #c4f236;
 
@@ -47,7 +50,9 @@
     --toner-1: #45453f;
     --toner-2: #6f6f68;
     --toner-3: #c4c4bc;
-    --acid-text: #4e6b00;
+    --tick: #0d0d0d;
+    --on-tick: #c4f236;
+    --fill: #4e6b00;
     --miss: #c0392b;
     --focus: #0d0d0d;
   }
@@ -77,7 +82,9 @@
   --color-toner-3: var(--toner-3);
   --color-surface: var(--surface);
   --color-acid: var(--acid);
-  --color-acid-text: var(--acid-text);
+  --color-tick: var(--tick);
+  --color-on-tick: var(--on-tick);
+  --color-fill: var(--fill);
   --color-on-acid: var(--on-acid);
   --color-miss: var(--miss);
   --font-sans: "Instrument Sans Variable", "Helvetica Neue", Helvetica, Arial, sans-serif;
