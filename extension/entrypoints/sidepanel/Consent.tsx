@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { consent, setConsent, type Consent } from '@/lib/analytics';
 
+/** Dizko's privacy policy, at the section on this extension. */
+export const PRIVACY_URL = 'https://www.dizko.app/privacy-policy.html#dizko-id';
+const POLICY = 'font-semibold text-toner-1 underline decoration-1 underline-offset-2 hover:text-ink';
+
 /** Asked once, on first run: anonymous usage stays off until the DJ says yes. */
 export function ConsentBar() {
   const [answer, setAnswer] = useState<Consent | undefined | null>(null);
@@ -16,7 +20,8 @@ export function ConsentBar() {
   return (
     <div role="region" aria-label="Usage data" className="enter-down fixed inset-x-0 bottom-0 z-40 border-t border-toner-3 bg-surface px-4 py-3">
       <p className="text-[13px] leading-snug">
-        Share anonymous usage with Dizko? Never your name or what you listen to.
+        Share anonymous usage with Dizko? Never your name or what you listen to.{' '}
+        <a href={PRIVACY_URL} target="_blank" rel="noreferrer" className={POLICY}>Privacy policy</a>
       </p>
       <div className="mt-2.5 grid grid-cols-2 gap-2">
         <Button onClick={() => choose('yes')} className="h-9 text-[14px] font-semibold">Share</Button>
@@ -43,6 +48,7 @@ export function UsageSetting() {
       <button type="button" onClick={flip} className="font-semibold text-toner-1 underline decoration-1 underline-offset-2 hover:text-ink">
         {answer === 'yes' ? 'Stop sharing' : 'Share'}
       </button>
+      <a href={PRIVACY_URL} target="_blank" rel="noreferrer" className={`${POLICY} ml-4`}>Privacy policy</a>
     </p>
   );
 }

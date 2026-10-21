@@ -5,7 +5,7 @@ Audit of the `extension` build (`extension/.output/chrome-mv3`) against Chrome W
 ## Blockers
 
 - [x] **Version.** Set to 0.1.0 (2026-10-21). The manifest says `0.0.0`, which Chrome rejects ("They must not be all zero"). Set `version` in `extension/package.json` (WXT copies it into the manifest), for example `0.1.0`.
-- [ ] **Privacy policy.** Required, at a public URL, because the extension handles user data. It must name every recipient and what each receives:
+- [ ] **Privacy policy.** Drafted as a Dizko ID section of Dizko's existing policy (EventChat PR #849, `https://www.dizko.app/privacy-policy.html#dizko-id`); live after merge and a web production deploy. Original note: Required, at a public URL, because the extension handles user data. It must name every recipient and what each receives:
   - Shazam (`amp.shazam.com`): audio fingerprints of the mix being played.
   - PostHog (`us.i.posthog.com`): opt-in usage events, fixed control names and counts only.
   - Dizko (`mcp.dizko.app`, `api.dizko.app`): DJ names looked up; with Link to Dizko, an OAuth token and DJ/artist names with weights.
@@ -13,7 +13,7 @@ Audit of the `extension` build (`extension/.output/chrome-mv3`) against Chrome W
   - SoundCloud, iTunes: public metadata, cover art and previews.
   - Local storage: history of up to 50 mixes, never uploaded.
   - A Limited Use statement: data is used only for this purpose, never sold, never used for ads.
-- [ ] **Privacy link in the UI.** Add a link to the policy in Settings next to the usage sharing toggle (and in `Consent.tsx` if it fits).
+- [x] **Privacy link in the UI.** Settings, beside usage sharing, and in the first-run consent prompt (2026-10-21). Add a link to the policy in Settings next to the usage sharing toggle (and in `Consent.tsx` if it fits).
 - [ ] **Extension ID.** CLAUDE.md item 4 says to pin a `key` before submitting; Chrome's documented order is the reverse. Upload the zip first without publishing, then copy the public key from the dashboard (Package tab, View public key, one line without the BEGIN/END lines) into `manifest.key` in `wxt.config.ts`. This matters because `identity.getRedirectURL('dizko')` derives the OAuth redirect from the ID, so Link to Dizko depends on unpacked and store builds sharing one ID.
 
 ## Permission trims (verify, then remove)
