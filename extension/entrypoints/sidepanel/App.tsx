@@ -580,6 +580,9 @@ export default function App() {
   const paused = coverage(view);
   const playlistUrl = view.playlist?.beatport ? beatportPlaylistUrl(view.playlist.beatport) : undefined;
 
+  // a SoundCloud mix opened from the library plays in the panel
+  const embedded = (fromLibrary || readOnly) && /soundcloud\.com/.test(view.mix.url);
+
   const cartButtons = (forBeatport > 0 || forBandcamp > 0) && (
     <div>
       <p className="mb-1.5 text-[13px] font-semibold">Purchase</p>
@@ -605,11 +608,12 @@ export default function App() {
           Library
         </button>
         <h1 className="mt-2 line-clamp-3 text-[26px] leading-[1.05] font-semibold tracking-[-0.03em]">{view.mix.title}</h1>
-        <p className="mt-2 flex flex-wrap gap-x-3.5 text-[13px] font-semibold">
+        {/* the SoundCloud player below already links the mix and shows its length; the tick count shows the tracks */}
+        {!embedded && <p className="mt-2 flex flex-wrap gap-x-3.5 text-[13px] font-semibold">
           <a href={view.mix.url} target="_blank" rel="noreferrer" className="underline decoration-1 underline-offset-2">{sourceOf(view.mix.url)}</a>
           {view.mix.duration ? <span>{time(view.mix.duration)}</span> : null}
           {view.rows.length > 0 && <span>{view.rows.length} {view.rows.length === 1 ? "track" : "tracks"}</span>}
-        </p>
+        </p>}
       </header>
 
       {busy && onMixPage && !sameMix && tab && (
@@ -623,7 +627,7 @@ export default function App() {
         </button>
       )}
 
-      {(fromLibrary || readOnly) && /soundcloud\.com/.test(view.mix.url) && <div className="border-b border-toner-3 px-4 pb-3"><Player url={view.mix.url} /></div>}
+      {embedded && <div className="border-b border-toner-3 px-4 pb-3"><Player url={view.mix.url} /></div>}
 
       {view.artist && !isPlatform(view.artist.name) && <ArtistBlock artist={view.artist} onName={() => setArtistKey(norm(view.artist!.name))} />}
 
