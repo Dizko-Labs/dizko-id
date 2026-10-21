@@ -1,32 +1,28 @@
 import { useEffect, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { ChevronDown, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Progress } from '@/components/ui/progress';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
+import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { redirectUri, type App as ServiceApp, type Service } from '@/lib/oauth';
+import type { Artist } from '@/lib/dizko';
 import { fileName, toCsv, toJson, toText } from '@/lib/export';
 import { mixKey, type Saved } from '@/lib/history';
 import { links } from '@/lib/links';
-import { beatportPlaylistUrl } from '@/lib/stores';
 import { norm } from '@/lib/match';
 import type { PanelRequest } from '@/lib/messages';
-import type { Job, PlaylistService, Row, Store } from '@/lib/types';
+import { redirectUri, type App as ServiceApp, type Service } from '@/lib/oauth';
+import { beatportPlaylistUrl } from '@/lib/stores';
+import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, type Job, type PlaylistService, type Row, type Store } from '@/lib/types';
 import { cn } from '@/lib/utils';
 
 const MIX_SITES = /^https:\/\/(www\.youtube\.com\/watch|soundcloud\.com\/[^/]+\/[^/]+|www\.mixcloud\.com\/[^/]+\/[^/]+)/;
 
 const send = (msg: PanelRequest & { streamId?: string }) => browser.runtime.sendMessage(msg);
+const cartIn = (store: Store) => send({ type: 'panel:cart', stores: [store] });
 
-const STORE_PLANS: { id: string; label: string; short: string; stores: Store[] }[] = [
-  { id: 'both', label: 'Beatport, then Bandcamp', short: 'Both stores', stores: ['beatport', 'bandcamp'] },
-  { id: 'beatport', label: 'Beatport only', short: 'Beatport', stores: ['beatport'] },
-  { id: 'bandcamp', label: 'Bandcamp only', short: 'Bandcamp', stores: ['bandcamp'] },
-];
+const LINK = 'underline decoration-toner-3 underline-offset-2 hover:decoration-ink';
 
 function clock(s: number | null | undefined) {
   if (s == null) return '';
@@ -34,199 +30,29 @@ function clock(s: number | null | undefined) {
   return h ? `${h}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}` : `${m}:${String(x).padStart(2, '0')}`;
 }
 
-function useJob() {
-  const [job, setJob] = useState<Job | null>(null);
-  useEffect(() => {
-    browser.storage.session.get('job').then((r) => setJob((r.job as Job) ?? null));
-    const onChange = (changes: Record<string, { newValue?: unknown }>, area: string) => {
-      if (area === 'session' && 'job' in changes) setJob((changes.job!.newValue as Job) ?? null);
-    };
-    browser.storage.onChanged.addListener(onChange);
-    return () => browser.storage.onChanged.removeListener(onChange);
-  }, []);
-  return job;
-}
-
-function useHistory() {
-  const [items, setItems] = useState<Saved[]>([]);
-  useEffect(() => {
-    browser.storage.local.get('history').then((r) => setItems((r.history as Saved[]) ?? []));
-    const onChange = (changes: Record<string, { newValue?: unknown }>, area: string) => {
-      if (area === 'local' && 'history' in changes) setItems((changes.history!.newValue as Saved[]) ?? []);
-    };
-    browser.storage.onChanged.addListener(onChange);
-    return () => browser.storage.onChanged.removeListener(onChange);
-  }, []);
-  return items;
-}
-
 const sourceOf = (url: string) =>
-  /youtube\.com/.test(url) ? 'YouTube' : /soundcloud\.com/.test(url) ? 'SoundCloud' : /mixcloud\.com/.test(url) ? 'Mixcloud' : '';
+  /youtube\.com/.test(url) ? 'YouTube' : /soundcloud\.com/.test(url) ? 'SoundCloud' : /mixcloud\.com/.test(url) ? 'Mixcloud' : 'Mix';
 
 function when(t: number) {
   const days = Math.floor((new Date().setHours(0, 0, 0, 0) - new Date(t).setHours(0, 0, 0, 0)) / 86_400_000);
   return days === 0 ? 'Today' : days === 1 ? 'Yesterday' : new Date(t).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
-/** Off a mix page: the mixes scanned so far, and every track across them. */
-function History({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => void }) {
-  const tracks = new Map<string, { row: Row; mix: string }>();
-  for (const h of items) {
-    for (const row of h.rows) {
-      const key = norm(row.track.artist + row.track.title).replace(/\s/g, '');
-      // newest mix first, but a carted copy of a track wins over an older uncarted one
-      const seen = tracks.get(key);
-      if (!seen || (row.status === 'carted' && seen.row.status !== 'carted')) tracks.set(key, { row, mix: h.mix.title });
-    }
-  }
-  return (
-    <Tabs defaultValue="mixes" className="gap-0">
-      <TabsList variant="line" className="h-10 w-full justify-start gap-4 border-b border-toner-3 px-4">
-        <TabsTrigger value="mixes" className="flex-none px-0 text-[14px] font-semibold">Mixes {items.length}</TabsTrigger>
-        <TabsTrigger value="tracks" className="flex-none px-0 text-[14px] font-semibold">Tracks {tracks.size}</TabsTrigger>
-      </TabsList>
-      <TabsContent value="mixes" className="px-4">
-        <ul>
-          {items.map((h) => {
-            const carted = h.rows.filter((r) => r.status === 'carted').length;
-            return (
-              <li key={h.mix.url} className="border-b border-toner-3 py-3">
-                <button type="button" onClick={() => onOpen(h.mix.url)} className="block w-full text-left">
-                  <span className="line-clamp-2 text-[21px] leading-[1.05] font-black [font-stretch:64%]">{h.mix.title}</span>
-                </button>
-                <p className="mt-1 flex flex-wrap gap-x-3 text-[12px] font-semibold text-toner-2">
-                  <a href={h.mix.url} target="_blank" rel="noreferrer" className="text-ink underline decoration-toner-3 hover:decoration-ink">{sourceOf(h.mix.url) || 'Mix'}</a>
-                  <span>{h.rows.length} tracks</span>
-                  {carted > 0 && <span className="text-ink">{carted} in cart</span>}
-                  <span>{when(h.savedAt)}</span>
-                </p>
-              </li>
-            );
-          })}
-        </ul>
-      </TabsContent>
-      <TabsContent value="tracks" className="px-4">
-        <ul>
-          {[...tracks.values()].map(({ row, mix }) => {
-            const l = links(row);
-            return (
-              <li key={`${row.track.artist}|${row.track.title}|${mix}`} className="border-b border-toner-3 py-2.5">
-                <p className="truncate text-[13px] font-semibold text-toner-1">{row.track.artist}</p>
-                <p className="text-[16px] leading-[1.1] font-extrabold [font-stretch:75%]">
-                  <span className={row.status === 'carted' ? 'highlighter' : undefined}>{row.track.title}</span>
-                </p>
-                <p className="mt-0.5 truncate text-[12px] text-toner-2">{mix}</p>
-                <p className="mt-1 flex flex-wrap gap-x-3 text-[12px] font-medium">
-                  <a href={l.beatport} target="_blank" rel="noreferrer" className="underline decoration-toner-3 hover:decoration-ink">Beatport</a>
-                  <a href={l.bandcamp} target="_blank" rel="noreferrer" className="underline decoration-toner-3 hover:decoration-ink">Bandcamp</a>
-                  <a href={l.spotify} target="_blank" rel="noreferrer" className="underline decoration-toner-3 hover:decoration-ink">Spotify</a>
-                  <a href={l.youtube} target="_blank" rel="noreferrer" className="underline decoration-toner-3 hover:decoration-ink">YouTube</a>
-                </p>
-              </li>
-            );
-          })}
-        </ul>
-      </TabsContent>
-    </Tabs>
-  );
-}
+const titleCase = (s: string) => s.replace(/\b\p{L}/gu, (c) => c.toUpperCase());
 
-function useApps() {
-  const [apps, setApps] = useState<Partial<Record<Service, ServiceApp>>>({});
+// ---- storage subscriptions
+
+function useStored<T>(area: 'session' | 'local', key: string, fallback: T): T {
+  const [value, setValue] = useState<T>(fallback);
   useEffect(() => {
-    browser.storage.local.get('apps').then((r) => setApps((r.apps as typeof apps) ?? {}));
-    const onChange = (changes: Record<string, { newValue?: unknown }>, area: string) => {
-      if (area === 'local' && 'apps' in changes) setApps((changes.apps!.newValue as typeof apps) ?? {});
+    browser.storage[area].get(key).then((r) => setValue((r[key] as T) ?? fallback));
+    const onChange = (changes: Record<string, { newValue?: unknown }>, changed: string) => {
+      if (changed === area && key in changes) setValue((changes[key]!.newValue as T) ?? fallback);
     };
     browser.storage.onChanged.addListener(onChange);
     return () => browser.storage.onChanged.removeListener(onChange);
   }, []);
-  return apps;
-}
-
-const SERVICES: { id: PlaylistService; name: string; app?: { where: string; url: string; secret: boolean } }[] = [
-  { id: 'beatport', name: 'Beatport' },
-  { id: 'spotify', name: 'Spotify', app: { where: 'Spotify developer dashboard', url: 'https://developer.spotify.com/dashboard', secret: false } },
-  { id: 'soundcloud', name: 'SoundCloud', app: { where: 'SoundCloud app settings', url: 'https://soundcloud.com/you/apps', secret: true } },
-];
-
-/** One playlist per service from the ticked tracks; Spotify and SoundCloud go through the DJ's own developer app. */
-function Playlists({ job }: { job: Job }) {
-  const apps = useApps();
-  const [connecting, setConnecting] = useState<Service | null>(null);
-  const ticked = job.rows.filter((r) => r.selected).length;
-  const urlFor = (id: PlaylistService) => job.made?.[id]?.url ?? (id === 'beatport' && job.playlist?.beatport ? beatportPlaylistUrl(job.playlist.beatport) : undefined);
-  return (
-    <section className="border-t-2 border-ink px-4 py-3">
-      <h2 className="text-[14px] font-semibold">Make a playlist of the {ticked} ticked</h2>
-      <div className="mt-2 flex flex-wrap gap-2">
-        {SERVICES.map((s) => {
-          const url = urlFor(s.id);
-          if (url) {
-            return (
-              <Button key={s.id} asChild variant="outline" className="h-9 border-ink bg-transparent text-[13px] font-semibold">
-                <a href={url} target="_blank" rel="noreferrer">Open on {s.name}</a>
-              </Button>
-            );
-          }
-          const needsApp = s.app && !apps[s.id as Service]?.clientId;
-          return (
-            <Button
-              key={s.id}
-              variant="outline"
-              disabled={!ticked || !!job.making}
-              onClick={() => (needsApp ? setConnecting(s.id as Service) : send({ type: 'panel:playlist', service: s.id }))}
-              className="h-9 border-ink bg-transparent text-[13px] font-semibold"
-            >
-              {job.making === s.id ? 'Making…' : s.name}
-            </Button>
-          );
-        })}
-      </div>
-      {SERVICES.map(({ id, name }) => {
-        const m = job.made?.[id];
-        return m?.missing.length ? (
-          <p key={id} className="mt-1.5 text-[12px] text-toner-2">{name}: {m.added} added, {m.missing.length} not there ({m.missing.slice(0, 3).join('; ')}{m.missing.length > 3 ? '…' : ''})</p>
-        ) : null;
-      })}
-      {connecting && <Connect service={connecting} onDone={() => setConnecting(null)} />}
-    </section>
-  );
-}
-
-function Connect({ service, onDone }: { service: Service; onDone: () => void }) {
-  const s = SERVICES.find((x) => x.id === service)!;
-  const [clientId, setClientId] = useState('');
-  const [clientSecret, setClientSecret] = useState('');
-  const redirect = redirectUri(service);
-  async function save() {
-    await send({ type: 'panel:connect', service, app: { clientId: clientId.trim(), ...(s.app!.secret ? { clientSecret: clientSecret.trim() } : {}) } });
-    onDone();
-    await send({ type: 'panel:playlist', service });
-  }
-  return (
-    <div className="mt-3 space-y-2 border-t border-toner-3 pt-3 text-[13px]">
-      <p className="leading-snug">
-        {s.name} playlists go through your own developer app. In the{' '}
-        <a href={s.app!.url} target="_blank" rel="noreferrer" className="font-semibold underline decoration-1">{s.app!.where}</a>, add this redirect URI, then paste the app's details here. They stay in this browser.
-      </p>
-      <p className="break-all bg-accent px-2 py-1.5 font-mono text-[12px] select-all">{redirect}</p>
-      <label className="block">
-        <span className="font-semibold">Client ID</span>
-        <Input value={clientId} onChange={(e) => setClientId(e.target.value)} className="mt-1 border-ink" autoComplete="off" spellCheck={false} />
-      </label>
-      {s.app!.secret && (
-        <label className="block">
-          <span className="font-semibold">Client secret</span>
-          <Input type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} className="mt-1 border-ink" autoComplete="off" />
-        </label>
-      )}
-      <div className="flex gap-2 pt-1">
-        <Button onClick={save} disabled={!clientId.trim() || (s.app!.secret && !clientSecret.trim())} className="h-9 flex-1 text-[14px] font-extrabold">Save and make playlist</Button>
-        <Button variant="ghost" onClick={onDone} className="h-9 text-[13px] text-toner-2">Cancel</Button>
-      </div>
-    </div>
-  );
+  return value;
 }
 
 function useActiveTab() {
@@ -255,31 +81,227 @@ function download(job: Job, kind: 'txt' | 'csv' | 'json') {
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
 }
 
-function DizkoLink() {
+// ---- small pieces
+
+function StoreLinks({ row }: { row: Row }) {
+  const l = links(row);
   return (
-    <p className="mt-2.5 text-[13px]">
-      Are you a DJ?{' '}
-      <a href="https://build.dizko.app" target="_blank" rel="noreferrer" className="font-semibold underline decoration-1">Claim your page on Dizko</a>
+    <p className="mt-1 flex flex-wrap gap-x-3 text-[12px] font-medium">
+      <a href={l.beatport} target="_blank" rel="noreferrer" className={LINK}>Beatport</a>
+      <a href={l.bandcamp} target="_blank" rel="noreferrer" className={LINK}>Bandcamp</a>
+      <a href={l.spotify} target="_blank" rel="noreferrer" className={LINK}>Spotify</a>
+      <a href={l.youtube} target="_blank" rel="noreferrer" className={LINK}>YouTube</a>
     </p>
   );
 }
 
+/** The DJ behind the mix, from Dizko: what they play, where they are based, and where they play next. */
+function ArtistBlock({ artist }: { artist: Artist }) {
+  const about = [artist.genres.map(titleCase).join(', '), artist.cities.length ? `Based around ${artist.cities.join(', ')}` : '']
+    .filter(Boolean)
+    .join('. ');
+  return (
+    <section className="border-b border-toner-3 px-4 py-3 text-[13px]">
+      <div className="flex items-baseline justify-between gap-3">
+        <a href={artist.url} target="_blank" rel="noreferrer" className="text-[17px] font-black [font-stretch:75%] hover:underline">{artist.name}</a>
+        <a href={artist.url} target="_blank" rel="noreferrer" className={cn(LINK, 'shrink-0 text-[12px] font-semibold')}>More on Dizko</a>
+      </div>
+      {about && <p className="mt-0.5 text-toner-1">{about}.</p>}
+      {artist.links.length > 0 && (
+        <p className="mt-1 flex flex-wrap gap-x-3 text-[12px] font-medium">
+          {artist.links.map((l) => <a key={l.url} href={l.url} target="_blank" rel="noreferrer" className={LINK}>{l.label}</a>)}
+        </p>
+      )}
+      {artist.events.length > 0 && (
+        <ul className="mt-2 space-y-1">
+          {artist.events.map((e) => (
+            <li key={e.url}>
+              <a href={e.url} target="_blank" rel="noreferrer" className="grid grid-cols-[76px_minmax(0,1fr)] gap-x-2 hover:underline">
+                <span className="font-semibold">{new Date(`${e.date}T12:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+                <span className="truncate text-toner-1">{titleCase(e.city)}, {e.venue}</span>
+              </a>
+            </li>
+          ))}
+        </ul>
+      )}
+      {!artist.claimed && (
+        <p className="mt-2 text-[12px] text-toner-2">
+          Are you {artist.name}?{' '}
+          <a href="https://build.dizko.app" target="_blank" rel="noreferrer" className={cn(LINK, 'font-semibold text-ink')}>Claim this page</a>
+        </p>
+      )}
+    </section>
+  );
+}
+
+// ---- library: saved mixes and the tracks ticked across them
+
+function Library({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => void }) {
+  const picks = new Map<string, { row: Row; mix: Saved }>();
+  for (const h of items) {
+    for (const row of h.rows) {
+      if (!row.selected) continue;
+      const key = norm(row.track.artist + row.track.title).replace(/\s/g, '');
+      if (!picks.has(key)) picks.set(key, { row, mix: h });
+    }
+  }
+  return (
+    <Tabs defaultValue="mixes" className="min-h-0 flex-1 gap-0">
+      <TabsList variant="line" className="h-10 w-full justify-start gap-5 border-b border-toner-3 px-4">
+        <TabsTrigger value="mixes" className="flex-none px-0 text-[14px] font-semibold">Mixes {items.length}</TabsTrigger>
+        <TabsTrigger value="picks" className="flex-none px-0 text-[14px] font-semibold">Picks {picks.size}</TabsTrigger>
+      </TabsList>
+      <TabsContent value="mixes" className="overflow-y-auto px-4">
+        <ul>
+          {items.map((h) => {
+            const ticked = h.rows.filter((r) => r.selected).length;
+            const carted = h.rows.filter((r) => r.status === 'carted').length;
+            return (
+              <li key={h.mix.url} className="border-b border-toner-3 py-3">
+                <button type="button" onClick={() => onOpen(h.mix.url)} className="block w-full text-left hover:underline">
+                  <span className="line-clamp-2 text-[21px] leading-[1.05] font-black [font-stretch:64%]">{h.mix.title}</span>
+                </button>
+                <div className="mt-1 flex items-center gap-x-3 text-[12px] font-semibold text-toner-2">
+                  <a href={h.mix.url} target="_blank" rel="noreferrer" className={cn(LINK, 'text-ink')}>{sourceOf(h.mix.url)}</a>
+                  <span>{ticked} of {h.rows.length} picked</span>
+                  {carted > 0 && <span className="text-ink">{carted} in cart</span>}
+                  <span>{when(h.savedAt)}</span>
+                  <button type="button" onClick={() => send({ type: 'panel:forget', url: h.mix.url })} className="ml-auto text-toner-2 hover:text-ink hover:underline">
+                    Remove
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ul>
+      </TabsContent>
+      <TabsContent value="picks" className="overflow-y-auto px-4">
+        {!picks.size && <p className="py-5 text-[14px] text-toner-1">Tracks you tick in a mix collect here.</p>}
+        <ul>
+          {[...picks.values()].map(({ row, mix }) => (
+            <li key={`${row.track.artist}|${row.track.title}`} className="border-b border-toner-3 py-2.5">
+              <p className="truncate text-[13px] font-semibold text-toner-1">{row.track.artist}</p>
+              <p className="text-[17px] leading-[1.1] font-extrabold [font-stretch:75%]">
+                <span className={row.status === 'carted' ? 'highlighter' : undefined}>{row.track.title}</span>
+              </p>
+              <button type="button" onClick={() => onOpen(mix.mix.url)} className="mt-0.5 block max-w-full truncate text-left text-[12px] text-toner-2 hover:text-ink hover:underline">
+                From {mix.mix.title}
+              </button>
+              <StoreLinks row={row} />
+            </li>
+          ))}
+        </ul>
+      </TabsContent>
+    </Tabs>
+  );
+}
+
+// ---- playlists on other services
+
+const SERVICES: { id: PlaylistService; name: string; app?: { where: string; url: string; secret: boolean } }[] = [
+  { id: 'beatport', name: 'Beatport' },
+  { id: 'spotify', name: 'Spotify', app: { where: 'Spotify developer dashboard', url: 'https://developer.spotify.com/dashboard', secret: false } },
+  { id: 'soundcloud', name: 'SoundCloud', app: { where: 'SoundCloud app settings', url: 'https://soundcloud.com/you/apps', secret: true } },
+];
+
+/** One playlist per service from the ticked tracks; Spotify and SoundCloud go through the DJ's own developer app. */
+function Playlists({ job, ticked }: { job: Job; ticked: number }) {
+  const apps = useStored<Partial<Record<Service, ServiceApp>>>('local', 'apps', {});
+  const [connecting, setConnecting] = useState<Service | null>(null);
+  const urlFor = (id: PlaylistService) => job.made?.[id]?.url ?? (id === 'beatport' && job.playlist?.beatport ? beatportPlaylistUrl(job.playlist.beatport) : undefined);
+  return (
+    <section className="border-t border-toner-3 px-4 py-3">
+      <p className="text-[13px] font-semibold">Playlist of the {ticked} ticked</p>
+      <div className="mt-2 grid grid-cols-3 gap-2">
+        {SERVICES.map((s) => {
+          const url = urlFor(s.id);
+          if (url) {
+            return (
+              <Button key={s.id} asChild variant="outline" className="h-9 border-ink bg-transparent px-2 text-[13px] font-semibold">
+                <a href={url} target="_blank" rel="noreferrer" aria-label={`Open the ${s.name} playlist`}>{s.name} ↗</a>
+              </Button>
+            );
+          }
+          const needsApp = s.app && !apps[s.id as Service]?.clientId;
+          return (
+            <Button
+              key={s.id}
+              variant="outline"
+              disabled={!ticked || !!job.making}
+              onClick={() => (needsApp ? setConnecting(s.id as Service) : send({ type: 'panel:playlist', service: s.id }))}
+              className="h-9 border-ink bg-transparent px-2 text-[13px] font-semibold"
+            >
+              {job.making === s.id ? 'Making…' : s.name}
+            </Button>
+          );
+        })}
+      </div>
+      {SERVICES.map(({ id, name }) => {
+        const m = job.made?.[id];
+        return m?.missing.length ? (
+          <p key={id} className="mt-1.5 text-[12px] text-toner-2">{name} did not have {m.missing.length}: {m.missing.slice(0, 3).join('; ')}{m.missing.length > 3 ? '…' : ''}</p>
+        ) : null;
+      })}
+      {connecting && <Connect service={connecting} onDone={() => setConnecting(null)} />}
+    </section>
+  );
+}
+
+function Connect({ service, onDone }: { service: Service; onDone: () => void }) {
+  const s = SERVICES.find((x) => x.id === service)!;
+  const [clientId, setClientId] = useState('');
+  const [clientSecret, setClientSecret] = useState('');
+  async function save() {
+    await send({ type: 'panel:connect', service, app: { clientId: clientId.trim(), ...(s.app!.secret ? { clientSecret: clientSecret.trim() } : {}) } });
+    onDone();
+    await send({ type: 'panel:playlist', service });
+  }
+  return (
+    <div className="mt-3 space-y-2 border-t border-toner-3 pt-3 text-[13px]">
+      <p className="leading-snug">
+        {s.name} playlists go through your own developer app. In the{' '}
+        <a href={s.app!.url} target="_blank" rel="noreferrer" className="font-semibold underline decoration-1">{s.app!.where}</a>, add this redirect URI, then paste the app's details here. They stay in this browser.
+      </p>
+      <p className="bg-accent px-2 py-1.5 font-mono text-[12px] break-all select-all">{redirectUri(service)}</p>
+      <label className="block">
+        <span className="font-semibold">Client ID</span>
+        <Input value={clientId} onChange={(e) => setClientId(e.target.value)} className="mt-1 border-ink" autoComplete="off" spellCheck={false} />
+      </label>
+      {s.app!.secret && (
+        <label className="block">
+          <span className="font-semibold">Client secret</span>
+          <Input type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} className="mt-1 border-ink" autoComplete="off" />
+        </label>
+      )}
+      <div className="flex gap-2 pt-1">
+        <Button onClick={save} disabled={!clientId.trim() || (s.app!.secret && !clientSecret.trim())} className="h-9 flex-1 text-[14px] font-extrabold">Save and make playlist</Button>
+        <Button variant="ghost" onClick={onDone} className="h-9 text-[13px] text-toner-2">Cancel</Button>
+      </div>
+    </div>
+  );
+}
+
+// ---- the panel
+
 export default function App() {
-  const job = useJob();
+  const job = useStored<Job | null>('session', 'job', null);
+  const items = useStored<Saved[]>('local', 'history', []);
   const tab = useActiveTab();
-  const [plan, setPlan] = useState('both');
   const [error, setError] = useState('');
-  const items = useHistory();
-  // a mix opened from the history, shown while the DJ is on some other page
+  // the DJ chose the library while a mix is loaded; cleared by opening a mix or moving to another page
+  const [library, setLibrary] = useState(false);
+  // a mix opened from the library, shown while the DJ is on some other page
   const [opened, setOpened] = useState<string | null>(null);
   const onMixPage = !!tab && MIX_SITES.test(tab.url);
   const sameMix = !!job && !!tab && mixKey(job.mix.url) === mixKey(tab.url);
-  const fromHistory = !!job && !!opened && !sameMix && mixKey(job.mix.url) === mixKey(opened);
+  const fromLibrary = !!job && !!opened && !sameMix && mixKey(job.mix.url) === mixKey(opened);
+  const busy = job?.phase === 'identifying' || job?.phase === 'carting' || !!job?.listening;
 
   // Read the page as soon as the panel opens on a mix that is not already loaded
   useEffect(() => {
+    setLibrary(false);
     if (onMixPage) setOpened(null);
-    if (tab && onMixPage && !sameMix && job?.phase !== 'identifying' && job?.phase !== 'carting') {
+    if (tab && onMixPage && !sameMix && !busy) {
       send({ type: 'panel:read', tabId: tab.id }).then((r) => setError(r?.error ?? ''));
     }
   }, [tab?.id, tab?.url]);
@@ -297,24 +319,42 @@ export default function App() {
   }
 
   async function open(url: string) {
-    if ((await send({ type: 'panel:open', url }))?.ok) setOpened(url);
+    if (job && mixKey(job.mix.url) === mixKey(url)) {
+      setLibrary(false);
+      setOpened(url);
+      return;
+    }
+    if ((await send({ type: 'panel:open', url }))?.ok) {
+      setLibrary(false);
+      setOpened(url);
+    } else setError('Finish the current listen or cart run first.');
   }
 
-  if (!job || (!sameMix && !fromHistory && job.phase !== 'identifying' && job.phase !== 'carting')) {
+  const showMix = !!job && !library && (sameMix || fromLibrary || busy);
+
+  if (!showMix) {
     return (
-      <main className="flex min-h-full flex-col">
+      <main className="flex h-full flex-col">
         <header className="bg-pink px-4 pt-4 pb-3.5 text-on-pink">
           <h1 className="text-[34px] leading-[0.95] font-black [font-stretch:62%]">Mix to Cart</h1>
-          <DizkoLink />
-        </header>
-        {onMixPage || !items.length ? (
-          <p className="px-4 py-5 text-[15px] leading-snug text-toner-1">
-            {onMixPage ? 'Reading this mix…' : 'Open a DJ mix on YouTube, SoundCloud or Mixcloud, and its tracklist appears here.'}
+          <p className="mt-2.5 text-[13px]">
+            Are you a DJ?{' '}
+            <a href="https://build.dizko.app" target="_blank" rel="noreferrer" className="font-semibold underline decoration-1">Claim your page on Dizko</a>
           </p>
-        ) : (
-          <History items={items} onOpen={open} />
+        </header>
+        {job && library && (sameMix || busy) && (
+          <button type="button" onClick={() => setLibrary(false)} className="border-b border-toner-3 px-4 py-2.5 text-left text-[13px] font-semibold hover:underline">
+            Back to {job.mix.title}
+          </button>
         )}
-        {error && <p className="px-4 text-[13px] text-miss">{error}</p>}
+        {onMixPage && !library ? (
+          <p className="px-4 py-5 text-[15px] text-toner-1">Reading this mix…</p>
+        ) : items.length ? (
+          <Library items={items} onOpen={open} />
+        ) : (
+          <p className="px-4 py-5 text-[15px] leading-snug text-toner-1">Open a DJ mix on YouTube, SoundCloud or Mixcloud, and its tracklist appears here. Every mix you open is saved to your library.</p>
+        )}
+        {error && <p className="px-4 pb-3 text-[13px] text-miss">{error}</p>}
       </main>
     );
   }
@@ -322,135 +362,123 @@ export default function App() {
   const selected = job.rows.filter((r) => r.selected);
   const unconfirmed = job.rows.filter((r) => r.track.hits < 2).length;
   const carted = job.rows.filter((r) => r.status === 'carted');
-  const toAdd = selected.filter((r) => r.status !== 'carted');
-  const busy = job.phase === 'identifying' || job.phase === 'carting';
+  const forBeatport = selected.filter((r) => BEATPORT_CARTABLE.includes(r.status)).length;
+  const forBandcamp = selected.filter((r) => BANDCAMP_CARTABLE.includes(r.status)).length;
   const locked = job.phase === 'carting';
-  const stores = STORE_PLANS.find((p) => p.id === plan)!.stores;
-  const current = job.rows.findIndex((r) => r.status === 'searching');
-  const source = sourceOf(job.mix.url);
+  const current = job.rows.find((r) => r.status === 'searching');
+  const progress = Math.round((job.progress ?? 0) * 100);
+  const playlistUrl = job.playlist?.beatport ? beatportPlaylistUrl(job.playlist.beatport) : undefined;
 
-  const cartRow = (
-          <div className="flex gap-2">
-            <Button disabled={!toAdd.length} onClick={() => send({ type: 'panel:cart', stores })} className="h-10 flex-1 text-[15px] font-extrabold">
-              Add {toAdd.length} to cart
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="h-10 max-w-[48%] gap-1 border-ink bg-transparent px-3 text-[13px] font-semibold" aria-label="Choose stores">
-                  <span className="truncate">{STORE_PLANS.find((p) => p.id === plan)!.short}</span>
-                  <ChevronDown className="size-4 shrink-0" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuRadioGroup value={plan} onValueChange={setPlan}>
-                  {STORE_PLANS.map((p) => <DropdownMenuRadioItem key={p.id} value={p.id}>{p.label}</DropdownMenuRadioItem>)}
-                </DropdownMenuRadioGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+  const cartButtons = (forBeatport > 0 || forBandcamp > 0) && (
+    <div className="grid grid-cols-2 gap-2">
+      <Button disabled={!forBeatport} onClick={() => cartIn('beatport')} className="h-10 text-[14px] font-extrabold">
+        Beatport cart{forBeatport ? ` (${forBeatport})` : ''}
+      </Button>
+      <Button variant="outline" disabled={!forBandcamp} onClick={() => cartIn('bandcamp')} className="h-10 border-ink bg-transparent text-[14px] font-extrabold">
+        Bandcamp cart{forBandcamp ? ` (${forBandcamp})` : ''}
+      </Button>
+    </div>
   );
 
   return (
     <main className="flex h-full flex-col">
-      <header className="bg-pink px-4 pt-4 pb-3.5 text-on-pink">
-        <h1 className="line-clamp-3 text-[34px] leading-[0.95] font-black tracking-[-0.01em] [font-stretch:62%]">
-          {fromHistory ? <a href={job.mix.url} target="_blank" rel="noreferrer" className="hover:underline">{job.mix.title}</a> : job.mix.title}
-        </h1>
+      <header className="bg-pink px-4 pt-2.5 pb-3.5 text-on-pink">
+        <button type="button" onClick={() => setLibrary(true)} className="-ml-1 flex items-center gap-0.5 text-[13px] font-semibold hover:underline">
+          <ChevronLeft className="size-4" aria-hidden />
+          Library
+        </button>
+        <h1 className="mt-1.5 line-clamp-3 text-[32px] leading-[0.95] font-black tracking-[-0.01em] [font-stretch:62%]">{job.mix.title}</h1>
         <p className="mt-2 flex flex-wrap gap-x-3.5 text-[13px] font-semibold">
-          {source && <a href={job.mix.url} target="_blank" rel="noreferrer" className="underline decoration-1 underline-offset-2">{source}</a>}
+          <a href={job.mix.url} target="_blank" rel="noreferrer" className="underline decoration-1 underline-offset-2">{sourceOf(job.mix.url)}</a>
           {job.mix.duration ? <span>{clock(job.mix.duration)}</span> : null}
           {job.rows.length > 0 && <span>{job.rows.length} tracks</span>}
-          <span>{job.tracklistFound ? 'From the description' : job.rows.length ? 'Identified by listening' : ''}</span>
         </p>
-        <DizkoLink />
       </header>
 
-      <section className="border-b-2 border-ink px-4 py-3">
+      {job.artist && <ArtistBlock artist={job.artist} />}
+
+      <section className="space-y-2.5 border-b-2 border-ink px-4 py-3">
         {job.phase === 'reading' && !job.rows.length && (
-          <div className="space-y-2.5">
-            <p className="text-[14px] leading-snug">No tracklist in the description. Listen to the mix to identify its tracks{job.method === 'stream' ? '. This takes a couple of minutes.' : job.method === 'seek' ? '; this tab stays quiet while it jumps through.' : '; press play and leave it running.'}</p>
-            <Button onClick={listen} className="h-10 w-full text-[15px] font-extrabold">Identify tracks</Button>
-          </div>
+          <>
+            <p className="text-[14px] leading-snug">
+              No tracklist in the description. Listen to the mix to identify its tracks
+              {job.method === 'stream' ? '. This takes a couple of minutes.' : job.method === 'seek' ? '; this tab stays quiet while it jumps through.' : '; press play and leave it running.'}
+            </p>
+            <Button onClick={listen} disabled={!sameMix} className="h-10 w-full text-[15px] font-extrabold">Identify tracks</Button>
+          </>
         )}
-        {job.phase === 'identifying' && (
-          <div className="space-y-2">
+        {(job.phase === 'identifying' || (job.phase === 'carting' && job.listening)) && (
+          <div className="space-y-1.5">
             <div className="flex items-baseline justify-between">
               <span className="text-[14px] font-semibold">Listening</span>
-              <span className="text-[20px] font-black [font-stretch:75%]">{Math.round((job.progress ?? 0) * 100)}%</span>
+              <span className="flex items-baseline gap-3">
+                <button type="button" onClick={() => send({ type: 'panel:stop-listening' })} className="text-[12px] text-toner-2 hover:text-ink hover:underline">Stop</button>
+                <span className="text-[20px] font-black [font-stretch:75%]">{progress}%</span>
+              </span>
             </div>
-            <Progress value={(job.progress ?? 0) * 100} className="h-1.5 bg-toner-3 [&>*]:bg-ink" />
-            {job.following && job.playlist?.beatport && (
+            <Progress value={progress} className="h-1.5 bg-toner-3 [&>*]:bg-ink" />
+            {job.following && playlistUrl && (
               <p className="text-[13px] text-toner-1">
-                New finds go straight into your{' '}
-                <a href={beatportPlaylistUrl(job.playlist.beatport)} target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1">Beatport playlist</a>.
+                New finds go straight into your <a href={playlistUrl} target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1">Beatport playlist</a>.
               </p>
             )}
-            {job.rows.length > 0 && <div className="pt-1">{cartRow}</div>}
-            <Button variant="ghost" onClick={() => send({ type: 'panel:stop' })} className="h-8 w-full text-[13px] text-toner-2">Stop listening</Button>
           </div>
         )}
         {job.phase === 'review' && !job.rows.length && (
-          <div className="space-y-2.5">
+          <>
             {!job.error && <p className="text-[14px] leading-snug">No tracks were recognized in this mix.</p>}
-            <Button onClick={listen} className="h-10 w-full text-[15px] font-extrabold">Try again</Button>
-          </div>
+            <Button onClick={listen} disabled={!sameMix} className="h-10 w-full text-[15px] font-extrabold">Try again</Button>
+          </>
         )}
-        {job.phase === 'review' && job.rows.length > 0 && cartRow}
-        {job.phase === 'carting' && (
+        {job.phase === 'carting' ? (
           <div className="space-y-1.5">
             <div className="flex items-baseline justify-between">
-              <span className="text-[14px] font-semibold">{job.waitingFor === 'beatport-login' ? 'Log in to Beatport in the new tab' : job.waitingFor === 'store-check' ? 'The store wants to check you are human' : 'Adding to cart'}</span>
-              <span className="text-[20px] font-black [font-stretch:75%]">{carted.length} of {selected.length}</span>
+              <span className="text-[14px] font-semibold">
+                {job.waitingFor === 'beatport-login' ? 'Log in to Beatport in the new tab' : job.waitingFor === 'store-check' ? 'The store wants to check you are human' : 'Adding to cart'}
+              </span>
+              <button type="button" onClick={() => send({ type: 'panel:stop' })} className="text-[12px] text-toner-2 hover:text-ink hover:underline">Stop</button>
             </div>
-            {job.waitingFor === 'beatport-login' ? (
-              <p className="text-[13px] text-toner-1">Beatport keeps carts in your account. Carting carries on by itself once you are logged in.</p>
-            ) : job.waitingFor === 'store-check' ? (
-              <p className="text-[13px] text-toner-1">Answer it in the tab that just opened. Carting carries on by itself afterwards.</p>
-            ) : current >= 0 ? (
-              <p className="truncate text-[13px] text-toner-1">Now: <span className="font-semibold text-ink">{job.rows[current]!.track.artist}, {job.rows[current]!.track.title}</span></p>
-            ) : null}
-            <Button variant="outline" onClick={() => send({ type: 'panel:stop' })} className="mt-1 h-9 w-full border-ink bg-transparent">Stop adding</Button>
-            {job.listening && (
-              <div className="flex items-center justify-between pt-1 text-[13px] text-toner-2">
-                <span>Still listening, {Math.round((job.progress ?? 0) * 100)}%</span>
-                <Button variant="ghost" onClick={() => send({ type: 'panel:stop-listening' })} className="h-8 px-2 text-[13px] text-toner-2">Stop listening</Button>
-              </div>
-            )}
-          </div>
-        )}
-        {job.phase === 'done' && (
-          <div className="space-y-2.5">
-            <p className="text-[14px] font-semibold">
-              {carted.length
-                ? `${carted.length} in your cart. Review it and buy what you want.`
-                : job.rows.some((r) => r.status === 'in-playlist')
-                  ? 'They are in a Beatport playlist for this mix. Press Buy All there to put them in your cart.'
-                  : 'Nothing was added. The links below search each store.'}
+            <p className="truncate text-[13px] text-toner-1">
+              {job.waitingFor === 'beatport-login'
+                ? 'Beatport keeps carts in your account. It carries on by itself once you are logged in.'
+                : job.waitingFor === 'store-check'
+                  ? 'Answer it in the tab that just opened. It carries on by itself afterwards.'
+                  : current
+                    ? `Now: ${current.track.artist}, ${current.track.title}`
+                    : 'Filling the cart…'}
             </p>
-            <div className="flex gap-2">
-              {Object.entries(job.carts ?? {}).map(([s, url]) => (
-                <Button key={s} asChild className="h-10 flex-1 text-[15px] font-extrabold">
-                  <a href={url} target="_blank" rel="noreferrer">Open {s === 'beatport' ? 'Beatport' : 'Bandcamp'} cart</a>
-                </Button>
-              ))}
-              {job.playlist?.beatport && (
-                <Button asChild variant={job.carts?.beatport ? 'outline' : 'default'} className={cn('h-10 flex-1 text-[15px] font-extrabold', job.carts?.beatport && 'border-ink bg-transparent')}>
-                  <a href={beatportPlaylistUrl(job.playlist.beatport)} target="_blank" rel="noreferrer">Beatport playlist</a>
-                </Button>
-              )}
-            </div>
-            {toAdd.length > 0 && cartRow}
           </div>
+        ) : (
+          job.rows.length > 0 && (
+            <>
+              {carted.length > 0 && (
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-[14px] font-semibold">{carted.length} in your cart</p>
+                  <span className="flex gap-3 text-[13px] font-semibold">
+                    {Object.entries(job.carts ?? {}).map(([s, url]) => (
+                      <a key={s} href={url} target="_blank" rel="noreferrer" className={LINK}>Open {s === 'beatport' ? 'Beatport' : 'Bandcamp'}</a>
+                    ))}
+                  </span>
+                </div>
+              )}
+              {!carted.length && playlistUrl && job.rows.some((r) => r.status === 'in-playlist') && (
+                <p className="text-[13px] text-toner-1">
+                  In your <a href={playlistUrl} target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1">Beatport playlist</a>; its Buy All puts them in the cart.
+                </p>
+              )}
+              {cartButtons}
+            </>
+          )
         )}
-        {(error || job.error) && <p className="mt-2 text-[13px] text-miss">{error || job.error}</p>}
+        {(error || job.error) && <p className="text-[13px] text-miss">{error || job.error}</p>}
       </section>
 
       {job.rows.length > 0 && (
         <div className="flex items-center justify-between border-b border-toner-3 px-4 py-1.5 text-[13px]">
-          <span className="text-toner-2">{selected.length} of {job.rows.length} selected</span>
+          <span className="text-toner-2">{selected.length} of {job.rows.length} ticked</span>
           <span className="flex">
-            <Button variant="ghost" size="sm" disabled={locked} onClick={() => send({ type: 'panel:select', all: true })} className="h-8 px-2 text-[13px]">Select all</Button>
-            <Button variant="ghost" size="sm" disabled={locked} onClick={() => send({ type: 'panel:select', all: false })} className="h-8 px-2 text-[13px]">Deselect all</Button>
+            <Button variant="ghost" size="sm" disabled={locked || selected.length === job.rows.length} onClick={() => send({ type: 'panel:select', all: true })} className="h-8 px-2 text-[13px]">Select all</Button>
+            <Button variant="ghost" size="sm" disabled={locked || !selected.length} onClick={() => send({ type: 'panel:select', all: false })} className="h-8 px-2 text-[13px]">Deselect all</Button>
           </span>
         </div>
       )}
@@ -472,7 +500,7 @@ export default function App() {
         {job.phase === 'identifying' && !job.rows.length && <p className="py-6 text-[14px] text-toner-2">Tracks appear here as they are recognized.</p>}
       </div>
 
-      {job.rows.length > 0 && <Playlists job={job} />}
+      {job.rows.length > 0 && <Playlists job={job} ticked={selected.length} />}
 
       {job.rows.length > 0 && (
         <footer className="flex items-center gap-2 border-t-2 border-ink px-4 py-3">
@@ -486,15 +514,13 @@ export default function App() {
               <DropdownMenuItem onSelect={() => download(job, 'json')}>JSON</DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          {fromHistory && !busy ? (
-            <Button variant="ghost" className="ml-auto h-9 text-[13px] text-toner-2" onClick={() => setOpened(null)}>Back to history</Button>
-          ) : !busy && (
+          {sameMix && !busy && (
             <Button
               variant="ghost"
               className="ml-auto h-9 text-[13px] text-toner-2"
-              onClick={() => send({ type: 'panel:reset' }).then(() => tab && onMixPage && send({ type: 'panel:read', tabId: tab.id }))}
+              onClick={() => send({ type: 'panel:reset' }).then(() => tab && send({ type: 'panel:read', tabId: tab.id }))}
             >
-              Start over
+              Scan again
             </Button>
           )}
         </footer>
@@ -505,6 +531,7 @@ export default function App() {
 
 const STATUS_TEXT: Partial<Record<Row['status'], string>> = {
   searching: 'Searching',
+  carted: 'In cart',
   'in-playlist': 'In playlist',
   'version-missing': 'Version not found',
   'album-only': 'Album only',
@@ -515,8 +542,7 @@ const STATUS_TEXT: Partial<Record<Row['status'], string>> = {
 
 function TrackRow({ row, index, locked }: { row: Row; index: number; locked: boolean }) {
   const confirmed = row.track.hits >= 2;
-  const l = links(row);
-  const status = row.status === 'carted' ? row.offer?.price?.display ?? 'In cart' : row.status === 'queued' ? '' : STATUS_TEXT[row.status];
+  const status = STATUS_TEXT[row.status];
   const miss = ['version-missing', 'album-only', 'not-found', 'failed', 'login-needed'].includes(row.status);
   const id = `track-${index}`;
   return (
@@ -527,7 +553,7 @@ function TrackRow({ row, index, locked }: { row: Row; index: number; locked: boo
       <div className="min-w-0">
         <div className="flex items-baseline justify-between gap-3">
           <label htmlFor={id} className="min-w-0 cursor-pointer truncate text-[13px] font-semibold text-toner-1">{row.track.artist}</label>
-          {status && <span className={cn('shrink-0 text-[13px] font-bold', miss ? 'text-miss' : row.status === 'searching' ? 'text-toner-2' : '')}>{status}</span>}
+          {status && <span className={cn('shrink-0 text-[12px] font-bold', miss ? 'text-miss' : row.status === 'searching' ? 'text-toner-2' : '')}>{status}</span>}
         </div>
         <label htmlFor={id} className={cn('block cursor-pointer leading-[1.08]', confirmed ? 'text-[23px] font-black [font-stretch:64%]' : 'text-[15px] font-semibold [font-stretch:90%]')}>
           <span className={row.status === 'carted' ? 'highlighter' : undefined}>{row.track.title}</span>
@@ -535,12 +561,7 @@ function TrackRow({ row, index, locked }: { row: Row; index: number; locked: boo
         {row.status === 'version-missing' && row.alternatives?.length ? (
           <p className="mt-0.5 text-[12px] text-toner-1">Available: {[...new Set(row.alternatives.map((a) => a.version || 'Original'))].join(', ')}</p>
         ) : null}
-        <p className="mt-1 flex flex-wrap gap-x-3 text-[12px] font-medium">
-          <a href={l.beatport} target="_blank" rel="noreferrer" className="underline decoration-toner-3 hover:decoration-ink">Beatport</a>
-          <a href={l.bandcamp} target="_blank" rel="noreferrer" className="underline decoration-toner-3 hover:decoration-ink">Bandcamp</a>
-          <a href={l.spotify} target="_blank" rel="noreferrer" className="underline decoration-toner-3 hover:decoration-ink">Spotify</a>
-          <a href={l.youtube} target="_blank" rel="noreferrer" className="underline decoration-toner-3 hover:decoration-ink">YouTube</a>
-        </p>
+        <StoreLinks row={row} />
       </div>
     </li>
   );

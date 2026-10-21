@@ -31,7 +31,11 @@ async function info(): Promise<SourceInfo> {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const og = (p: string) => doc.querySelector(`meta[property="og:${p}"]`)?.getAttribute('content') ?? '';
   let description = '';
-  if (location.hostname.includes('youtube.com')) description = scriptString(html, 'shortDescription');
+  let uploader: string | undefined;
+  if (location.hostname.includes('youtube.com')) {
+    description = scriptString(html, 'shortDescription');
+    uploader = scriptString(html, 'ownerChannelName') || undefined;
+  }
   let stream: Stream | undefined;
   let duration: number | undefined;
   if (location.hostname.includes('soundcloud.com')) {
@@ -40,6 +44,7 @@ async function info(): Promise<SourceInfo> {
     const sound = hydration ? JSON.parse(hydration).find((h: any) => h.hydratable === 'sound')?.data : null;
     description = sound?.description ?? '';
     if (sound?.duration) duration = sound.duration / 1000;
+    uploader = sound?.user?.username;
     stream = await soundcloudStream(html, sound).catch(() => undefined);
   } else if (!location.hostname.includes('youtube.com')) description = scriptString(html, 'description');
   description ||= og('description');
@@ -50,6 +55,7 @@ async function info(): Promise<SourceInfo> {
     description,
     duration: duration ?? (m && Number.isFinite(m.duration) ? m.duration : undefined),
     seekable: !!m && Number.isFinite(m.duration) && m.duration > 0,
+    uploader,
     stream,
   };
 }

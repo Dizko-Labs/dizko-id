@@ -22,6 +22,8 @@ export default defineConfig({
       'https://accounts.spotify.com/*',
       'https://api.soundcloud.com/*',
       'https://secure.soundcloud.com/*',
+      // the DJ's upcoming dates and links, from Dizko's public endpoint
+      'https://mcp.dizko.app/*',
     ],
     action: { default_title: 'Mix to Cart' },
     side_panel: { default_path: 'sidepanel.html' },

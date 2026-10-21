@@ -12,6 +12,8 @@ export interface SourceInfo {
   url: string;
   description: string;
   duration?: number;
+  /** the channel or account that posted the mix, often the DJ */
+  uploader?: string;
   /** a media element the content script can seek; without one we listen in real time */
   seekable: boolean;
   /** SoundCloud: the mix's own HLS segments, fingerprinted directly instead of capturing tab audio */
@@ -39,6 +41,7 @@ export interface ClipResult {
 export type PanelRequest =
   | { type: 'panel:read'; tabId: number }
   | { type: 'panel:open'; url: string }
+  | { type: 'panel:forget'; url: string }
   | { type: 'panel:identify'; tabId: number }
   | { type: 'panel:toggle'; index: number }
   | { type: 'panel:select'; all: boolean }

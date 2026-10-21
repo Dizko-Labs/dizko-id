@@ -5,11 +5,12 @@ import {
   BEATPORT_CART, bandcampAddToCart, bandcampReadSearch, bandcampReadTrack, bandcampSearchUrl,
   beatportApi, beatportBuyAll, beatportPlaylistUrl, storeCheck,
 } from '@/lib/stores';
-import { forget, remember, saved } from '@/lib/history';
+import { findArtist } from '@/lib/dizko';
+import { forget, mixKey, remember, saved } from '@/lib/history';
 import { setApp } from '@/lib/oauth';
 import { soundcloudPlaylist, spotifyPlaylist } from '@/lib/playlists';
 import { parseTracklist } from '@/lib/tracklist';
-import type { Job, Offer, Row, Store, Track } from '@/lib/types';
+import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, type Job, type Offer, type Row, type Store, type Track } from '@/lib/types';
 
 /** Price used when a Bandcamp track is "name your price" with no minimum. */
 const NAME_YOUR_PRICE = 1;
@@ -66,7 +67,8 @@ let stopFollowing = false;
  */
 async function nap(ms: number, stopped = () => stopListening) {
   for (const end = Date.now() + ms; Date.now() < end && !stopped(); ) {
-    await new Promise((r) => setTimeout(r, Math.min(10_000, end - Date.now())));
+    // short steps so Stop is felt within a second; each storage read also counts as worker activity
+    await new Promise((r) => setTimeout(r, Math.min(1000, end - Date.now())));
     await browser.storage.session.get('job');
   }
 }
@@ -86,6 +88,9 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
   switch (msg.type) {
     case 'panel:read':
       return read(msg.tabId);
+    case 'panel:forget':
+      await forget(msg.url);
+      return { ok: true };
     case 'panel:open': {
       const before = await saved(msg.url);
       const now = await getJob();
@@ -156,6 +161,13 @@ async function ask<T>(tabId: number, msg: SourceRequest): Promise<T> {
 
 const rowFor = (track: Track): Row => ({ track, selected: track.hits >= 2, status: 'queued' });
 
+/** The DJ's Dizko profile arrives a moment after the tracklist, which does not wait for it. */
+function lookUpArtist(info: SourceInfo) {
+  findArtist(info.title, info.uploader)
+    .then((artist) => artist && update((j) => (mixKey(j.mix.url) === mixKey(info.url) ? { ...j, artist } : j)))
+    .catch(() => {});
+}
+
 async function read(tabId: number) {
   const info = await ask<SourceInfo>(tabId, { type: 'source:info' });
   // A mix scanned before opens as it was left, ticks and cart results included, instead of listening again
@@ -163,6 +175,7 @@ async function read(tabId: number) {
   if (before) {
     const { savedAt: _, ...job } = before;
     await setJob(job);
+    if (!job.artist) lookUpArtist(info);
     return job;
   }
   const tracks = parseTracklist(info.description);
@@ -174,6 +187,7 @@ async function read(tabId: number) {
     method: info.stream ? 'stream' : info.seekable ? 'seek' : 'live',
   };
   await setJob(job);
+  lookUpArtist(info);
   return job;
 }
 
@@ -348,7 +362,7 @@ async function tryBandcamp(worker: number, track: Track): Promise<{ status: Row[
   return { status: alternatives.length ? 'version-missing' : 'not-found', alternatives };
 }
 
-const CARTABLE: Row['status'][] = ['queued', 'failed', 'login-needed', 'in-playlist'];
+const CARTABLE = BEATPORT_CARTABLE;
 
 async function openTab(url: string): Promise<number> {
   const id = (await browser.tabs.create({ url: 'about:blank', active: false })).id!;
@@ -424,7 +438,8 @@ async function fillPlaylist(tab: number, job: Job, trackIds: string[]): Promise<
 async function cart(stores: Store[]) {
   // The tracks ticked when Add to cart was pressed; tracks found later by the still running listen wait for the next press
   const job = (await update((j) => ({ ...j, phase: 'carting', error: undefined })))!;
-  const keys = job.rows.filter((r) => r.selected && CARTABLE.includes(r.status)).map((r) => keyOf(r.track));
+  const cartable = stores.includes('beatport') ? CARTABLE : BANDCAMP_CARTABLE;
+  const keys = job.rows.filter((r) => r.selected && cartable.includes(r.status)).map((r) => keyOf(r.track));
   const rowFor = async (key: string) => (await getJob())!.rows.find((r) => keyOf(r.track) === key);
   const carts: Partial<Record<Store, string>> = {};
   const tried = new Map<string, Offer[]>();
@@ -445,7 +460,7 @@ async function cart(stores: Store[]) {
       for (const key of keys) {
         if (stopCarting) break;
         const row = await rowFor(key);
-        if (!row?.selected || !CARTABLE.includes(row.status)) continue;
+        if (!row?.selected || !cartable.includes(row.status)) continue;
         await patchRow(key, { status: 'searching' });
         const m = await matchBeatport(beatportTab, row.track);
         if (m.offer) {

@@ -55,7 +55,6 @@ Nothing is sent anywhere else. There is no server and no account.
 ```bash
 npm test          # matcher and tracklist parser, against real Shazam titles
 npm run compile   # typecheck
-.preview/make.sh  # after a build: renders the side panel in a normal tab with synthetic states (serve .preview/site)
 ```
 
 ## Not done yet

@@ -53,8 +53,12 @@ export interface Row {
   note?: string;
 }
 
+import type { Artist } from './dizko';
+
 export interface Job {
   mix: { title: string; url: string; duration?: number };
+  /** the DJ, when Dizko knows them */
+  artist?: Artist;
   rows: Row[];
   phase: 'reading' | 'identifying' | 'review' | 'carting' | 'done';
   /** 0..1 progress through the audio while identifying */
@@ -81,3 +85,8 @@ export interface Job {
   making?: PlaylistService;
   error?: string;
 }
+
+/** Rows a Beatport press picks up (a playlist row gets carted by Buy All) */
+export const BEATPORT_CARTABLE: Status[] = ['queued', 'failed', 'login-needed', 'in-playlist'];
+/** Bandcamp also takes what Beatport did not have */
+export const BANDCAMP_CARTABLE: Status[] = ['queued', 'failed', 'login-needed', 'not-found', 'version-missing'];

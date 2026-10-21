@@ -25,5 +25,3 @@ web-ext.config.ts
 *.sln
 *.sw?
 
-# preview harness build copy
-.preview/site
