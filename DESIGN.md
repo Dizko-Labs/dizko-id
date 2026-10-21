@@ -286,6 +286,12 @@ The library's Mixes, Artists and Tracks tabs use the line variant: 40px row, 20p
 - **Style:** Surface fill, 12px corners, 4px inner padding, no shadow. Items are 14px with 10px corners and a Surface focus fill.
 - **Drift:** the shipped menu still carries a 2px Text border left over from the previous world. It is not part of this system; menus take no border beyond the default 1px hairline, or none.
 
+### Segmented choice and switch
+Settings use shadcn's ToggleGroup as a row of equal pills: 36px tall, hairline border, the chosen one filled ink with paper text. Booleans use shadcn's Switch with an acid track when on. One setting per row, a semibold label, one line of grey help, hairline dividers between rows.
+
+### Preview button
+A 28px circle with a hairline border and a filled play glyph, under the track's time (mix) or cover (Tracks tab). While playing it fills acid with a pause glyph; it pulses while loading and fades to 40% when no preview exists. Hidden entirely when previews are off.
+
 ### Progress
 - **Style:** 6px pill, Hairline track, acid fill. Paired with the Title-size percentage right-aligned on the "Listening" line, beside a Stop action.
 
