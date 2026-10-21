@@ -79,7 +79,7 @@ async function clip(seconds: number): Promise<ClipResult> {
 
 /** One HLS segment (with its fMP4 init segment when there is one), decoded and recognized. */
 async function segment(init: string | undefined, url: string): Promise<ClipResult> {
-  const parts = await Promise.all([init, url].filter(Boolean).map((u) => fetch(u!).then((r) => r.arrayBuffer())));
+  const parts = await Promise.all([init, url].filter(Boolean).map((u) => fetch(u!, { signal: AbortSignal.timeout(20_000) }).then((r) => r.arrayBuffer())));
   const bytes = new Uint8Array(parts.reduce((n, p) => n + p.byteLength, 0));
   let o = 0;
   for (const p of parts) { bytes.set(new Uint8Array(p), o); o += p.byteLength; }
@@ -101,7 +101,7 @@ async function recognize(pcm: Float32Array, rate: number): Promise<ClipResult> {
   sig.free();
   const id = () => crypto.randomUUID().toUpperCase();
   const url = `https://amp.shazam.com/discovery/v5/en/US/web/-/tag/${id()}/${id()}?sync=true&webv3=true&sampling=true&connected=&shazamapiversion=v3&sharehub=true&hubv5minorversion=v5.1&hidelb=true&video=v3`;
-  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(20_000) });
   if (!res.ok) return { error: `shazam ${res.status}` };
   const track = (await res.json()).track;
   return track

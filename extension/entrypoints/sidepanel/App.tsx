@@ -341,7 +341,7 @@ function ArtistPage({ entry, onBack, onOpen, onScan, motion }: { entry: Dj; onBa
     send({ type: 'panel:profile-mixes', url: profile }).then((r: { avatar?: string; mixes?: Upload[] }) => {
       setAvatar((a) => r?.avatar ?? a);
       setMore(r?.mixes ?? []);
-    });
+    }, () => setMore([]));
   }, [profile]);
   const scanned = new Set(mixes.map((h) => mixKey(h.mix.url)));
   const unscanned = (more ?? []).filter((u) => !scanned.has(mixKey(u.url)));

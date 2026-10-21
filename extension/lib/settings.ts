@@ -17,6 +17,10 @@ export async function settings(): Promise<Settings> {
   return { ...DEFAULTS, ...((await browser.storage.local.get('settings')).settings as Partial<Settings> | undefined) };
 }
 
-export async function setSetting<K extends keyof Settings>(key: K, value: Settings[K]) {
-  await browser.storage.local.set({ settings: { ...(await settings()), [key]: value } });
+// one write at a time, so two quick changes cannot each save over the other
+let writes: Promise<unknown> = Promise.resolve();
+export function setSetting<K extends keyof Settings>(key: K, value: Settings[K]) {
+  const next = writes.then(async () => browser.storage.local.set({ settings: { ...(await settings()), [key]: value } }));
+  writes = next.catch(() => {});
+  return next;
 }

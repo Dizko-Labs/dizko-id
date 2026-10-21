@@ -41,8 +41,15 @@ export default defineBackground(() => {
           const job = await getJob();
           if (job && mixKey(job.mix.url) !== mixKey(target) && busy(job)) {
             await settle();
-            // On the mix's own page read it now; from a listing the page is about to change and the panel reads it then
-            if (mixKey(sender.tab!.url ?? '') === mixKey(target)) await read(tabId);
+            // From a listing the page is changing to the mix: give it a few seconds to arrive, then read it
+            for (let i = 0; i < 12; i++) {
+              const at = (await browser.tabs.get(tabId).catch(() => null))?.url ?? '';
+              if (mixKey(at) === mixKey(target)) {
+                await read(tabId);
+                break;
+              }
+              await new Promise((r) => setTimeout(r, 250));
+            }
           }
           reply({ opened });
         })
@@ -71,10 +78,14 @@ async function setJob(job: Job | null) {
  * queue: neither can overwrite a change the other made in between.
  */
 let queue: Promise<unknown> = Promise.resolve();
-function update(change: (job: Job) => Job): Promise<Job | null> {
+/**
+ * `owner` is the mixKey of the mix a long run (a listen, a cart run) belongs to: once the job has moved on to another
+ * mix, that run's writes are dropped (null) instead of landing in the new mix.
+ */
+function update(change: (job: Job) => Job, owner?: string): Promise<Job | null> {
   const next = queue.then(async () => {
     const job = await getJob();
-    if (!job) return null;
+    if (!job || (owner && mixKey(job.mix.url) !== owner)) return null;
     const changed = change(job);
     await setJob(changed);
     return changed;
@@ -82,11 +93,22 @@ function update(change: (job: Job) => Job): Promise<Job | null> {
   queue = next.catch(() => {});
   return next;
 }
+/** Replace the job (a new mix, a reset, a settle) in the same queue, so no queued edit lands on top of it. */
+function replace(job: Job | null) {
+  const next = queue.then(() => setJob(job));
+  queue = next.catch(() => {});
+  return next;
+}
 
 const keyOf = (t: Track) => `${t.artist}|${t.title}`;
-function patchRow(key: string, patch: Partial<Row>) {
-  return update((job) => ({ ...job, rows: job.rows.map((r) => (keyOf(r.track) === key ? { ...r, ...patch } : r)) }));
+function patchRow(key: string, patch: Partial<Row>, owner?: string) {
+  return update((job) => ({ ...job, rows: job.rows.map((r) => (keyOf(r.track) === key ? { ...r, ...patch } : r)) }), owner);
 }
+
+/** Mixes with a listen or a cart run going, so a double press cannot start a second one on the same mix. */
+const listening = new Set<string>();
+const carting = new Set<string>();
+const scanning = new Set<string>();
 
 /** Separate switches, so stopping the cart run leaves listening going and the other way round. */
 let stopListening = false;
@@ -122,7 +144,7 @@ async function settle() {
   }
   const left = await getJob();
   // A stuck job is saved as it stands so the new mix can start
-  if (left && busy(left)) await setJob({ ...left, phase: 'review', listening: false, following: false, waitingFor: undefined });
+  if (left && busy(left)) await replace({ ...left, phase: 'review', listening: false, following: false, waitingFor: undefined });
   stopListening = stopCarting = stopFollowing = false;
 }
 
@@ -134,36 +156,32 @@ async function recover() {
   const error = job.phase === 'carting'
     ? 'Adding to your cart stopped part way. Press Beatport or Bandcamp under Purchase again to finish.'
     : 'Listening stopped part way. These are the tracks found before it did.';
-  await setJob({ ...job, rows, phase: job.phase === 'carting' ? 'done' : 'review', listening: false, following: false, waitingFor: undefined, error });
+  await replace({ ...job, rows, phase: job.phase === 'carting' ? 'done' : 'review', listening: false, following: false, waitingFor: undefined, error });
 }
 
 async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknown> {
   switch (msg.type) {
-    case 'panel:read':
+    case 'panel:read': {
+      // a panel opening on another mix while one runs offers Switch; reading here would cut the run off
+      const now = await getJob();
+      const url = (await browser.tabs.get(msg.tabId).catch(() => null))?.url ?? '';
+      if (now && busy(now) && mixKey(now.mix.url) !== mixKey(url)) return { ok: false };
       return read(msg.tabId);
+    }
     case 'panel:profile-mixes':
       return await profileMixes(msg.url).catch(() => ({ mixes: [] }));
     case 'panel:scan': {
-      track('scan_from_artist_page');
-      if (!/^https:\/\/soundcloud\.com\//.test(msg.url)) {
-        // only SoundCloud can be read and heard without its page; anything else opens, and the panel takes over
-        await browser.tabs.create({ url: msg.url, active: true });
-        return { ok: true };
+      // claimed before any await, so a double press cannot read the mix twice and reset its own listen
+      const key = mixKey(msg.url);
+      if (scanning.has(key) || listening.has(key)) return { ok: true, url: msg.url };
+      scanning.add(key);
+      try {
+        return await scan(msg.url);
+      } finally {
+        scanning.delete(key);
       }
-      // Read and listen in the background: the DJ stays where they are while the panel shows the new mix
-      const now = await getJob();
-      if (now && busy(now)) await settle();
-      const info = await soundcloudInfo(msg.url);
-      const job = await readInfo(info);
-      if (job.phase === 'reading' && !job.rows.length) {
-        if (!info.stream) return { error: 'SoundCloud would not hand over this mix\'s audio. Open it to listen.' };
-        stopListening = false;
-        identify(undefined, undefined, false, info).catch((e) =>
-          update((j) => ({ ...j, phase: j.phase === 'identifying' ? 'review' : j.phase, listening: false, error: e instanceof Error ? e.message : String(e) })),
-        );
-      }
-      return { ok: true, url: job.mix.url };
     }
+
     case 'panel:dizko-link':
       try {
         await dizkoLink(msg.follow);
@@ -187,7 +205,7 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
       const now = await getJob();
       if (!before || now?.listening || now?.phase === 'carting') return { ok: false };
       const { savedAt: _, ...job } = before;
-      await setJob(job);
+      await replace(job);
       return { ok: true };
     }
     case 'panel:switch':
@@ -234,7 +252,7 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
       stopFollowing = true;
       const job = await getJob();
       if (job) await forget(job.mix.url);
-      await setJob(null);
+      await replace(null);
       return { ok: true };
     }
   }
@@ -269,6 +287,31 @@ async function read(tabId: number) {
   return readInfo(await ask<SourceInfo>(tabId, { type: 'source:info' }));
 }
 
+/** Scan mix from an artist page: read a SoundCloud mix by URL and listen to its stream without opening it. */
+async function scan(url: string) {
+  track('scan_from_artist_page');
+  if (!/^https:\/\/soundcloud\.com\//.test(url)) {
+    // only SoundCloud can be read and heard without its page; anything else opens, and the panel takes over
+    await browser.tabs.create({ url: url, active: true });
+    return { ok: true };
+  }
+  // Read and listen in the background: the DJ stays where they are while the panel shows the new mix
+  const now = await getJob();
+  // the same mix already running (a second press): leave it be
+  if (now && busy(now) && mixKey(now.mix.url) === mixKey(url)) return { ok: true, url: now.mix.url };
+  if (now && busy(now)) await settle();
+  const info = await soundcloudInfo(url);
+  const job = await readInfo(info);
+  if (job.phase === 'reading' && !job.rows.length) {
+    if (!info.stream) return { error: 'SoundCloud would not hand over this mix\'s audio. Open it to listen.' };
+    stopListening = false;
+    identify(undefined, undefined, false, info).catch((e) =>
+      update((j) => ({ ...j, phase: j.phase === 'identifying' ? 'review' : j.phase, listening: false, error: e instanceof Error ? e.message : String(e) })),
+    );
+  }
+  return { ok: true, url: job.mix.url };
+}
+
 /** Make (or restore) the job for a mix from what its page says, wherever that came from. */
 async function readInfo(info: SourceInfo) {
   // A mix scanned before opens as it was left, ticks and cart results included, instead of listening again
@@ -280,7 +323,7 @@ async function readInfo(info: SourceInfo) {
     job.mix.uploaderAvatar ??= info.uploaderAvatar;
     // an older lookup took the hosting channel for the DJ; look again
     if (isPlatform(job.artist?.name)) job.artist = undefined;
-    await setJob(job);
+    await replace(job);
     // missing, or saved long enough ago that its dates may have moved: fetch again, showing the old copy meanwhile
     if (!job.artist || isStale(job.artist)) lookUpArtist(info);
     if (!job.enriched) enrich().catch(() => {});
@@ -294,7 +337,7 @@ async function readInfo(info: SourceInfo) {
     tracklistFound: tracks.length > 0,
     method: info.stream ? 'stream' : info.seekable ? 'seek' : 'live',
   };
-  await setJob(job);
+  await replace(job);
   track('mix_read', { site: new URL(job.mix.url).hostname.replace(/^www\./, ''), tracklist: tracks.length > 0, tracks: tracks.length, method: job.method });
   lookUpArtist(info);
   if (tracks.length) enrich().catch(() => {});
@@ -340,9 +383,20 @@ async function lookup(get: () => Promise<ClipResult>): Promise<ClipResult> {
  */
 async function identify(tabId: number | undefined, streamId?: string, resume = false, given?: SourceInfo) {
   const before = (await getJob())!;
+  const owner = mixKey(before.mix.url);
+  if (listening.has(owner)) return;
+  listening.add(owner);
+  try {
+    await listen(before, owner, tabId, streamId, resume, given);
+  } finally {
+    listening.delete(owner);
+  }
+}
+
+async function listen(before: Job, owner: string, tabId: number | undefined, streamId: string | undefined, resume: boolean, given?: SourceInfo) {
   // Keep listening picks up at the point it stopped, with what it had already heard
   const from = resume ? coverage(before) ?? 0 : 0;
-  await update((job) => ({ ...job, phase: job.phase === 'carting' ? 'carting' : 'identifying', listening: true, progress: from, error: undefined }));
+  await update((job) => ({ ...job, phase: job.phase === 'carting' ? 'carting' : 'identifying', listening: true, progress: from, error: undefined }), owner);
   const info = given ?? (await ask<SourceInfo>(tabId!, { type: 'source:info' }));
   await ensureOffscreen();
   if (!info.stream) {
@@ -363,7 +417,7 @@ async function identify(tabId: number | undefined, streamId?: string, resume = f
         return { ...was, track: t, selected: was.track.hits < 2 && t.hits >= 2 ? true : was.selected };
       });
       return { ...job, rows, progress };
-    });
+    }, owner);
 
   try {
     if (info.stream && info.duration) {
@@ -375,7 +429,7 @@ async function identify(tabId: number | undefined, streamId?: string, resume = f
         const r = await lookup(() => offscreen<ClipResult>({ type: 'offscreen:segment', init: info.stream!.init, url: seg.url }));
         if (r.error) failed = r.error;
         if (r.track) hits.push({ at: seg.start, ...r.track });
-        await publish((i + 1) / at.length);
+        if (!(await publish((i + 1) / at.length))) break; // the panel moved on to another mix
       }
     } else if (info.seekable && info.duration) {
       const { at, clip } = samplePoints(info.duration);
@@ -385,7 +439,7 @@ async function identify(tabId: number | undefined, streamId?: string, resume = f
         const r = await lookup(() => offscreen<ClipResult>({ type: 'offscreen:clip', seconds: clip }));
         if (r.error) failed = r.error;
         if (r.track) hits.push({ at: point, ...r.track });
-        await publish((i + 1) / at.length);
+        if (!(await publish((i + 1) / at.length))) break; // the panel moved on to another mix
       }
     } else {
       // No player we can seek (or a live page): sample clips in real time while the DJ plays the mix
@@ -395,21 +449,25 @@ async function identify(tabId: number | undefined, streamId?: string, resume = f
         const at = (Date.now() - started) / 1000;
         const r = await lookup(() => offscreen<ClipResult>({ type: 'offscreen:clip', seconds: 10 }));
         if (r.track) hits.push({ at, ...r.track });
-        await publish(Math.min(1, at / limit));
+        if (!(await publish(Math.min(1, at / limit)))) break;
         await nap(20_000);
       }
     }
     // Every clip erroring is a broken run, not a mix with no known tracks
     if (!hits.length && failed && failed !== 'silence') throw new Error(`Could not identify any clips (${failed}).`);
   } finally {
-    await offscreen({ type: 'offscreen:stop' }).catch(() => {});
-    await browser.offscreen.closeDocument().catch(() => {});
+    // the offscreen document is shared: a listen for the next mix may already be using it
+    if (listening.size <= 1) {
+      await offscreen({ type: 'offscreen:stop' }).catch(() => {});
+      await browser.offscreen.closeDocument().catch(() => {});
+    }
     if (tabId != null) await ask(tabId, { type: 'source:pause' }).catch(() => {});
     // a stopped listen keeps its place, so Keep listening can resume from there
     const stoppedEarly = stopListening;
-    const finished = (await getJob())?.rows ?? [];
+    const now = await getJob();
+    const finished = now && mixKey(now.mix.url) === owner ? now.rows : [];
     track('identify_end', { method: info.stream ? 'stream' : info.seekable ? 'seek' : 'live', tracks: finished.length, confirmed: finished.filter((r) => r.track.hits >= 2).length, stopped: stoppedEarly, resumed: resume });
-    await update((job) => ({ ...job, phase: job.phase === 'identifying' ? 'review' : job.phase, listening: false, progress: stoppedEarly ? job.progress : 1 }));
+    await update((job) => ({ ...job, phase: job.phase === 'identifying' ? 'review' : job.phase, listening: false, progress: stoppedEarly ? job.progress : 1 }), owner);
     enrich().catch(() => {});
     syncTaste();
   }
@@ -430,7 +488,8 @@ async function load(tabId: number, url: string, settle = 900) {
       }
     };
     browser.tabs.onUpdated.addListener(done);
-    browser.tabs.update(tabId, { url });
+    // a tab the DJ closed fails here: stop waiting rather than sit out the timeout
+    browser.tabs.update(tabId, { url }).catch(() => { browser.tabs.onUpdated.removeListener(done); resolve(); });
     setTimeout(() => { browser.tabs.onUpdated.removeListener(done); resolve(); }, 20_000);
   });
   await new Promise((r) => setTimeout(r, settle)); // client-side hydration
@@ -568,8 +627,23 @@ async function fillPlaylist(tab: number, job: Job, trackIds: string[]): Promise<
 }
 
 async function cart(stores: Store[]) {
+  const start = await getJob();
+  if (!start) return;
+  const owner = mixKey(start.mix.url);
+  if (carting.has(owner)) return;
+  carting.add(owner);
+  try {
+    await cartRun(stores, owner);
+  } finally {
+    carting.delete(owner);
+  }
+}
+
+async function cartRun(stores: Store[], owner: string) {
   // The tracks ticked when a Purchase button was pressed; tracks found later by the still running listen wait for the next press
-  const job = (await update((j) => ({ ...j, phase: 'carting', error: undefined })))!;
+  const job = await update((j) => ({ ...j, phase: 'carting', error: undefined }), owner);
+  if (!job) return;
+  const patch = (key: string, p: Partial<Row>) => patchRow(key, p, owner);
   const cartable = stores.includes('beatport') ? BEATPORT_CARTABLE : BANDCAMP_CARTABLE;
   const keys = job.rows.filter((r) => r.selected && cartable.includes(r.status)).map((r) => keyOf(r.track));
   const rowFor = async (key: string) => (await getJob())!.rows.find((r) => keyOf(r.track) === key);
@@ -585,7 +659,7 @@ async function cart(stores: Store[]) {
     if (stores.includes('beatport') && keys.length) {
       beatportTab = await openTab('https://www.beatport.com/');
       if (!(await passCheck(beatportTab)) || !(await beatportSession(beatportTab))) {
-        for (const key of keys) await patchRow(key, { status: 'login-needed' });
+        for (const key of keys) await patch(key, { status: 'login-needed' });
         return;
       }
       const matched: { key: string; offer: Offer }[] = [];
@@ -593,29 +667,29 @@ async function cart(stores: Store[]) {
         if (stopCarting) break;
         const row = await rowFor(key);
         if (!row?.selected || !cartable.includes(row.status)) continue;
-        await patchRow(key, { status: 'searching' });
+        await patch(key, { status: 'searching' });
         const m = await matchBeatport(beatportTab, row.track);
         if (m.offer) {
           matched.push({ key, offer: m.offer });
-          await patchRow(key, { status: 'searching', offer: m.offer });
+          await patch(key, { status: 'searching', offer: m.offer });
         } else {
           if (m.alternatives?.length) tried.set(key, m.alternatives);
           if (stores.includes('bandcamp')) toBandcamp.push(key);
-          else await patchRow(key, { status: m.status, alternatives: m.alternatives?.slice(0, 4), ...missing(row, 'beatport', m.status) });
+          else await patch(key, { status: m.status, alternatives: m.alternatives?.slice(0, 4), ...missing(row, 'beatport', m.status) });
         }
       }
       if (matched.length && !stopCarting) {
         playlist = await fillPlaylist(beatportTab, (await getJob())!, matched.map((m) => m.offer.id));
         if (!playlist) {
-          for (const m of matched) await patchRow(m.key, { status: 'failed' });
+          for (const m of matched) await patch(m.key, { status: 'failed' });
         } else {
-          await update((j) => ({ ...j, playlist: { ...j.playlist, beatport: playlist! } }));
-          for (const m of matched) await patchRow(m.key, { status: 'in-playlist' });
+          await update((j) => ({ ...j, playlist: { ...j.playlist, beatport: playlist! } }), owner);
+          for (const m of matched) await patch(m.key, { status: 'in-playlist' });
           // The playlist's Buy All puts the whole playlist in the cart in one press
           await load(beatportTab, beatportPlaylistUrl(playlist), 1500);
           playlistCarted = (await run(beatportTab, beatportBuyAll)) === 'carted';
           if (playlistCarted) {
-            for (const m of matched) await patchRow(m.key, { status: 'carted' });
+            for (const m of matched) await patch(m.key, { status: 'carted' });
             carts.beatport = BEATPORT_CART;
           }
         }
@@ -627,12 +701,12 @@ async function cart(stores: Store[]) {
       if (stopCarting) break;
       const row = await rowFor(key);
       if (!row?.selected) continue;
-      await patchRow(key, { status: 'searching' });
+      await patch(key, { status: 'searching' });
       bandcampTab ??= (await browser.tabs.create({ url: 'about:blank', active: false })).id!;
       const result = await tryBandcamp(bandcampTab, row.track);
       const alternatives = [...(tried.get(key) ?? []), ...(result.alternatives ?? [])];
       if (result.status === 'carted') carts.bandcamp = result.offer!.url;
-      await patchRow(key, { status: result.status, offer: result.offer, alternatives: alternatives.length ? alternatives.slice(0, 4) : undefined, ...missing(row, 'bandcamp', result.status) });
+      await patch(key, { status: result.status, offer: result.offer, alternatives: alternatives.length ? alternatives.slice(0, 4) : undefined, ...missing(row, 'bandcamp', result.status) });
       await new Promise((r) => setTimeout(r, 800)); // human pace between tracks
     }
   } finally {
@@ -646,11 +720,11 @@ async function cart(stores: Store[]) {
       waitingFor: undefined,
       carts: { ...j.carts, ...carts },
       rows: j.rows.map((r) => (r.status === 'searching' ? { ...r, status: 'queued' } : r)),
-    }));
+    }), owner);
     for (const [store, url] of Object.entries(carts)) await browser.tabs.create({ url: utm(url, 'cart', `${store}_cart`), active: false });
     // Buy All did not go through: hand the DJ the playlist, where it is one press
     if (playlist && !playlistCarted) await browser.tabs.create({ url: utm(beatportPlaylistUrl(playlist), 'cart', 'beatport_playlist'), active: true });
-    if (handOff) follow(beatportTab!).catch(() => {});
+    if (handOff) follow(beatportTab!, owner).catch(() => {});
   }
 }
 
@@ -659,13 +733,13 @@ async function cart(stores: Store[]) {
  * into the mix's Beatport playlist within a few seconds. Not into the cart; the DJ curates the playlist and its
  * Buy All covers the rest. Ends with one last pass once listening finishes.
  */
-async function follow(tab: number) {
+async function follow(tab: number, owner: string) {
   stopFollowing = false;
-  await update((j) => ({ ...j, following: true }));
+  await update((j) => ({ ...j, following: true }), owner);
   try {
     for (;;) {
       const job = await getJob();
-      if (!job || stopFollowing || job.phase === 'carting') break;
+      if (!job || mixKey(job.mix.url) !== owner || stopFollowing || job.phase === 'carting') break;
       const fresh = job.rows.filter((r) => r.selected && r.status === 'queued');
       const matched: { key: string; offer: Offer }[] = [];
       for (const row of fresh) {
@@ -673,17 +747,17 @@ async function follow(tab: number) {
         const key = keyOf(row.track);
         const m = await matchBeatport(tab, row.track);
         if (m.offer) matched.push({ key, offer: m.offer });
-        else await patchRow(key, { status: m.status, alternatives: m.alternatives?.slice(0, 4), ...missing(row, 'beatport', m.status) });
+        else await patchRow(key, { status: m.status, alternatives: m.alternatives?.slice(0, 4), ...missing(row, 'beatport', m.status) }, owner);
       }
       if (matched.length && (await fillPlaylist(tab, (await getJob())!, matched.map((m) => m.offer.id)))) {
-        for (const m of matched) await patchRow(m.key, { status: 'in-playlist', offer: m.offer });
+        for (const m of matched) await patchRow(m.key, { status: 'in-playlist', offer: m.offer }, owner);
       }
       if (!job.listening) break;
       await nap(5000, () => stopFollowing);
     }
   } finally {
     await browser.tabs.remove(tab).catch(() => {});
-    await update((j) => ({ ...j, following: false }));
+    await update((j) => ({ ...j, following: false }), owner);
   }
 }
 
@@ -736,7 +810,18 @@ async function playlist(service: 'beatport' | 'spotify' | 'soundcloud') {
  * Beatport link also becomes the exact release), without carting anything. Once per mix, and only while nothing
  * else is running; tracks Beatport does not have just stay without them.
  */
+let enriching = false;
 async function enrich() {
+  if (enriching) return;
+  enriching = true;
+  try {
+    await enrichJob();
+  } finally {
+    enriching = false;
+  }
+}
+
+async function enrichJob() {
   const job = await getJob();
   if (!job || job.enriched || busy(job)) return;
   const todo = job.rows.filter((r) => r.offer?.store !== 'beatport' && !r.missingFrom?.includes('beatport'));

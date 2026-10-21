@@ -7,7 +7,7 @@ export default defineConfig({
   manifest: {
     name: 'Dizko ID',
     description: 'Find every track in a DJ mix and add them to your Beatport or Bandcamp cart.',
-    permissions: ['sidePanel', 'tabCapture', 'offscreen', 'scripting', 'storage', 'tabs', 'identity'],
+    permissions: ['sidePanel', 'tabCapture', 'offscreen', 'scripting', 'storage', 'unlimitedStorage', 'tabs', 'identity'],
     host_permissions: [
       'https://www.youtube.com/*',
       'https://soundcloud.com/*',

@@ -79,8 +79,13 @@ async function bearer(): Promise<string | undefined> {
   if (!a.access) return undefined;
   if ((a.expires ?? 0) > Date.now() + 60_000) return a.access;
   if (!a.refresh || !a.clientId) return undefined;
-  return tokenRequest({ grant_type: 'refresh_token', refresh_token: a.refresh, client_id: a.clientId }).catch(() => undefined);
+  // syncs can overlap (start, after a listen, Sync now): one refresh serves them all, so a refresh token is never spent twice
+  refreshing ??= tokenRequest({ grant_type: 'refresh_token', refresh_token: a.refresh, client_id: a.clientId })
+    .catch(() => undefined)
+    .finally(() => (refreshing = undefined));
+  return refreshing;
 }
+let refreshing: Promise<string | undefined> | undefined;
 
 /** Display names out of a credit: "A, B & C feat. D" -> A, B, C, D. */
 function credits(artist: string): string[] {

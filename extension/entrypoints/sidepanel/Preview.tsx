@@ -31,14 +31,19 @@ async function toggle(row: Row) {
   audio.src = url;
   try {
     await audio.play();
-    set({ key, status: 'playing' });
-  } catch {
-    set({ key, status: 'none' });
+    if (state.key === key) set({ key, status: 'playing' });
+  } catch (e) {
+    // pressing another track (or leaving the screen) aborts this play; only a real failure means no preview
+    if (state.key === key && (e as DOMException)?.name !== 'AbortError') set({ key, status: 'none' });
   }
 }
 
 /** Stop whatever is previewing, e.g. when the panel changes screen. */
-export const stopPreview = () => audio.pause();
+export const stopPreview = () => {
+  audio.pause();
+  // also cancels one still loading, so it does not start on the next screen
+  if (state.key) set({ key: null, status: 'idle' });
+};
 
 export function PreviewButton({ row }: { row: Row }) {
   const s = useSyncExternalStore((l) => (listeners.add(l), () => listeners.delete(l)), () => state);
