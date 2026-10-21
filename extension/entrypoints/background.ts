@@ -6,9 +6,9 @@ import {
   beatportApi, beatportBuyAll, beatportPlaylistUrl, storeCheck,
 } from '@/lib/stores';
 import { findArtist, isPlatform, isStale } from '@/lib/dizko';
-import { backfillArt, backfillArtists, backfillUploaders, forget, mixKey, remember, saved } from '@/lib/history';
+import { backfillArt, backfillArtists, backfillAvatars, backfillUploaders, forget, mixKey, remember, saved } from '@/lib/history';
 import { setApp } from '@/lib/oauth';
-import { profileMixes } from '@/lib/soundcloud';
+import { profileAvatar, profileMixes } from '@/lib/soundcloud';
 import { cleanMixUrl, utm } from '@/lib/utm';
 import { track } from '@/lib/analytics';
 import { soundcloudPlaylist, spotifyPlaylist } from '@/lib/playlists';
@@ -21,7 +21,7 @@ const NAME_YOUR_PRICE = 1;
 export default defineBackground(() => {
   browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
   recover();
-  backfillUploaders().then(backfillArtists).then(backfillArt).catch(() => {});
+  backfillUploaders().then(backfillArtists).then(backfillAvatars).then(backfillArt).catch(() => {});
   browser.runtime.onMessage.addListener((msg: PanelRequest & { streamId?: string }, sender, reply) => {
     // The button on the SoundCloud page: open the panel on that tab (the click is the user gesture it needs)
     // and leave a note so the panel starts identifying once it has read the mix
@@ -221,6 +221,10 @@ const rowFor = (track: Track): Row => ({ track, selected: track.hits >= 2, statu
 /** The DJ's Dizko profile arrives a moment after the tracklist, which does not wait for it. */
 function lookUpArtist(info: SourceInfo) {
   findArtist(info.title, info.uploader)
+    .then(async (artist) => {
+      if (artist?.soundcloud) artist.avatar = await profileAvatar(artist.soundcloud).catch(() => undefined);
+      return artist;
+    })
     .then((artist) => artist && update((j) => (mixKey(j.mix.url) === mixKey(info.url) ? { ...j, artist } : j)))
     .catch(() => {});
 }
@@ -233,6 +237,7 @@ async function read(tabId: number) {
     const { savedAt: _, ...job } = before;
     job.mix.uploader ??= info.uploader;
     job.mix.art ??= info.art;
+    job.mix.uploaderAvatar ??= info.uploaderAvatar;
     // an older lookup took the hosting channel for the DJ; look again
     if (isPlatform(job.artist?.name)) job.artist = undefined;
     await setJob(job);
@@ -243,7 +248,7 @@ async function read(tabId: number) {
   }
   const tracks = parseTracklist(info.description);
   const job: Job = {
-    mix: { title: info.title, url: cleanMixUrl(info.url), duration: info.duration, uploader: info.uploader, art: info.art },
+    mix: { title: info.title, url: cleanMixUrl(info.url), duration: info.duration, uploader: info.uploader, uploaderAvatar: info.uploaderAvatar, art: info.art },
     rows: tracks.map(rowFor),
     phase: tracks.length ? 'review' : 'reading',
     tracklistFound: tracks.length > 0,

@@ -11,6 +11,8 @@ export interface Artist {
   events: { title: string; date: string; city: string; venue: string; url: string }[];
   /** their SoundCloud profile, from Dizko's links */
   soundcloud?: string;
+  /** their profile picture (from SoundCloud) */
+  avatar?: string;
   /** when this was fetched: dates go stale, so a saved artist is refreshed after a while */
   fetchedAt?: number;
   /** shape version; older saved copies are fetched again */

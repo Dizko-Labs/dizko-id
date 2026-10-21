@@ -35,6 +35,13 @@ export async function profileMixes(profileUrl: string): Promise<{ avatar?: strin
   return { avatar, mixes };
 }
 
+/** Just a profile's picture, sized for the panel, or nothing for SoundCloud's default silhouette. */
+export async function profileAvatar(profileUrl: string): Promise<string | undefined> {
+  const cid = await getClientId();
+  const user = await fetch(`https://api-v2.soundcloud.com/resolve?url=${encodeURIComponent(profileUrl)}&client_id=${cid}`).then((r) => r.json());
+  return user?.kind === 'user' && user.avatar_url && !/default_avatar/.test(user.avatar_url) ? user.avatar_url.replace('-large', '-t500x500') : undefined;
+}
+
 /** The SoundCloud profile behind a mix URL: https://soundcloud.com/<user>/<track> -> https://soundcloud.com/<user> */
 export const profileOf = (mixUrl: string) => {
   const m = mixUrl.match(/^https:\/\/soundcloud\.com\/([^/?#]+)/);

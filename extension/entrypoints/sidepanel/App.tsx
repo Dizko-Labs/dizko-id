@@ -150,6 +150,16 @@ function ArtistBlock({ artist, onName, hideName }: { artist: Artist; onName?: ()
   );
 }
 
+/** A DJ's picture in a circle; an empty surface circle holds the place. */
+function Avatar({ src, size = 48 }: { src?: string; size?: number }) {
+  const box = { width: size, height: size };
+  return src ? (
+    <img src={src} alt="" loading="lazy" style={box} className="shrink-0 rounded-full bg-surface object-cover" />
+  ) : (
+    <span style={box} className="shrink-0 rounded-full bg-surface" aria-hidden />
+  );
+}
+
 /** Artwork square; an empty surface tile keeps rows aligned when there is none. */
 function Cover({ src, size = 52 }: { src?: string; size?: number }) {
   const box = { width: size, height: size };
@@ -169,6 +179,7 @@ interface Dj {
   key: string;
   name: string;
   artist?: Artist;
+  avatar?: string;
   mixes: Saved[];
 }
 
@@ -181,17 +192,19 @@ function djsOf(items: Saved[]): Dj[] {
     const key = norm(name);
     const entry = byDj.get(key) ?? { key, name, mixes: [] };
     entry.artist ??= h.artist && !isPlatform(h.artist.name) ? h.artist : undefined;
+    // Dizko's picture, else the uploader's when the DJ uploaded the mix themselves
+    entry.avatar ??= entry.artist?.avatar ?? (h.mix.uploader && norm(h.mix.uploader) === key ? h.mix.uploaderAvatar : undefined);
     entry.mixes.push(h);
     byDj.set(key, entry);
   }
   return [...byDj.values()].sort((a, b) => b.mixes.length - a.mixes.length);
 }
 
-const TAB_ORDER = ['mixes', 'artists', 'tracks'];
+const TAB_ORDER = ['artists', 'mixes', 'tracks'];
 
 function Library({ items, onOpen, onArtist }: { items: Saved[]; onOpen: (url: string) => void; onArtist: (key: string) => void }) {
   // the chosen tab survives a visit to a mix or an artist; the new tab slides in from the side it sits on
-  const [tabValue, setTabValue] = useState(() => sessionStorage.getItem('library-tab') ?? 'mixes');
+  const [tabValue, setTabValue] = useState(() => sessionStorage.getItem('library-tab') ?? 'artists');
   const [tabFrom, setTabFrom] = useState<'right' | 'left' | null>(null);
   const pickTab = (v: string) => {
     setTabFrom(TAB_ORDER.indexOf(v) > TAB_ORDER.indexOf(tabValue) ? 'right' : 'left');
@@ -209,10 +222,10 @@ function Library({ items, onOpen, onArtist }: { items: Saved[]; onOpen: (url: st
   }
   const artists = djsOf(items);
   return (
-    <Tabs data-area="library" value={tabValue} onValueChange={pickTab} className="min-h-0 flex-1 gap-0">
+    <Tabs data-area="library" value={tabValue} onValueChange={pickTab} className="min-h-0 flex-1 gap-0 overflow-x-clip">
       <TabsList variant="line" className="mt-2 h-11 w-full justify-start gap-6 border-b border-toner-3 px-4">
-        <TabsTrigger value="mixes" className="flex-none px-0 text-[14px] font-semibold">Mixes {items.length}</TabsTrigger>
         <TabsTrigger value="artists" className="flex-none px-0 text-[14px] font-semibold">Artists {artists.length}</TabsTrigger>
+        <TabsTrigger value="mixes" className="flex-none px-0 text-[14px] font-semibold">Mixes {items.length}</TabsTrigger>
         <TabsTrigger value="tracks" className="flex-none px-0 text-[14px] font-semibold">Tracks {picks.size}</TabsTrigger>
       </TabsList>
       <TabsContent value="mixes" className={cn("overflow-y-auto px-4", tabMotion)}>
@@ -250,10 +263,12 @@ function Library({ items, onOpen, onArtist }: { items: Saved[]; onOpen: (url: st
       <TabsContent value="artists" className={cn("overflow-y-auto px-4", tabMotion)}>
         {!artists.length && <p className="py-5 text-[14px] text-toner-1">The DJs behind the mixes you open collect here.</p>}
         <ul>
-          {artists.map(({ key, name, artist, mixes }) => {
+          {artists.map(({ key, name, artist, avatar, mixes }) => {
             const next = artist?.events[0];
             return (
-              <li key={key} className="border-b border-toner-3 py-3">
+              <li key={key} className="flex gap-3 border-b border-toner-3 py-3">
+                <Avatar src={avatar} size={48} />
+                <div className="min-w-0 flex-1">
                 <button type="button" onClick={() => onArtist(key)} className="block max-w-full truncate text-left text-[18px] leading-[1.15] font-semibold tracking-[-0.02em] hover:underline">
                   {name}
                 </button>
@@ -271,6 +286,7 @@ function Library({ items, onOpen, onArtist }: { items: Saved[]; onOpen: (url: st
                     </li>
                   ))}
                 </ul>
+                </div>
               </li>
             );
           })}
@@ -317,12 +333,12 @@ function ArtistPage({ entry, onBack, onOpen, motion }: { entry: Dj; onBack: () =
     artist?.soundcloud ??
     mixes.map((h) => (h.mix.uploader && norm(h.mix.uploader) === entry.key ? profileOf(h.mix.url) : undefined)).find(Boolean);
   const [more, setMore] = useState<Upload[] | null>(null);
-  const [avatar, setAvatar] = useState<string | undefined>();
+  const [avatar, setAvatar] = useState<string | undefined>(entry.avatar);
   const [playing, setPlaying] = useState<string | null>(null);
   useEffect(() => {
     if (!profile) return setMore([]);
     send({ type: 'panel:profile-mixes', url: profile }).then((r: { avatar?: string; mixes?: Upload[] }) => {
-      setAvatar(r?.avatar);
+      setAvatar((a) => r?.avatar ?? a);
       setMore(r?.mixes ?? []);
     });
   }, [profile]);
@@ -337,12 +353,15 @@ function ArtistPage({ entry, onBack, onOpen, motion }: { entry: Dj; onBack: () =
         </button>
         <div className="mt-2 flex items-center gap-3.5">
           {/* their SoundCloud picture; a blank surface circle holds the place while it loads or if there is none */}
-          {avatar ? (
-            <img src={avatar} alt="" className="enter-down size-16 shrink-0 rounded-full bg-surface object-cover" />
-          ) : (
-            <span className="size-16 shrink-0 rounded-full bg-surface" aria-hidden />
-          )}
-          <h1 className="min-w-0 text-[26px] leading-[1.05] font-semibold tracking-[-0.03em]">{name}</h1>
+          <Avatar src={avatar} size={64} />
+          <div className="min-w-0">
+            <h1 className="text-[26px] leading-[1.05] font-semibold tracking-[-0.03em]">
+              {artist ? <a href={artist.url} target="_blank" rel="noreferrer" data-content="artist_name" className="hover:underline">{name}</a> : name}
+            </h1>
+            {artist && (
+              <a href={artist.url} target="_blank" rel="noreferrer" className={cn(LINK, 'mt-1.5 inline-block text-[13px] font-semibold')}>Follow on Dizko</a>
+            )}
+          </div>
         </div>
       </header>
       {artist && <ArtistBlock artist={artist} hideName />}
@@ -560,15 +579,23 @@ export default function App() {
     return (
       <main key={screen} className={cn('flex h-full flex-col', motion.current)}>
         {/* the brand bar: Dizko's raised surface, its mark, and room above the library */}
-        <header data-area="claim" className="border-b border-toner-3 bg-surface px-4 pt-5 pb-4">
+        <header data-area="claim" className="border-b border-toner-3 bg-surface px-4 pt-6 pb-5">
           <div className="flex items-center gap-2.5">
-            <DizkoMark className="h-[22px] w-auto text-ink" />
-            <h1 className="text-[26px] leading-none font-semibold tracking-[-0.03em]">Dizko ID</h1>
+            <DizkoMark className="h-[24px] w-auto text-ink" />
+            <h1 className="text-[28px] leading-none font-semibold tracking-[-0.03em]">Dizko ID</h1>
           </div>
-          <p className="mt-3.5 text-[13px] text-toner-1">
-            Are you a DJ?{' '}
-            <a href="https://build.dizko.app" target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1 underline-offset-2">Claim your page on Dizko</a>
+          <p className="mt-3.5 max-w-[34ch] text-[14px] leading-snug text-toner-1">
+            Find every track in a DJ mix, see where the DJ plays next, and send the tracks to your Beatport or Bandcamp cart or a playlist.
           </p>
+          <div className="mt-4 space-y-1.5 text-[13px] text-toner-1">
+            <p>
+              Are you a DJ?{' '}
+              <a href="https://build.dizko.app" target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1 underline-offset-2">Claim your page on Dizko</a>
+            </p>
+            <p>
+              <a href="https://www.instagram.com/dizko.world/" target="_blank" rel="noreferrer" data-content="instagram" className="font-semibold text-ink underline decoration-1 underline-offset-2">Follow Dizko on Instagram</a>
+            </p>
+          </div>
         </header>
         {job && library && (sameMix || busy) && (
           <button type="button" onClick={() => setLibrary(false)} className="border-b border-toner-3 px-4 py-2.5 text-left text-[13px] font-semibold hover:underline">

@@ -2,6 +2,7 @@ import { findArtist, isPlatform } from './dizko';
 import { artistNames, norm, splitTitle } from './match';
 import type { Job } from './types';
 import { cleanMixUrl } from './utm';
+import { profileAvatar, profileOf } from './soundcloud';
 
 /** A mix the DJ has scanned, kept across sessions so the panel can show it again without listening again. */
 export interface Saved extends Job {
@@ -86,6 +87,34 @@ export async function backfillArtists() {
     const a = found.get(mixKey(h.mix.url));
     h.mix.artistCheckedAt = Date.now();
     if (a && (!h.artist || isPlatform(h.artist.name))) h.artist = a;
+  }
+  await browser.storage.local.set({ [KEY]: now });
+}
+
+/** Profile pictures for saved DJs: Dizko's SoundCloud link, else the uploader's own profile. Weekly at most per mix. */
+export async function backfillAvatars() {
+  const week = 7 * 24 * 3600 * 1000;
+  const pics = new Map<string, { artist?: string; uploader?: string }>();
+  let asked = 0;
+  for (const h of await history()) {
+    if (asked >= 20 || Date.now() - (h.mix.avatarCheckedAt ?? 0) < week) continue;
+    const forArtist = h.artist && !isPlatform(h.artist.name) && !h.artist.avatar && h.artist.soundcloud;
+    const forUploader = !h.mix.uploaderAvatar && h.mix.uploader && !isPlatform(h.mix.uploader) && /soundcloud\.com/.test(h.mix.url) && profileOf(h.mix.url);
+    if (!forArtist && !forUploader) continue;
+    asked++;
+    pics.set(mixKey(h.mix.url), {
+      artist: forArtist ? await profileAvatar(forArtist).catch(() => undefined) : undefined,
+      uploader: forUploader ? await profileAvatar(forUploader).catch(() => undefined) : undefined,
+    });
+  }
+  if (!pics.size) return;
+  const now = await history();
+  for (const h of now) {
+    const p = pics.get(mixKey(h.mix.url));
+    if (!p) continue;
+    h.mix.avatarCheckedAt = Date.now();
+    if (p.artist && h.artist) h.artist.avatar ??= p.artist;
+    h.mix.uploaderAvatar ??= p.uploader;
   }
   await browser.storage.local.set({ [KEY]: now });
 }

@@ -32,6 +32,7 @@ async function info(): Promise<SourceInfo> {
   const og = (p: string) => doc.querySelector(`meta[property="og:${p}"]`)?.getAttribute('content') ?? '';
   let description = '';
   let uploader: string | undefined;
+  let uploaderAvatar: string | undefined;
   if (location.hostname.includes('youtube.com')) {
     description = scriptString(html, 'shortDescription');
     uploader = scriptString(html, 'ownerChannelName') || undefined;
@@ -45,6 +46,8 @@ async function info(): Promise<SourceInfo> {
     description = sound?.description ?? '';
     if (sound?.duration) duration = sound.duration / 1000;
     uploader = sound?.user?.username;
+    const pic: string | undefined = sound?.user?.avatar_url;
+    if (pic && !/default_avatar/.test(pic)) uploaderAvatar = pic.replace('-large', '-t500x500');
     stream = await soundcloudStream(html, sound).catch(() => undefined);
   } else if (!location.hostname.includes('youtube.com')) description = scriptString(html, 'description');
   description ||= og('description');
@@ -57,6 +60,7 @@ async function info(): Promise<SourceInfo> {
     seekable: !!m && Number.isFinite(m.duration) && m.duration > 0,
     uploader,
     art: og('image') || undefined,
+    uploaderAvatar,
     stream,
   };
 }

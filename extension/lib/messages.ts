@@ -16,6 +16,8 @@ export interface SourceInfo {
   uploader?: string;
   /** the mix's artwork or thumbnail (the page's og:image) */
   art?: string;
+  /** the uploader's profile picture, where the page says */
+  uploaderAvatar?: string;
   /** a media element the content script can seek; without one we listen in real time */
   seekable: boolean;
   /** SoundCloud: the mix's own HLS segments, fingerprinted directly instead of capturing tab audio */
