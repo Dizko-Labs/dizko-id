@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { fileName, toCsv, toJson, toText } from '@/lib/export';
 import { mixKey, type Saved } from '@/lib/history';
 import { links } from '@/lib/links';
+import { beatportPlaylistUrl } from '@/lib/stores';
 import { norm } from '@/lib/match';
 import type { PanelRequest } from '@/lib/messages';
 import type { Job, Row, Store } from '@/lib/types';
@@ -314,7 +315,11 @@ export default function App() {
         {job.phase === 'done' && (
           <div className="space-y-2.5">
             <p className="text-[14px] font-semibold">
-              {carted.length ? `${carted.length} in your cart. Review it and buy what you want.` : 'Nothing was added. The links below search each store.'}
+              {carted.length
+                ? `${carted.length} in your cart. Review it and buy what you want.`
+                : job.rows.some((r) => r.status === 'in-playlist')
+                  ? 'They are in a Beatport playlist for this mix. Press Buy All there to put them in your cart.'
+                  : 'Nothing was added. The links below search each store.'}
             </p>
             <div className="flex gap-2">
               {Object.entries(job.carts ?? {}).map(([s, url]) => (
@@ -322,6 +327,11 @@ export default function App() {
                   <a href={url} target="_blank" rel="noreferrer">Open {s === 'beatport' ? 'Beatport' : 'Bandcamp'} cart</a>
                 </Button>
               ))}
+              {job.playlist?.beatport && (
+                <Button asChild variant={job.carts?.beatport ? 'outline' : 'default'} className={cn('h-10 flex-1 text-[15px] font-extrabold', job.carts?.beatport && 'border-ink bg-transparent')}>
+                  <a href={beatportPlaylistUrl(job.playlist.beatport)} target="_blank" rel="noreferrer">Beatport playlist</a>
+                </Button>
+              )}
             </div>
             {toAdd.length > 0 && cartRow}
           </div>
@@ -387,6 +397,7 @@ export default function App() {
 
 const STATUS_TEXT: Partial<Record<Row['status'], string>> = {
   searching: 'Searching',
+  'in-playlist': 'In playlist',
   'version-missing': 'Version not found',
   'album-only': 'Album only',
   'not-found': 'Not found',

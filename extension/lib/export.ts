@@ -8,7 +8,7 @@ const time = (s: number | null) => {
 };
 
 const STATUS: Record<Row['status'], string> = {
-  queued: 'Not carted', searching: 'Not carted', carted: 'In cart',
+  queued: 'Not carted', searching: 'Not carted', carted: 'In cart', 'in-playlist': 'In Beatport playlist',
   'version-missing': 'Version not found', 'album-only': 'Album only', 'not-found': 'Not found',
   'login-needed': 'Not carted', failed: 'Not carted',
 };

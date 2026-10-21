@@ -3,7 +3,7 @@ import { judge, pick, searchQuery, splitTitle } from '@/lib/match';
 import type { ClipResult, OffscreenRequest, PanelRequest, SourceInfo, SourceRequest } from '@/lib/messages';
 import {
   BEATPORT_CART, bandcampAddToCart, bandcampReadSearch, bandcampReadTrack, bandcampSearchUrl,
-  beatportAddToCart, beatportReadSearch, beatportSearchUrl, storeCheck,
+  beatportApi, beatportBuyAll, beatportPlaylistUrl, storeCheck,
 } from '@/lib/stores';
 import { forget, remember, saved } from '@/lib/history';
 import { parseTracklist } from '@/lib/tracklist';
@@ -308,50 +308,6 @@ async function run<A extends unknown[], R>(tabId: number, func: (...args: A) => 
   return res?.result as Awaited<R>;
 }
 
-/** Beatport has no guest cart: wait for the DJ to log in, polling until the session shows up. */
-async function beatportLogin(worker: number, probe: string): Promise<boolean> {
-  await update((job) => ({ ...job, waitingFor: 'beatport-login' }));
-  const login = await browser.tabs.create({ url: 'https://www.beatport.com/account/login', active: true });
-  for (let i = 0; i < 100 && !stopCarting; i++) {
-    await new Promise((r) => setTimeout(r, 3000));
-    await load(worker, probe, 600);
-    if ((await run(worker, beatportReadSearch))?.loggedIn === true) {
-      await browser.tabs.remove(login.id!).catch(() => {});
-      await update((job) => ({ ...job, waitingFor: undefined }));
-      return true;
-    }
-  }
-  await browser.tabs.remove(login.id!).catch(() => {});
-  await update((job) => ({ ...job, waitingFor: undefined }));
-  return false;
-}
-
-async function tryBeatport(worker: number, track: Track): Promise<{ status: Row['status']; offer?: Offer; alternatives?: Offer[] }> {
-  const url = beatportSearchUrl(searchQuery(track));
-  await load(worker, url);
-  if (await run(worker, storeCheck)) {
-    if (!(await passCheck(worker))) return { status: 'failed' };
-    await load(worker, url);
-  }
-  let page = await run(worker, beatportReadSearch);
-  if (!page) return { status: 'failed' };
-  if (page.loggedIn === false) {
-    if (!(await beatportLogin(worker, url))) return { status: 'login-needed' };
-    await load(worker, url);
-    page = (await run(worker, beatportReadSearch))!;
-  }
-  const { best, alternatives } = pick(track, page.offers);
-  if (!best) return { status: alternatives.length ? 'version-missing' : 'not-found', alternatives };
-  let r = await run(worker, beatportAddToCart, best.id);
-  // The press itself is the final word on login: Beatport answers a logged-out add with its login wall
-  if (r === 'login' && (await beatportLogin(worker, url))) {
-    await load(worker, url);
-    r = await run(worker, beatportAddToCart, best.id);
-  }
-  if (r === 'carted' || r === 'in-cart') return { status: 'carted', offer: best };
-  return { status: r === 'login' ? 'login-needed' : 'failed', offer: best };
-}
-
 async function tryBandcamp(worker: number, track: Track): Promise<{ status: Row['status']; offer?: Offer; alternatives?: Offer[] }> {
   const search = bandcampSearchUrl(searchQuery(track));
   await load(worker, search, 400);
@@ -381,37 +337,145 @@ async function tryBandcamp(worker: number, track: Track): Promise<{ status: Row[
   return { status: alternatives.length ? 'version-missing' : 'not-found', alternatives };
 }
 
-const CARTABLE: Row['status'][] = ['queued', 'failed', 'login-needed'];
+const CARTABLE: Row['status'][] = ['queued', 'failed', 'login-needed', 'in-playlist'];
+
+async function openTab(url: string): Promise<number> {
+  const id = (await browser.tabs.create({ url: 'about:blank', active: false })).id!;
+  await load(id, url);
+  return id;
+}
+
+// ---- Beatport: match through the API, one playlist per mix, then the playlist's own Buy All
+
+/** A track from the v4 catalog API, as an offer the matcher can judge. */
+function beatportOffer(t: any): Offer {
+  return {
+    store: 'beatport',
+    id: String(t.id),
+    url: `https://www.beatport.com/track/${t.slug || 'track'}/${t.id}`,
+    artists: (t.artists ?? []).map((a: any) => a.name),
+    title: t.name ?? '',
+    version: t.mix_name ?? '',
+    price: t.price ? { value: t.price.value, currency: t.price.code, display: t.price.display } : undefined,
+    isrc: t.isrc ?? undefined,
+    release: t.release?.name,
+    label: t.release?.label?.name,
+    released: t.publish_date ?? t.new_release_date,
+  };
+}
+
+const api = (tab: number, path: string, method = 'GET', body: unknown = null) => run(tab, beatportApi, path, method, body);
+
+/** Logged in, or wait for the DJ to log in: poll the session from the Beatport tab, no page reloads. */
+async function beatportSession(tab: number): Promise<boolean> {
+  if ((await api(tab, '/my/playlists/?per_page=1')).status !== 401) return true;
+  await update((job) => ({ ...job, waitingFor: 'beatport-login' }));
+  const login = await browser.tabs.create({ url: 'https://www.beatport.com/account/login', active: true });
+  let ok = false;
+  for (let i = 0; i < 100 && !stopCarting && !ok; i++) {
+    await new Promise((r) => setTimeout(r, 3000));
+    ok = (await api(tab, '/my/playlists/?per_page=1').catch(() => ({ status: 401 }))).status !== 401;
+  }
+  await browser.tabs.remove(login.id!).catch(() => {});
+  await update((job) => ({ ...job, waitingFor: undefined }));
+  return ok;
+}
+
+async function matchBeatport(tab: number, track: Track): Promise<{ status: Row['status']; offer?: Offer; alternatives?: Offer[] }> {
+  const r = await api(tab, `/catalog/search/?q=${encodeURIComponent(searchQuery(track))}&type=tracks&per_page=25`);
+  if (r.status === 401) return { status: 'login-needed' };
+  if (r.status !== 200) return { status: 'failed' };
+  const { best, alternatives } = pick(track, (r.data?.tracks ?? []).map(beatportOffer));
+  return best ? { status: 'searching', offer: best } : { status: alternatives.length ? 'version-missing' : 'not-found', alternatives };
+}
+
+/** Track ids from /tracks/ids/: { count, tracks: [{ id (the playlist entry), track_id }] }. */
+function idsIn(data: unknown): number[] {
+  const list = Array.isArray(data) ? data : (data as any)?.tracks ?? (data as any)?.results ?? [];
+  return (list as any[]).map((x) => Number(typeof x === 'object' ? x?.track_id ?? x?.id ?? x?.track?.id : x)).filter(Number.isFinite);
+}
+
+/** The mix's playlist (reused on later runs, created the first time), with the given tracks added once each. */
+async function fillPlaylist(tab: number, job: Job, trackIds: string[]): Promise<number | null> {
+  let id = job.playlist?.beatport;
+  if (id && (await api(tab, `/my/playlists/${id}/`)).status !== 200) id = undefined;
+  if (!id) {
+    const made = await api(tab, '/my/playlists/', 'POST', { name: job.mix.title.slice(0, 100) || 'Mix to Cart' });
+    id = made.data?.id;
+    if (!id) return null;
+  }
+  const have = new Set(idsIn((await api(tab, `/my/playlists/${id}/tracks/ids/`)).data));
+  const add = trackIds.map(Number).filter((n) => !have.has(n));
+  if (add.length && (await api(tab, `/my/playlists/${id}/tracks/bulk/`, 'POST', { track_ids: add })).status >= 300) return null;
+  return id;
+}
 
 async function cart(stores: Store[]) {
   // The tracks ticked when Add to cart was pressed; tracks found later by the still running listen wait for the next press
   const job = (await update((j) => ({ ...j, phase: 'carting', error: undefined })))!;
   const keys = job.rows.filter((r) => r.selected && CARTABLE.includes(r.status)).map((r) => keyOf(r.track));
-  const worker = (await browser.tabs.create({ url: 'about:blank', active: false })).id!;
+  const rowFor = async (key: string) => (await getJob())!.rows.find((r) => keyOf(r.track) === key);
   const carts: Partial<Record<Store, string>> = {};
+  const tried = new Map<string, Offer[]>();
+  let toBandcamp = stores.includes('beatport') ? [] as string[] : keys;
+  let beatportTab: number | undefined;
+  let bandcampTab: number | undefined;
+  let playlist: number | null = null;
+  let playlistCarted = false;
   try {
-    for (const key of keys) {
+    if (stores.includes('beatport') && keys.length) {
+      beatportTab = await openTab('https://www.beatport.com/');
+      if (!(await passCheck(beatportTab)) || !(await beatportSession(beatportTab))) {
+        for (const key of keys) await patchRow(key, { status: 'login-needed' });
+        return;
+      }
+      const matched: { key: string; offer: Offer }[] = [];
+      for (const key of keys) {
+        if (stopCarting) break;
+        const row = await rowFor(key);
+        if (!row?.selected || !CARTABLE.includes(row.status)) continue;
+        await patchRow(key, { status: 'searching' });
+        const m = await matchBeatport(beatportTab, row.track);
+        if (m.offer) {
+          matched.push({ key, offer: m.offer });
+          await patchRow(key, { status: 'searching', offer: m.offer });
+        } else {
+          if (m.alternatives?.length) tried.set(key, m.alternatives);
+          if (stores.includes('bandcamp')) toBandcamp.push(key);
+          else await patchRow(key, { status: m.status, alternatives: m.alternatives?.slice(0, 4) });
+        }
+      }
+      if (matched.length && !stopCarting) {
+        playlist = await fillPlaylist(beatportTab, (await getJob())!, matched.map((m) => m.offer.id));
+        if (!playlist) {
+          for (const m of matched) await patchRow(m.key, { status: 'failed' });
+        } else {
+          await update((j) => ({ ...j, playlist: { ...j.playlist, beatport: playlist! } }));
+          for (const m of matched) await patchRow(m.key, { status: 'in-playlist' });
+          // The playlist's Buy All puts the whole playlist in the cart in one press
+          await load(beatportTab, beatportPlaylistUrl(playlist), 1500);
+          playlistCarted = (await run(beatportTab, beatportBuyAll)) === 'carted';
+          if (playlistCarted) {
+            for (const m of matched) await patchRow(m.key, { status: 'carted' });
+            carts.beatport = BEATPORT_CART;
+          }
+        }
+      }
+    }
+    for (const key of toBandcamp) {
       if (stopCarting) break;
-      const row = (await getJob())!.rows.find((r) => keyOf(r.track) === key);
-      // unticked while the run was going: skip it
-      if (!row?.selected || !CARTABLE.includes(row.status)) continue;
+      const row = await rowFor(key);
+      if (!row?.selected) continue;
       await patchRow(key, { status: 'searching' });
-      let result: Awaited<ReturnType<typeof tryBeatport>> = { status: 'not-found' };
-      const tried: Offer[] = [];
-      for (const store of stores) {
-        result = store === 'beatport' ? await tryBeatport(worker, row.track) : await tryBandcamp(worker, row.track);
-        tried.push(...(result.alternatives ?? []));
-        if (result.status === 'carted' || result.status === 'album-only') break;
-      }
-      if (result.status === 'carted') {
-        const o = result.offer!;
-        carts[o.store] = o.store === 'beatport' ? BEATPORT_CART : o.url;
-      }
-      await patchRow(key, { status: result.status, offer: result.offer, alternatives: tried.length ? tried.slice(0, 4) : undefined });
+      bandcampTab ??= (await browser.tabs.create({ url: 'about:blank', active: false })).id!;
+      const result = await tryBandcamp(bandcampTab, row.track);
+      const alternatives = [...(tried.get(key) ?? []), ...(result.alternatives ?? [])];
+      if (result.status === 'carted') carts.bandcamp = result.offer!.url;
+      await patchRow(key, { status: result.status, offer: result.offer, alternatives: alternatives.length ? alternatives.slice(0, 4) : undefined });
       await new Promise((r) => setTimeout(r, 800)); // human pace between tracks
     }
   } finally {
-    await browser.tabs.remove(worker).catch(() => {});
+    for (const tab of [beatportTab, bandcampTab]) if (tab) await browser.tabs.remove(tab).catch(() => {});
     await update((j) => ({
       ...j,
       phase: j.listening ? 'identifying' : 'done',
@@ -420,5 +484,7 @@ async function cart(stores: Store[]) {
       rows: j.rows.map((r) => (r.status === 'searching' ? { ...r, status: 'queued' } : r)),
     }));
     for (const url of Object.values(carts)) await browser.tabs.create({ url, active: false });
+    // Buy All did not go through: hand the DJ the playlist, where it is one press
+    if (playlist && !playlistCarted) await browser.tabs.create({ url: beatportPlaylistUrl(playlist), active: true });
   }
 }

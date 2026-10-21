@@ -34,6 +34,7 @@ export type Status =
   | 'queued'
   | 'searching'
   | 'carted'
+  | 'in-playlist' // in the mix's Beatport playlist, waiting for its Buy All
   | 'version-missing' // the track exists, but not the version that was played
   | 'album-only'
   | 'not-found'
@@ -69,5 +70,7 @@ export interface Job {
    * item page, so its link is the last track added.
    */
   carts?: Partial<Record<Store, string>>;
+  /** the playlist made for this mix, by store; Beatport's is reused on later runs */
+  playlist?: { beatport?: number };
   error?: string;
 }

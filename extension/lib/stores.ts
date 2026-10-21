@@ -7,60 +7,57 @@ import type { Offer } from './types';
 export const beatportSearchUrl = (q: string) => `https://www.beatport.com/search/tracks?q=${encodeURIComponent(q)}`;
 export const bandcampSearchUrl = (q: string) => `https://bandcamp.com/search?q=${encodeURIComponent(q)}&item_type=t`;
 export const BEATPORT_CART = 'https://www.beatport.com/cart';
+export const beatportPlaylistUrl = (id: number) => `https://www.beatport.com/library/playlists/${id}`;
+
+/**
+ * Runs in a beatport.com tab. Calls Beatport's v4 API (api.beatport.com/v4, documented at /v4/docs) the way
+ * beatport.com itself does: with the access token from the site's own session endpoint, so it acts as the DJ
+ * and nothing about their login leaves the page except through this call. Status 401 means not logged in.
+ */
+export async function beatportApi(path: string, method = 'GET', body?: unknown): Promise<{ status: number; data?: any }> {
+  const session = await fetch('/api/auth/session').then((r) => r.json()).catch(() => null);
+  const token = session?.token
+    ? session.token.accessToken ?? Object.entries(session.token).find(([k, v]) => /access/i.test(k) && typeof v === 'string')?.[1]
+    : undefined;
+  if (!token) return { status: 401 };
+  const res = await fetch(`https://api.beatport.com/v4${path}`, {
+    method,
+    headers: { Authorization: `Bearer ${token}`, ...(body ? { 'Content-Type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  return { status: res.status, data: await res.json().catch(() => undefined) };
+}
+
+/**
+ * Runs on a playlist page: presses the playlist's own "Buy All", which adds every track to the cart (its
+ * aria-label is "Add all tracks from playlist ... to cart"; nothing is bought). Resolves once the header's
+ * cart count rises, or reports what stopped it.
+ */
+export async function beatportBuyAll(): Promise<'carted' | 'missing' | 'login' | 'unchanged'> {
+  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const count = () => Number(document.querySelector('[aria-label^="Open cart,"]')?.getAttribute('aria-label')?.match(/(\d+) item/)?.[1] ?? NaN);
+  let button: HTMLButtonElement | null = null;
+  for (let i = 0; i < 40 && !button; i++) {
+    button = document.querySelector<HTMLButtonElement>('button[aria-label^="Add all tracks from playlist"]');
+    if (!button) await sleep(250);
+  }
+  if (!button) return 'missing';
+  const before = count();
+  button.click();
+  for (let i = 0; i < 40; i++) {
+    await sleep(250);
+    if (/log in to continue|create account or log in/i.test(document.body.innerText)) return 'login';
+    if (count() > before || /added to cart/i.test(document.body.innerText)) return 'carted';
+  }
+  return 'unchanged';
+}
 
 /** A store's bot check (Bandcamp's "Client Challenge", Cloudflare's "Just a moment") in place of the page asked for. */
 export function storeCheck(): boolean {
   return /^(Client Challenge|Just a moment)/i.test(document.title) || /Enter the characters seen in the image/.test(document.body?.innerText ?? '');
 }
 
-/** Beatport search results ship as JSON in __NEXT_DATA__; read them instead of the rendered rows. */
-export function beatportReadSearch(): { loggedIn?: boolean; offers: Offer[] } | null {
-  const el = document.getElementById('__NEXT_DATA__');
-  if (!el) return null;
-  const props = JSON.parse(el.textContent || '{}')?.props?.pageProps ?? {};
-  const query = (props.dehydratedState?.queries ?? []).find((q: any) => q.queryKey?.[0] === 'search-tracks');
-  const rows: any[] = query?.state?.data?.data ?? [];
-  const offers: Offer[] = rows.slice(0, 40).map((r) => ({
-    store: 'beatport',
-    id: String(r.track_id),
-    url: `https://www.beatport.com/track/${(r.track_name || 'track').toLowerCase().replace(/[^a-z0-9]+/g, '-')}/${r.track_id}`,
-    artists: (r.artists ?? []).map((a: any) => a.artist_name),
-    title: r.track_name ?? '',
-    version: r.mix_name ?? '',
-    price: r.price ? { value: r.price.value, currency: r.price.code, display: r.price.display } : undefined,
-    isrc: r.isrc ?? undefined,
-    release: r.release?.release_name,
-    label: r.label?.label_name,
-    released: r.publish_date ?? r.release_date,
-  }));
-  // pageProps.anonSession is present logged in or not, so read the page chrome instead: a logged-in header has an
-  // account menu with "Log Out", a logged-out one has "Log In". Before the header renders, neither is there.
-  const texts = [...document.querySelectorAll('a, button')].map((e) => e.textContent?.trim().toLowerCase());
-  const loggedIn = texts.includes('log out') ? true : texts.includes('log in') ? false : undefined;
-  return { loggedIn, offers };
-}
 
-/**
- * Click the price button on the result row for this track id.
- * Resolves 'carted', 'in-cart' (already there), 'login' (Beatport asked to log in), or 'missing'.
- */
-export async function beatportAddToCart(trackId: string): Promise<'carted' | 'in-cart' | 'login' | 'missing'> {
-  const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-  const link = document.querySelector(`a[href$="/${trackId}"]`);
-  let row: Element | null = link;
-  while (row && !row.querySelector('button[aria-label^="Add track"], button[class*="AddToCart_priceButton"]')) row = row.parentElement;
-  const button = row?.querySelector<HTMLButtonElement>('button[aria-label^="Add track"], button[class*="AddToCart_priceButton"]');
-  if (!button) return 'missing';
-  if (!/\d/.test(button.textContent || '')) return 'in-cart';
-  button.click();
-  for (let i = 0; i < 20; i++) {
-    await sleep(250);
-    if (/log in to continue|create account or log in/i.test(document.body.innerText)) return 'login';
-    if (!/\d/.test(button.textContent || '') || button.disabled) return 'carted';
-  }
-  // No visible change but no login wall either: Beatport accepted the click
-  return 'carted';
-}
 
 /** Bandcamp search results: track pages with title and "by Artist". Prices live on each track page. */
 export function bandcampReadSearch(): { url: string; title: string; artist: string; album: string }[] {
