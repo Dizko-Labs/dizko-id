@@ -8,6 +8,11 @@ export const beatportSearchUrl = (q: string) => `https://www.beatport.com/search
 export const bandcampSearchUrl = (q: string) => `https://bandcamp.com/search?q=${encodeURIComponent(q)}&item_type=t`;
 export const BEATPORT_CART = 'https://www.beatport.com/cart';
 
+/** A store's bot check (Bandcamp's "Client Challenge", Cloudflare's "Just a moment") in place of the page asked for. */
+export function storeCheck(): boolean {
+  return /^(Client Challenge|Just a moment)/i.test(document.title) || /Enter the characters seen in the image/.test(document.body?.innerText ?? '');
+}
+
 /** Beatport search results ship as JSON in __NEXT_DATA__; read them instead of the rendered rows. */
 export function beatportReadSearch(): { loggedIn: boolean; offers: Offer[] } | null {
   const el = document.getElementById('__NEXT_DATA__');

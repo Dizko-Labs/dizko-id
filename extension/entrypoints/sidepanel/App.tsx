@@ -145,7 +145,13 @@ export default function App() {
             <Button variant="outline" onClick={() => send({ type: 'panel:stop' })} className="h-9 w-full border-ink bg-transparent">Stop and use what was found</Button>
           </div>
         )}
-        {job.phase === 'review' && (
+        {job.phase === 'review' && !job.rows.length && (
+          <div className="space-y-2.5">
+            {!job.error && <p className="text-[14px] leading-snug">No tracks were recognized in this mix.</p>}
+            <Button onClick={listen} className="h-10 w-full text-[15px] font-extrabold">Try again</Button>
+          </div>
+        )}
+        {job.phase === 'review' && job.rows.length > 0 && (
           <div className="flex gap-2">
             <Button disabled={!selected.length} onClick={() => send({ type: 'panel:cart', stores })} className="h-10 flex-1 text-[15px] font-extrabold">
               Add {selected.length} to cart
@@ -168,11 +174,13 @@ export default function App() {
         {job.phase === 'carting' && (
           <div className="space-y-1.5">
             <div className="flex items-baseline justify-between">
-              <span className="text-[14px] font-semibold">{job.waitingFor === 'beatport-login' ? 'Log in to Beatport in the new tab' : 'Adding to cart'}</span>
+              <span className="text-[14px] font-semibold">{job.waitingFor === 'beatport-login' ? 'Log in to Beatport in the new tab' : job.waitingFor === 'store-check' ? 'The store wants to check you are human' : 'Adding to cart'}</span>
               <span className="text-[20px] font-black [font-stretch:75%]">{carted.length} of {selected.length}</span>
             </div>
             {job.waitingFor === 'beatport-login' ? (
               <p className="text-[13px] text-toner-1">Beatport keeps carts in your account. Carting carries on by itself once you are logged in.</p>
+            ) : job.waitingFor === 'store-check' ? (
+              <p className="text-[13px] text-toner-1">Answer it in the tab that just opened. Carting carries on by itself afterwards.</p>
             ) : current >= 0 ? (
               <p className="truncate text-[13px] text-toner-1">Now: <span className="font-semibold text-ink">{job.rows[current]!.track.artist}, {job.rows[current]!.track.title}</span></p>
             ) : null}

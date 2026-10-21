@@ -3,7 +3,7 @@ import { judge, pick, searchQuery, splitTitle } from '@/lib/match';
 import type { ClipResult, OffscreenRequest, PanelRequest, SourceInfo, SourceRequest } from '@/lib/messages';
 import {
   BEATPORT_CART, bandcampAddToCart, bandcampReadSearch, bandcampReadTrack, bandcampSearchUrl,
-  beatportAddToCart, beatportReadSearch, beatportSearchUrl,
+  beatportAddToCart, beatportReadSearch, beatportSearchUrl, storeCheck,
 } from '@/lib/stores';
 import { parseTracklist } from '@/lib/tracklist';
 import type { Job, Offer, Row, Store, Track } from '@/lib/types';
@@ -45,7 +45,7 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
       stopping = false;
       identify(msg.tabId, msg.streamId).catch(async (e) => {
         const job = await getJob();
-        if (job) await setJob({ ...job, phase: 'review', error: String(e) });
+        if (job) await setJob({ ...job, phase: 'review', error: e instanceof Error ? e.message : String(e) });
       });
       return { ok: true };
     case 'panel:toggle': {
@@ -67,7 +67,7 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
       stopping = false;
       cart(msg.stores).catch(async (e) => {
         const job = await getJob();
-        if (job) await setJob({ ...job, phase: 'done', error: String(e) });
+        if (job) await setJob({ ...job, phase: 'done', error: e instanceof Error ? e.message : String(e) });
       });
       return { ok: true };
     case 'panel:stop':
@@ -125,8 +125,25 @@ async function ensureOffscreen() {
   }
 }
 
+const RATE_LIMITED = 'Shazam is turning away lookups for now (too many in a short time). Try again in an hour.';
+
+/**
+ * One Shazam lookup. A 429 means slow down, so wait and retry the same clip a few times, doubling the wait,
+ * before giving up on the whole run with a message the DJ can act on.
+ */
+async function lookup(get: () => Promise<ClipResult>): Promise<ClipResult> {
+  for (let wait = 20_000; ; wait *= 2) {
+    const r = await get();
+    if (r.error !== 'shazam 429') return r;
+    if (wait > 80_000 || stopping) throw new Error(RATE_LIMITED);
+    await new Promise((res) => setTimeout(res, wait));
+  }
+}
+
 async function identify(tabId: number, streamId?: string) {
   let job = (await getJob())!;
+  job = { ...job, phase: 'identifying', progress: 0, error: undefined };
+  await setJob(job);
   const info = await ask<SourceInfo>(tabId, { type: 'source:info' });
   await ensureOffscreen();
   if (!info.stream) {
@@ -134,6 +151,7 @@ async function identify(tabId: number, streamId?: string) {
     await offscreen({ type: 'offscreen:start', streamId });
   }
   const hits: Hit[] = [];
+  let failed = '';
   const publish = async (progress: number) => {
     job = (await getJob())!;
     const prior = new Map(job.rows.map((r) => [`${r.track.artist}|${r.track.title}`, r.selected]));
@@ -153,7 +171,8 @@ async function identify(tabId: number, streamId?: string) {
         const point = at[i]!;
         const seg = info.stream.segments.find((s) => s.start <= point && s.start + s.dur > point);
         if (!seg) continue;
-        const r = await offscreen<ClipResult>({ type: 'offscreen:segment', init: info.stream.init, url: seg.url });
+        const r = await lookup(() => offscreen<ClipResult>({ type: 'offscreen:segment', init: info.stream!.init, url: seg.url }));
+        if (r.error) failed = r.error;
         if (r.track) hits.push({ at: seg.start, ...r.track });
         await publish((i + 1) / at.length);
       }
@@ -162,7 +181,8 @@ async function identify(tabId: number, streamId?: string) {
       for (let i = 0; i < at.length && !stopping; i++) {
         const point = at[i]!;
         await ask(tabId, { type: 'source:seek', at: point });
-        const r = await offscreen<ClipResult>({ type: 'offscreen:clip', seconds: clip });
+        const r = await lookup(() => offscreen<ClipResult>({ type: 'offscreen:clip', seconds: clip }));
+        if (r.error) failed = r.error;
         if (r.track) hits.push({ at: point, ...r.track });
         await publish((i + 1) / at.length);
       }
@@ -172,12 +192,14 @@ async function identify(tabId: number, streamId?: string) {
       const limit = info.duration ?? 4 * 3600;
       while (!stopping && (Date.now() - started) / 1000 < limit) {
         const at = (Date.now() - started) / 1000;
-        const r = await offscreen<ClipResult>({ type: 'offscreen:clip', seconds: 10 });
+        const r = await lookup(() => offscreen<ClipResult>({ type: 'offscreen:clip', seconds: 10 }));
         if (r.track) hits.push({ at, ...r.track });
         await publish(Math.min(1, at / limit));
         await new Promise((res) => setTimeout(res, 20_000));
       }
     }
+    // Every clip erroring is a broken run, not a mix with no known tracks
+    if (!hits.length && failed && failed !== 'silence') throw new Error(`Could not identify any clips (${failed}).`);
   } finally {
     await offscreen({ type: 'offscreen:stop' }).catch(() => {});
     await browser.offscreen.closeDocument().catch(() => {});
@@ -190,18 +212,39 @@ async function identify(tabId: number, streamId?: string) {
 // ---- carting
 
 async function load(tabId: number, url: string, settle = 900) {
-  await browser.tabs.update(tabId, { url });
   await new Promise<void>((resolve) => {
+    // Only a "complete" that follows this navigation's "loading" counts; the previous page can report one first
+    let loading = false;
     const done = (id: number, change: { status?: string }) => {
-      if (id === tabId && change.status === 'complete') {
+      if (id !== tabId) return;
+      if (change.status === 'loading') loading = true;
+      if (loading && change.status === 'complete') {
         browser.tabs.onUpdated.removeListener(done);
         resolve();
       }
     };
     browser.tabs.onUpdated.addListener(done);
+    browser.tabs.update(tabId, { url });
     setTimeout(() => { browser.tabs.onUpdated.removeListener(done); resolve(); }, 20_000);
   });
   await new Promise((r) => setTimeout(r, settle)); // client-side hydration
+}
+
+/**
+ * Stores sometimes answer with a human check instead of the page. Never try to get past it: bring the tab to the
+ * front, say so in the panel, and carry on once the DJ has answered it. False means it was not answered in time.
+ */
+async function passCheck(worker: number): Promise<boolean> {
+  if (!(await run(worker, storeCheck))) return true;
+  await setJob({ ...(await getJob())!, waitingFor: 'store-check' });
+  await browser.tabs.update(worker, { active: true });
+  let passed = false;
+  for (let i = 0; i < 100 && !stopping && !passed; i++) {
+    await new Promise((r) => setTimeout(r, 3000));
+    passed = !(await run(worker, storeCheck).catch(() => true));
+  }
+  await setJob({ ...(await getJob())!, waitingFor: undefined });
+  return passed;
 }
 
 async function run<A extends unknown[], R>(tabId: number, func: (...args: A) => R, ...args: A): Promise<Awaited<R>> {
@@ -229,6 +272,10 @@ async function beatportLogin(worker: number, probe: string): Promise<boolean> {
 async function tryBeatport(worker: number, track: Track): Promise<{ status: Row['status']; offer?: Offer; alternatives?: Offer[] }> {
   const url = beatportSearchUrl(searchQuery(track));
   await load(worker, url);
+  if (await run(worker, storeCheck)) {
+    if (!(await passCheck(worker))) return { status: 'failed' };
+    await load(worker, url);
+  }
   let page = await run(worker, beatportReadSearch);
   if (!page) return { status: 'failed' };
   if (!page.loggedIn) {
@@ -244,7 +291,12 @@ async function tryBeatport(worker: number, track: Track): Promise<{ status: Row[
 }
 
 async function tryBandcamp(worker: number, track: Track): Promise<{ status: Row['status']; offer?: Offer; alternatives?: Offer[] }> {
-  await load(worker, bandcampSearchUrl(searchQuery(track)), 400);
+  const search = bandcampSearchUrl(searchQuery(track));
+  await load(worker, search, 400);
+  if (await run(worker, storeCheck)) {
+    if (!(await passCheck(worker))) return { status: 'failed' };
+    await load(worker, search, 400);
+  }
   const results = (await run(worker, bandcampReadSearch)) ?? [];
   const alternatives: Offer[] = [];
   for (const res of results) {

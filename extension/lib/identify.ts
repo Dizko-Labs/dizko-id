@@ -20,7 +20,9 @@ export function collapse(hits: Hit[]): Track[] {
       prev.isrc ??= h.isrc;
       continue;
     }
-    const t: Track = { at: h.at, artist: h.artist, title: h.title, hits: 1, isrc: h.isrc, source: 'shazam' };
+    // Shazam sometimes repeats a credit: "Inside Me (feat. Astral T) (feat. Astral T)"
+    const title = h.title.replace(/(\s*[([][^)\]]+[)\]])\1+/g, '$1');
+    const t: Track = { at: h.at, artist: h.artist, title, hits: 1, isrc: h.isrc, source: 'shazam' };
     seen.set(key, t);
     out.push(t);
   }

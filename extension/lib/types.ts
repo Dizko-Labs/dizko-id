@@ -61,7 +61,7 @@ export interface Job {
   tracklistFound?: boolean;
   /** how identification will get audio: SoundCloud's own stream, seeking the page's player, or listening live */
   method?: 'stream' | 'seek' | 'live';
-  waitingFor?: 'beatport-login';
+  waitingFor?: 'beatport-login' | 'store-check';
   /**
    * Where to review each store's cart. Beatport has a cart page; Bandcamp's cart is a sidebar on any
    * item page, so its link is the last track added.
