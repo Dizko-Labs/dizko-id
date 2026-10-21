@@ -66,8 +66,10 @@ Leave unticked: personally identifiable information, health, financial and payme
 2. The side panel opens and starts identifying the mix; tracks appear within a minute or two.
 3. Tick tracks and press Beatport cart or Bandcamp cart. This needs the reviewer's own Beatport or Bandcamp login; nothing is purchased, the extension only adds to the cart.
 
-## Images still to make
+## Images
 
-- Small promo tile 440x280 (required).
-- Screenshots 1280x800, one to five: the mix view with identified tracks, the DJ's dates, the library, settings.
-- Store icon: the 128px icon in the zip.
+In `store-assets/`, all from a real identification (Juliana Huxtable, GERMAN VISA PIPELINE (DEKMANTEL MIX 288), her real Dizko dates), composed by `store-assets/compose.mjs`:
+
+- `promo-tile-440x280.png`: small promo tile (required).
+- `screenshot-1-tracks.png`, `screenshot-2-dj-dates.png`, `screenshot-3-cart.png`, `screenshot-4-saved.png`: 1280x800, upload in this order.
+- Store icon: the 128px icon inside the zip.

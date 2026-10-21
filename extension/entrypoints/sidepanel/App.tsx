@@ -778,7 +778,7 @@ export default function App() {
         {unconfirmed > 0 && (
           <>
             <h2 className="mt-5 border-b border-toner-3 pb-1.5 text-[16px] font-semibold tracking-[-0.01em]">Plus {unconfirmed} unconfirmed</h2>
-            <p className="pt-1.5 text-[12px] text-toner-2">Each heard in one clip only. Often a sample or a blend, so they start unticked.</p>
+            <p className="pt-1.5 text-[12px] text-toner-2">Heard only once, so they start unticked.</p>
             <ol>
               {view.rows.map((row, i) => row.track.hits < 2 && <TrackRow key={trackKey(row)} row={row} index={i} locked={locked} />)}
             </ol>
