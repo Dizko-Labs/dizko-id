@@ -42,7 +42,8 @@ export type PanelRequest =
   | { type: 'panel:read'; tabId: number }
   | { type: 'panel:open'; url: string }
   | { type: 'panel:forget'; url: string }
-  | { type: 'panel:identify'; tabId: number }
+  | { type: 'panel:identify'; tabId: number; resume?: boolean }
+  | { type: 'panel:switch'; tabId: number }
   | { type: 'panel:toggle'; index: number }
   | { type: 'panel:select'; all: boolean }
   | { type: 'panel:cart'; stores: ('beatport' | 'bandcamp')[] }

@@ -8,11 +8,8 @@ export interface Artist {
   claimed: boolean;
   genres: string[];
   cities: string[];
-  links: { label: string; url: string }[];
   events: { title: string; date: string; city: string; venue: string; url: string }[];
 }
-
-const LABELS: Record<string, string> = { instagram: 'Instagram', soundcloud: 'SoundCloud', resident_advisor: 'RA', bandcamp: 'Bandcamp', spotify: 'Spotify', website: 'Website' };
 
 const tag = (url: string) => {
   const u = new URL(url);
@@ -87,7 +84,6 @@ export async function findArtist(title: string, uploader?: string): Promise<Arti
       claimed: !!r.page?.published,
       genres: (e.genres ?? []).slice(0, 3),
       cities: (e.cities ?? []).slice(0, 3),
-      links: Object.entries(e.links ?? {}).filter(([k]) => LABELS[k]).map(([k, url]) => ({ label: LABELS[k]!, url: String(url) })).slice(0, 4),
       events: [...(e.upcoming_appearances ?? [])]
         .sort((a, b) => String(a.date).localeCompare(String(b.date)))
         .slice(0, 3)

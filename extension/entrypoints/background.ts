@@ -23,8 +23,14 @@ export default defineBackground(() => {
     // The button on the SoundCloud page: open the panel on that tab (the click is the user gesture it needs)
     // and leave a note so the panel starts identifying once it has read the mix
     if ((msg as { type: string }).type === 'launch' && sender.tab?.id) {
-      browser.sidePanel.open({ tabId: sender.tab.id }).catch(() => {});
-      browser.storage.session.set({ autostart: { tabId: sender.tab.id, at: Date.now() } });
+      const tabId = sender.tab.id;
+      browser.sidePanel.open({ tabId }).catch(() => {});
+      (async () => {
+        // Another mix still listening or carting: stop it (its finds stay in the library) and read this one
+        const job = await getJob();
+        if (job && mixKey(job.mix.url) !== mixKey(sender.tab!.url ?? '') && busy(job)) await switchTo(tabId);
+        await browser.storage.session.set({ autostart: { tabId, at: Date.now() } });
+      })().catch(() => {});
       return;
     }
     if (!msg.type?.startsWith('panel:')) return;
@@ -81,6 +87,23 @@ async function nap(ms: number, stopped = () => stopListening) {
   }
 }
 
+const busy = (j: Job) => j.phase === 'identifying' || j.phase === 'carting' || !!j.listening || !!j.following;
+
+/** Stop whatever the current mix is doing, wait for it to settle (it is saved as it goes), then read another tab. */
+async function switchTo(tabId: number) {
+  stopListening = stopCarting = stopFollowing = true;
+  for (let i = 0; i < 80; i++) {
+    const j = await getJob();
+    if (!j || !busy(j)) break;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  const left = await getJob();
+  // A stuck job is saved as it stands so the new mix can start
+  if (left && busy(left)) await setJob({ ...left, phase: 'review', listening: false, following: false, waitingFor: undefined });
+  stopListening = stopCarting = stopFollowing = false;
+  return read(tabId);
+}
+
 /** A fresh worker means any job that was running died with the old one: settle it so the panel is not stuck. */
 async function recover() {
   const job = await getJob();
@@ -107,9 +130,11 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
       await setJob(job);
       return { ok: true };
     }
+    case 'panel:switch':
+      return switchTo(msg.tabId);
     case 'panel:identify':
       stopListening = false;
-      identify(msg.tabId, msg.streamId).catch((e) =>
+      identify(msg.tabId, msg.streamId, msg.resume).catch((e) =>
         update((job) => ({ ...job, phase: job.phase === 'identifying' ? 'review' : job.phase, listening: false, error: e instanceof Error ? e.message : String(e) })),
       );
       return { ok: true };
@@ -235,15 +260,20 @@ async function lookup(get: () => Promise<ClipResult>): Promise<ClipResult> {
   }
 }
 
-async function identify(tabId: number, streamId?: string) {
-  await update((job) => ({ ...job, phase: job.phase === 'carting' ? 'carting' : 'identifying', listening: true, progress: 0, error: undefined }));
+async function identify(tabId: number, streamId?: string, resume = false) {
+  const before = (await getJob())!;
+  // Keep listening picks up at the point it stopped, with what it had already heard
+  const from = resume ? before.progress ?? 0 : 0;
+  await update((job) => ({ ...job, phase: job.phase === 'carting' ? 'carting' : 'identifying', listening: true, progress: from, error: undefined }));
   const info = await ask<SourceInfo>(tabId, { type: 'source:info' });
   await ensureOffscreen();
   if (!info.stream) {
     if (!streamId) throw new Error('No audio stream for this tab');
     await offscreen({ type: 'offscreen:start', streamId });
   }
-  const hits: Hit[] = [];
+  const hits: Hit[] = resume
+    ? before.rows.flatMap((r) => Array.from({ length: r.track.hits }, () => ({ at: r.track.at ?? 0, artist: r.track.artist, title: r.track.title, isrc: r.track.isrc })))
+    : [];
   let failed = '';
   const publish = (progress: number) =>
     update((job) => {
@@ -260,7 +290,7 @@ async function identify(tabId: number, streamId?: string) {
   try {
     if (info.stream && info.duration) {
       const { at } = samplePoints(info.duration);
-      for (let i = 0; i < at.length && !stopListening; i++) {
+      for (let i = Math.floor(from * at.length); i < at.length && !stopListening; i++) {
         const point = at[i]!;
         const seg = info.stream.segments.find((s) => s.start <= point && s.start + s.dur > point);
         if (!seg) continue;
@@ -271,7 +301,7 @@ async function identify(tabId: number, streamId?: string) {
       }
     } else if (info.seekable && info.duration) {
       const { at, clip } = samplePoints(info.duration);
-      for (let i = 0; i < at.length && !stopListening; i++) {
+      for (let i = Math.floor(from * at.length); i < at.length && !stopListening; i++) {
         const point = at[i]!;
         await ask(tabId, { type: 'source:seek', at: point });
         const r = await lookup(() => offscreen<ClipResult>({ type: 'offscreen:clip', seconds: clip }));
@@ -297,7 +327,9 @@ async function identify(tabId: number, streamId?: string) {
     await offscreen({ type: 'offscreen:stop' }).catch(() => {});
     await browser.offscreen.closeDocument().catch(() => {});
     await ask(tabId, { type: 'source:pause' }).catch(() => {});
-    await update((job) => ({ ...job, phase: job.phase === 'identifying' ? 'review' : job.phase, listening: false, progress: 1 }));
+    // a stopped listen keeps its place, so Keep listening can resume from there
+    const stoppedEarly = stopListening;
+    await update((job) => ({ ...job, phase: job.phase === 'identifying' ? 'review' : job.phase, listening: false, progress: stoppedEarly ? job.progress : 1 }));
   }
 }
 

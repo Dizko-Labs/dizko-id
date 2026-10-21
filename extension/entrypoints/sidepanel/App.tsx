@@ -102,23 +102,19 @@ function ArtistBlock({ artist }: { artist: Artist }) {
     .join('. ');
   return (
     <section className="border-b border-toner-3 px-4 py-3 text-[13px]">
-      <div className="flex items-baseline justify-between gap-3">
-        <a href={artist.url} target="_blank" rel="noreferrer" className="text-[17px] font-black [font-stretch:75%] hover:underline">{artist.name}</a>
-        <a href={artist.url} target="_blank" rel="noreferrer" className={cn(LINK, 'shrink-0 text-[12px] font-semibold')}>More on Dizko</a>
-      </div>
+      <a href={artist.url} target="_blank" rel="noreferrer" className="text-[17px] font-black [font-stretch:75%] hover:underline">{artist.name}</a>
       {about && <p className="mt-0.5 text-toner-1">{about}.</p>}
-      {artist.links.length > 0 && (
-        <p className="mt-1 flex flex-wrap gap-x-3 text-[12px] font-medium">
-          {artist.links.map((l) => <a key={l.url} href={l.url} target="_blank" rel="noreferrer" className={LINK}>{l.label}</a>)}
-        </p>
-      )}
+      <a href={artist.url} target="_blank" rel="noreferrer" className={cn(LINK, 'mt-1 inline-block text-[12px] font-semibold')}>More on Dizko</a>
       {artist.events.length > 0 && (
-        <ul className="mt-2 space-y-1">
+        <ul className="mt-2 space-y-1.5">
           {artist.events.map((e) => (
             <li key={e.url}>
-              <a href={e.url} target="_blank" rel="noreferrer" className="grid grid-cols-[76px_minmax(0,1fr)] gap-x-2 hover:underline">
+              <a href={e.url} target="_blank" rel="noreferrer" className="group grid grid-cols-[76px_minmax(0,1fr)] gap-x-2">
                 <span className="font-semibold">{new Date(`${e.date}T12:00`).toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}</span>
-                <span className="truncate text-toner-1">{titleCase(e.city)}, {e.venue}</span>
+                <span className="min-w-0">
+                  <span className="block truncate font-semibold group-hover:underline">{e.title}</span>
+                  <span className="block truncate text-toner-1">{titleCase(e.city)}, {e.venue}</span>
+                </span>
               </a>
             </li>
           ))}
@@ -310,13 +306,13 @@ export default function App() {
     }
   }, [tab?.id, tab?.url]);
 
-  async function listen() {
+  async function listen(resume = false) {
     if (!tab) return;
     try {
       // SoundCloud is fingerprinted from its own stream; other sites need the tab's audio
       const streamId = job?.method === 'stream' ? undefined : await browser.tabCapture.getMediaStreamId({ targetTabId: tab.id });
       setError('');
-      await send({ type: 'panel:identify', tabId: tab.id, streamId });
+      await send({ type: 'panel:identify', tabId: tab.id, streamId, resume });
     } catch (e) {
       setError(`Could not listen to this tab: ${String(e).replace(/^Error: /, '')}`);
     }
@@ -407,6 +403,17 @@ export default function App() {
         </p>
       </header>
 
+      {busy && onMixPage && !sameMix && tab && (
+        <button
+          type="button"
+          onClick={() => send({ type: 'panel:switch', tabId: tab.id })}
+          className="flex items-center justify-between gap-3 border-b-2 border-ink bg-ink px-4 py-2.5 text-left text-[13px] font-semibold text-paper"
+        >
+          <span>This tab has another mix. This one stops; what it found stays in your library.</span>
+          <span className="shrink-0 underline decoration-1 underline-offset-2">Switch</span>
+        </button>
+      )}
+
       {job.artist && !isPlatform(job.artist.name) && <ArtistBlock artist={job.artist} />}
 
       <section className="space-y-2.5 border-b-2 border-ink px-4 py-3">
@@ -416,7 +423,7 @@ export default function App() {
               No tracklist in the description. Listen to the mix to identify its tracks
               {job.method === 'stream' ? '. This takes a couple of minutes.' : job.method === 'seek' ? '; this tab stays quiet while it jumps through.' : '; press play and leave it running.'}
             </p>
-            <Button onClick={listen} disabled={!sameMix} className="h-10 w-full text-[15px] font-extrabold">Identify tracks</Button>
+            <Button onClick={() => listen()} disabled={!sameMix} className="h-10 w-full text-[15px] font-extrabold">Identify tracks</Button>
           </>
         )}
         {(job.phase === 'identifying' || (job.phase === 'carting' && job.listening)) && (
@@ -439,7 +446,7 @@ export default function App() {
         {job.phase === 'review' && !job.rows.length && (
           <>
             {!job.error && <p className="text-[14px] leading-snug">No tracks were recognized in this mix.</p>}
-            <Button onClick={listen} disabled={!sameMix} className="h-10 w-full text-[15px] font-extrabold">Try again</Button>
+            <Button onClick={() => listen()} disabled={!sameMix} className="h-10 w-full text-[15px] font-extrabold">Try again</Button>
           </>
         )}
         {job.phase === 'carting' ? (
@@ -476,6 +483,16 @@ export default function App() {
               {!carted.length && playlistUrl && job.rows.some((r) => r.status === 'in-playlist') && (
                 <p className="text-[13px] text-toner-1">
                   In your <a href={playlistUrl} target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1">Beatport playlist</a>; its Buy All puts them in the cart.
+                </p>
+              )}
+              {job.phase === 'review' && !job.tracklistFound && job.method !== 'live' && (job.progress ?? 1) < 0.98 && (
+                <p className="flex items-center justify-between gap-3 text-[13px] text-toner-1">
+                  <span>Listening stopped at {progress}%.</span>
+                  {sameMix ? (
+                    <button type="button" onClick={() => listen(true)} className="font-semibold text-ink underline decoration-1 underline-offset-2">Keep listening</button>
+                  ) : (
+                    <a href={job.mix.url} target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1 underline-offset-2">Open the mix to finish</a>
+                  )}
                 </p>
               )}
               {cartButtons}

@@ -25,7 +25,6 @@ export async function remember(job: Job) {
   const entry: Saved = {
     ...job,
     phase: job.phase === 'done' ? 'done' : 'review',
-    progress: undefined,
     waitingFor: undefined,
     listening: undefined,
     following: undefined,
