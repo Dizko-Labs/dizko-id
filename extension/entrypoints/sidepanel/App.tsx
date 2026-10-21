@@ -455,8 +455,8 @@ export default function App() {
   return (
     <main className="flex h-full flex-col">
       <header className="border-b border-toner-3 px-4 pt-3 pb-3.5">
-        <button type="button" onClick={() => setLibrary(true)} className="-ml-1 flex items-center gap-0.5 text-[13px] font-semibold hover:underline">
-          <ChevronLeft className="size-4" aria-hidden />
+        <button type="button" onClick={() => setLibrary(true)} className="-ml-1.5 flex min-h-9 items-center gap-1 pr-2 text-[16px] font-semibold hover:underline">
+          <ChevronLeft className="size-6" strokeWidth={2.25} aria-hidden />
           Library
         </button>
         <h1 className="mt-2 line-clamp-3 text-[26px] leading-[1.05] font-semibold tracking-[-0.03em]">{job.mix.title}</h1>

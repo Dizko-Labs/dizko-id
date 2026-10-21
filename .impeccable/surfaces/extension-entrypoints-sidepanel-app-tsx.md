@@ -19,4 +19,4 @@ OWN-WORLD: Tokens from dizko.app's web theme (EventChat web/src/index.css and co
 
 STORY: unchanged. The DJ sees what played, how sure each ID is, and what is in the cart; acts once; leaves with links and a file.
 
-FIRST VIEWPORT: Library link, mix title and meta line; the DJ from Dizko (genres, base, next dates with party names, More on Dizko); the status line with the cart buttons; the tracklist with confirmed tracks larger than the "Plus N unconfirmed" line; playlists and Export at the foot.
+FIRST VIEWPORT: Library back link (16px with a 24px chevron), mix title and meta line; the DJ from Dizko (genres, base, next dates with party names, More on Dizko); the status line with the cart buttons; the tracklist with confirmed tracks larger than the "Plus N unconfirmed" line; playlists and Export at the foot.
