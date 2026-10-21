@@ -11,16 +11,12 @@ Audience and task: a DJ on a YouTube, SoundCloud or Mixcloud mix page opens the 
 
 ## Direction contract
 
-THESIS: The mix's tracklist set like a party flyer's lineup: confirmed tracks billed large, unconfirmed ones in the small "plus" line, carted ones marked with highlighter. Refuses the default extension panel of grey rows, blue checkboxes and a progress ring.
+Visual direction: Dizko design system (user's choice, 2026-10-21), replacing the earlier photocopied-flyer world. Intensity: restrained, Operate mode.
 
-OWN-WORLD: Photocopy toner black on off-white paper (black flyer stock in dark mode); one Day-Glo pink owns the header band; fluoro yellow is only ever a highlighter mark meaning "in your cart"; red only for misses. Archivo at narrow widths and heavy weights for track names, regular width for metadata. Plain rules between rows, no cards, no shadows, no rounded tiles.
+THESIS: Mix to Cart looks like part of Dizko: the same near-black ground, off-white type, one acid accent and pill controls, so a DJ moving between dizko.app and the panel stays in one world.
 
-STORY: The DJ sees at a glance what played, how sure each ID is, and what is already in the cart; they act once (send to cart) and leave with links and a file.
+OWN-WORLD: Tokens from dizko.app's web theme (EventChat web/src/index.css and components/arc/dizko-theme.css): ground #080808, surface #111111, border #2D2D2B, text #F0F0EC / #A7A7A1 / #898985, acid #C4F236 with #0D0D0D on it; light system setting uses Dizko's light palette with deep acid #4E6B00 for acid text. Instrument Sans Variable, semibold with tight tracking for titles. Acid marks the primary action, ticks, progress and "in your cart". Thin dividers, no cards, no shadows. Dizko's uppercase buttons are not carried over: labels stay sentence case.
 
-FIRST VIEWPORT: Pink header band with the mix title in heavy condensed type and a meta line (site, duration, track count, tracklist source), then one status line with the single primary action, then the lineup: confirmed tracks billed large, then a "Plus N unconfirmed" line with the single-hit IDs set small. Each row: tick, time, artist with status at right, track name, store links. Footer holds Export and Start over. In the done state the primary action is opening the cart, so Open cart lives in the status line, not the footer (decided at finish review: it is the one thing left to do).
+STORY: unchanged. The DJ sees what played, how sure each ID is, and what is in the cart; acts once; leaves with links and a file.
 
-FORM: Photocopied club flyer, position 4 of 7 on the grounded list. Signature move: confidence sets type size (lineup billing), and carting draws a highlighter swipe across the track name. seed:3eca86c2ac10a73f
-
-FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, DESIGN.md, and every shipping raster carrying its provenance
-
-Unresolved: dark-stock variant needs its own contrast check; real behavior of SoundCloud/Mixcloud players decides whether the "listening in real time" state is common.
+FIRST VIEWPORT: Library link, mix title and meta line; the DJ from Dizko (genres, base, next dates with party names, More on Dizko); the status line with the cart buttons; the tracklist with confirmed tracks larger than the "Plus N unconfirmed" line; playlists and Export at the foot.

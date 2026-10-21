@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ChevronDown, ChevronLeft } from 'lucide-react';
+import { ArrowUpRight, ChevronDown, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
@@ -102,7 +102,7 @@ function ArtistBlock({ artist }: { artist: Artist }) {
     .join('. ');
   return (
     <section className="border-b border-toner-3 px-4 py-3 text-[13px]">
-      <a href={artist.url} target="_blank" rel="noreferrer" className="text-[17px] font-black [font-stretch:75%] hover:underline">{artist.name}</a>
+      <a href={artist.url} target="_blank" rel="noreferrer" className="text-[17px] font-semibold tracking-[-0.02em] hover:underline">{artist.name}</a>
       {about && <p className="mt-0.5 text-toner-1">{about}.</p>}
       <a href={artist.url} target="_blank" rel="noreferrer" className={cn(LINK, 'mt-1 inline-block text-[12px] font-semibold')}>More on Dizko</a>
       {artist.events.length > 0 && (
@@ -158,7 +158,7 @@ function Library({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => v
             return (
               <li key={h.mix.url} className="border-b border-toner-3 py-3">
                 <button type="button" onClick={() => onOpen(h.mix.url)} className="block w-full text-left hover:underline">
-                  <span className="line-clamp-2 text-[21px] leading-[1.05] font-black [font-stretch:64%]">{h.mix.title}</span>
+                  <span className="line-clamp-2 text-[18px] leading-[1.15] font-semibold tracking-[-0.02em]">{h.mix.title}</span>
                 </button>
                 {dj(h) && <p className="mt-0.5 truncate text-[13px] font-semibold text-toner-1">{dj(h)}</p>}
                 <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] font-semibold whitespace-nowrap text-toner-2">
@@ -181,7 +181,7 @@ function Library({ items, onOpen }: { items: Saved[]; onOpen: (url: string) => v
           {[...picks.values()].map(({ row, mix }) => (
             <li key={`${row.track.artist}|${row.track.title}`} className="border-b border-toner-3 py-2.5">
               <p className="truncate text-[13px] font-semibold text-toner-1">{row.track.artist}</p>
-              <p className="text-[17px] leading-[1.1] font-extrabold [font-stretch:75%]">
+              <p className="text-[16px] leading-[1.2] font-semibold tracking-[-0.01em]">
                 <span className={row.status === 'carted' ? 'highlighter' : undefined}>{row.track.title}</span>
               </p>
               <button type="button" onClick={() => onOpen(mix.mix.url)} className="mt-0.5 block max-w-full truncate text-left text-[12px] text-toner-2 hover:text-ink hover:underline">
@@ -217,8 +217,8 @@ function Playlists({ job, ticked }: { job: Job; ticked: number }) {
           const url = urlFor(s.id);
           if (url) {
             return (
-              <Button key={s.id} asChild variant="outline" className="h-9 border-ink bg-transparent px-2 text-[13px] font-semibold">
-                <a href={url} target="_blank" rel="noreferrer" aria-label={`Open the ${s.name} playlist`}>{s.name} ↗</a>
+              <Button key={s.id} asChild variant="outline" className="h-9 border-toner-2 bg-transparent hover:bg-surface px-2 text-[13px] font-semibold">
+                <a href={url} target="_blank" rel="noreferrer" aria-label={`Open the ${s.name} playlist`}>{s.name}<ArrowUpRight className="size-3.5" aria-hidden /></a>
               </Button>
             );
           }
@@ -229,7 +229,7 @@ function Playlists({ job, ticked }: { job: Job; ticked: number }) {
               variant="outline"
               disabled={!ticked || !!job.making}
               onClick={() => (needsApp ? setConnecting(s.id as Service) : send({ type: 'panel:playlist', service: s.id }))}
-              className="h-9 border-ink bg-transparent px-2 text-[13px] font-semibold"
+              className="h-9 border-toner-2 bg-transparent hover:bg-surface px-2 text-[13px] font-semibold"
             >
               {job.making === s.id ? 'Making…' : s.name}
             </Button>
@@ -265,16 +265,16 @@ function Connect({ service, onDone }: { service: Service; onDone: () => void }) 
       <p className="bg-accent px-2 py-1.5 font-mono text-[12px] break-all select-all">{redirectUri(service)}</p>
       <label className="block">
         <span className="font-semibold">Client ID</span>
-        <Input value={clientId} onChange={(e) => setClientId(e.target.value)} className="mt-1 border-ink" autoComplete="off" spellCheck={false} />
+        <Input value={clientId} onChange={(e) => setClientId(e.target.value)} className="mt-1 rounded-[0.75rem] border-toner-2" autoComplete="off" spellCheck={false} />
       </label>
       {s.app!.secret && (
         <label className="block">
           <span className="font-semibold">Client secret</span>
-          <Input type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} className="mt-1 border-ink" autoComplete="off" />
+          <Input type="password" value={clientSecret} onChange={(e) => setClientSecret(e.target.value)} className="mt-1 rounded-[0.75rem] border-toner-2" autoComplete="off" />
         </label>
       )}
       <div className="flex gap-2 pt-1">
-        <Button onClick={save} disabled={!clientId.trim() || (s.app!.secret && !clientSecret.trim())} className="h-9 flex-1 text-[14px] font-extrabold">Save and make playlist</Button>
+        <Button onClick={save} disabled={!clientId.trim() || (s.app!.secret && !clientSecret.trim())} className="h-9 flex-1 text-[14px] font-semibold">Save and make playlist</Button>
         <Button variant="ghost" onClick={onDone} className="h-9 text-[13px] text-toner-2">Cancel</Button>
       </div>
     </div>
@@ -343,8 +343,8 @@ export default function App() {
   if (!showMix) {
     return (
       <main className="flex h-full flex-col">
-        <header className="bg-pink px-4 pt-4 pb-3.5 text-on-pink">
-          <h1 className="text-[34px] leading-[0.95] font-black [font-stretch:62%]">Mix to Cart</h1>
+        <header className="border-b border-toner-3 px-4 pt-4 pb-3.5">
+          <h1 className="text-[26px] leading-none font-semibold tracking-[-0.03em]">Mix to Cart</h1>
           <p className="mt-2.5 text-[13px]">
             Are you a DJ?{' '}
             <a href="https://build.dizko.app" target="_blank" rel="noreferrer" className="font-semibold underline decoration-1">Claim your page on Dizko</a>
@@ -379,10 +379,10 @@ export default function App() {
 
   const cartButtons = (forBeatport > 0 || forBandcamp > 0) && (
     <div className="grid grid-cols-2 gap-2">
-      <Button disabled={!forBeatport} onClick={() => cartIn('beatport')} className="h-10 text-[14px] font-extrabold">
+      <Button disabled={!forBeatport} onClick={() => cartIn('beatport')} className="h-10 text-[14px] font-semibold">
         Beatport cart{forBeatport ? ` (${forBeatport})` : ''}
       </Button>
-      <Button variant="outline" disabled={!forBandcamp} onClick={() => cartIn('bandcamp')} className="h-10 border-ink bg-transparent text-[14px] font-extrabold">
+      <Button variant="outline" disabled={!forBandcamp} onClick={() => cartIn('bandcamp')} className="h-10 border-toner-2 bg-transparent hover:bg-surface text-[14px] font-semibold">
         Bandcamp cart{forBandcamp ? ` (${forBandcamp})` : ''}
       </Button>
     </div>
@@ -390,12 +390,12 @@ export default function App() {
 
   return (
     <main className="flex h-full flex-col">
-      <header className="bg-pink px-4 pt-2.5 pb-3.5 text-on-pink">
+      <header className="border-b border-toner-3 px-4 pt-3 pb-3.5">
         <button type="button" onClick={() => setLibrary(true)} className="-ml-1 flex items-center gap-0.5 text-[13px] font-semibold hover:underline">
           <ChevronLeft className="size-4" aria-hidden />
           Library
         </button>
-        <h1 className="mt-1.5 line-clamp-3 text-[32px] leading-[0.95] font-black tracking-[-0.01em] [font-stretch:62%]">{job.mix.title}</h1>
+        <h1 className="mt-2 line-clamp-3 text-[26px] leading-[1.05] font-semibold tracking-[-0.03em]">{job.mix.title}</h1>
         <p className="mt-2 flex flex-wrap gap-x-3.5 text-[13px] font-semibold">
           <a href={job.mix.url} target="_blank" rel="noreferrer" className="underline decoration-1 underline-offset-2">{sourceOf(job.mix.url)}</a>
           {job.mix.duration ? <span>{clock(job.mix.duration)}</span> : null}
@@ -407,7 +407,7 @@ export default function App() {
         <button
           type="button"
           onClick={() => send({ type: 'panel:switch', tabId: tab.id })}
-          className="flex items-center justify-between gap-3 border-b-2 border-ink bg-ink px-4 py-2.5 text-left text-[13px] font-semibold text-paper"
+          className="flex items-center justify-between gap-3 border-b border-toner-3 bg-ink px-4 py-2.5 text-left text-[13px] font-semibold text-paper"
         >
           <span>This tab has another mix. This one stops; what it found stays in your library.</span>
           <span className="shrink-0 underline decoration-1 underline-offset-2">Switch</span>
@@ -416,14 +416,14 @@ export default function App() {
 
       {job.artist && !isPlatform(job.artist.name) && <ArtistBlock artist={job.artist} />}
 
-      <section className="space-y-2.5 border-b-2 border-ink px-4 py-3">
+      <section className="space-y-2.5 border-b border-toner-3 px-4 py-3">
         {job.phase === 'reading' && !job.rows.length && (
           <>
             <p className="text-[14px] leading-snug">
               No tracklist in the description. Listen to the mix to identify its tracks
               {job.method === 'stream' ? '. This takes a couple of minutes.' : job.method === 'seek' ? '; this tab stays quiet while it jumps through.' : '; press play and leave it running.'}
             </p>
-            <Button onClick={() => listen()} disabled={!sameMix} className="h-10 w-full text-[15px] font-extrabold">Identify tracks</Button>
+            <Button onClick={() => listen()} disabled={!sameMix} className="h-10 w-full text-[15px] font-semibold">Identify tracks</Button>
           </>
         )}
         {(job.phase === 'identifying' || (job.phase === 'carting' && job.listening)) && (
@@ -432,10 +432,10 @@ export default function App() {
               <span className="text-[14px] font-semibold">Listening</span>
               <span className="flex items-baseline gap-3">
                 <button type="button" onClick={() => send({ type: 'panel:stop-listening' })} className="text-[12px] text-toner-2 hover:text-ink hover:underline">Stop</button>
-                <span className="text-[20px] font-black [font-stretch:75%]">{progress}%</span>
+                <span className="text-[18px] font-semibold tabular-nums">{progress}%</span>
               </span>
             </div>
-            <Progress value={progress} className="h-1.5 bg-toner-3 [&>*]:bg-ink" />
+            <Progress value={progress} className="h-1.5 bg-toner-3 [&>*]:bg-acid" />
             {job.following && playlistUrl && (
               <p className="text-[13px] text-toner-1">
                 New finds go straight into your <a href={playlistUrl} target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1">Beatport playlist</a>.
@@ -446,7 +446,7 @@ export default function App() {
         {job.phase === 'review' && !job.rows.length && (
           <>
             {!job.error && <p className="text-[14px] leading-snug">No tracks were recognized in this mix.</p>}
-            <Button onClick={() => listen()} disabled={!sameMix} className="h-10 w-full text-[15px] font-extrabold">Try again</Button>
+            <Button onClick={() => listen()} disabled={!sameMix} className="h-10 w-full text-[15px] font-semibold">Try again</Button>
           </>
         )}
         {job.phase === 'carting' ? (
@@ -519,7 +519,7 @@ export default function App() {
         </ol>
         {unconfirmed > 0 && (
           <>
-            <h2 className="mt-5 border-b-2 border-ink pb-1.5 text-[19px] font-black [font-stretch:75%]">Plus {unconfirmed} unconfirmed</h2>
+            <h2 className="mt-5 border-b border-toner-3 pb-1.5 text-[16px] font-semibold tracking-[-0.01em]">Plus {unconfirmed} unconfirmed</h2>
             <p className="pt-1.5 text-[12px] text-toner-2">Each heard in one clip only. Often a sample or a blend, so they start unticked.</p>
             <ol>
               {job.rows.map((row, i) => row.track.hits < 2 && <TrackRow key={`${row.track.artist}|${row.track.title}`} row={row} index={i} locked={locked} />)}
@@ -532,10 +532,10 @@ export default function App() {
       {job.rows.length > 0 && <Playlists job={job} ticked={selected.length} />}
 
       {job.rows.length > 0 && (
-        <footer className="flex items-center gap-2 border-t-2 border-ink px-4 py-3">
+        <footer className="flex items-center gap-2 border-t border-toner-3 px-4 py-3">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="h-9 gap-1 border-ink bg-transparent text-[14px] font-semibold">Export tracklist<ChevronDown className="size-4" /></Button>
+              <Button variant="outline" className="h-9 gap-1 border-toner-2 bg-transparent hover:bg-surface text-[14px] font-semibold">Export tracklist<ChevronDown className="size-4" /></Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuItem onSelect={() => download(job, 'txt')}>Text, with links</DropdownMenuItem>
@@ -584,14 +584,14 @@ function TrackRow({ row, index, locked }: { row: Row; index: number; locked: boo
   return (
     // Status shares the artist line so the track name, notes and links get the full width
     <li className="grid grid-cols-[22px_42px_minmax(0,1fr)] gap-x-2 border-b border-toner-3 py-2.5">
-      <Checkbox id={id} checked={row.selected} disabled={locked} onCheckedChange={() => send({ type: 'panel:toggle', index })} className="mt-1 border-ink data-[state=checked]:bg-ink" />
+      <Checkbox id={id} checked={row.selected} disabled={locked} onCheckedChange={() => send({ type: 'panel:toggle', index })} className="mt-0.5 border-toner-2 data-[state=checked]:border-acid data-[state=checked]:bg-acid data-[state=checked]:text-on-acid" />
       <span className="pt-0.5 text-[12px] font-semibold text-toner-2">{clock(row.track.at)}</span>
       <div className="min-w-0">
         <div className="flex items-baseline justify-between gap-3">
           <label htmlFor={id} className="min-w-0 cursor-pointer truncate text-[13px] font-semibold text-toner-1">{row.track.artist}</label>
           {status && <span className={cn('shrink-0 text-[12px] font-bold', miss ? 'text-miss' : row.status === 'carted' || row.status === 'in-playlist' ? '' : 'text-toner-2')}>{status}</span>}
         </div>
-        <label htmlFor={id} className={cn('block cursor-pointer leading-[1.08]', confirmed ? 'text-[23px] font-black [font-stretch:64%]' : 'text-[15px] font-semibold [font-stretch:90%]')}>
+        <label htmlFor={id} className={cn('block cursor-pointer leading-[1.08]', confirmed ? 'text-[19px] font-semibold tracking-[-0.02em]' : 'text-[15px] font-medium')}>
           <span className={row.status === 'carted' ? 'highlighter' : undefined}>{row.track.title}</span>
         </label>
         {row.status === 'version-missing' && row.alternatives?.length ? (

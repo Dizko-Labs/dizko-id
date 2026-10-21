@@ -1,53 +1,55 @@
 @import "tailwindcss" source(none);
 @source "../../entrypoints/sidepanel";
 @source "../../components";
-@import "@fontsource-variable/archivo/wdth.css";
+@import "@fontsource-variable/instrument-sans";
 
-/* Photocopied club flyer: toner on paper, one Day-Glo pink band, highlighter for "in your cart". */
+/* Dizko's design system (dizko.app web tokens): near-black ground, off-white text, one acid accent.
+   Dark is the default as on dizko.app; a light system setting gets Dizko's light palette. */
 :root {
-  --paper: #f2f0ea;
-  --ink: #111111;
-  /* the only neutrals: a three-step toner ramp */
-  --toner-1: #3a3a37;
-  --toner-2: #66655f;
-  --toner-3: #c9c6bd;
-  --pink: #ff3d8b;
-  --on-pink: #111111;
-  --highlight: #f4ff3a;
-  --on-highlight: #111111;
-  --miss: #c41f17;
-  /* pink on paper is under 3:1, so the focus ring is ink on paper and pink only on black stock */
-  --focus: var(--ink);
+  --paper: #080808;
+  --surface: #111111;
+  --ink: #f0f0ec;
+  /* text-secondary, text-tertiary, border */
+  --toner-1: #a7a7a1;
+  --toner-2: #898985;
+  --toner-3: #2d2d2b;
+  --acid: #c4f236;
+  /* acid as text on the ground: the same hue dark, Dizko's deep acid on light */
+  --acid-text: #c4f236;
+  --on-acid: #0d0d0d;
+  --miss: #f87171;
+  --focus: #c4f236;
 
   --background: var(--paper);
   --foreground: var(--ink);
-  --primary: var(--ink);
-  --primary-foreground: var(--paper);
+  --primary: var(--acid);
+  --primary-foreground: var(--on-acid);
   --secondary: transparent;
   --secondary-foreground: var(--ink);
   --muted: var(--toner-3);
   --muted-foreground: var(--toner-2);
-  --accent: color-mix(in oklab, var(--ink) 8%, var(--paper));
+  --accent: var(--surface);
   --accent-foreground: var(--ink);
-  --popover: var(--paper);
+  --popover: var(--surface);
   --popover-foreground: var(--ink);
   --border: var(--toner-3);
-  --input: var(--ink);
-  --ring: var(--pink);
+  --input: var(--toner-3);
+  --ring: var(--acid);
   --destructive: var(--miss);
-  --radius: 0.375rem;
+  --radius: 0.75rem;
 }
 
-@media (prefers-color-scheme: dark) {
-  /* black flyer stock */
+@media (prefers-color-scheme: light) {
   :root {
-    --paper: #121211;
-    --ink: #f1efe8;
-    --toner-1: #d3d0c7;
-    --toner-2: #a29f96;
-    --toner-3: #3b3a36;
-    --miss: #ff6a5e;
-    --focus: var(--pink);
+    --paper: #ecece6;
+    --surface: #deded7;
+    --ink: #0d0d0d;
+    --toner-1: #45453f;
+    --toner-2: #6f6f68;
+    --toner-3: #c4c4bc;
+    --acid-text: #4e6b00;
+    --miss: #c0392b;
+    --focus: #0d0d0d;
   }
 }
 
@@ -73,11 +75,12 @@
   --color-toner-1: var(--toner-1);
   --color-toner-2: var(--toner-2);
   --color-toner-3: var(--toner-3);
-  --color-pink: var(--pink);
-  --color-on-pink: var(--on-pink);
-  --color-highlight: var(--highlight);
+  --color-surface: var(--surface);
+  --color-acid: var(--acid);
+  --color-acid-text: var(--acid-text);
+  --color-on-acid: var(--on-acid);
   --color-miss: var(--miss);
-  --font-sans: "Archivo Variable", system-ui, sans-serif;
+  --font-sans: "Instrument Sans Variable", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 2px);
@@ -91,10 +94,11 @@
     color: var(--ink);
     font-family: var(--font-sans);
     font-size: 14px;
+    letter-spacing: -0.005em;
     -webkit-font-smoothing: antialiased;
     font-variant-numeric: tabular-nums;
   }
-  /* yellow means "in your cart" and nothing else, so selection stays toner grey */
+  /* acid means "in your cart" (and the primary action), so selection stays neutral */
   ::selection { background: var(--toner-3); color: var(--ink); }
   :focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
   a { text-underline-offset: 3px; }
@@ -102,16 +106,17 @@
   * { scrollbar-width: thin; scrollbar-color: var(--toner-3) transparent; }
 }
 
-/* The signature move: a carted track gets a highlighter swipe across its name. */
+/* In your cart: an acid marker swiped across the track name, Dizko's accent doing the highlighter's job. */
 .highlighter {
-  background-image: linear-gradient(transparent 16%, var(--highlight) 16%, var(--highlight) 88%, transparent 88%);
+  background-image: linear-gradient(transparent 12%, var(--acid) 12%, var(--acid) 92%, transparent 92%);
   background-repeat: no-repeat;
   background-size: 100% 100%;
-  color: var(--on-highlight);
+  color: var(--on-acid);
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
-  padding: 0 2px;
-  margin: 0 -2px;
+  padding: 0 3px;
+  margin: 0 -3px;
+  border-radius: 3px;
   animation: swipe 420ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 @keyframes swipe {

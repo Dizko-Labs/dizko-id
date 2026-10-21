@@ -8,8 +8,8 @@ export default defineContentScript({
   allFrames: true,
   main() {
     const MARK = 'data-mix-to-cart';
-    const GREEN = '#4ade80';
-    const GREEN_HOVER = '#6ee7a0';
+    const ACID = '#c4f236';
+    const ACID_HOVER = '#d4f75f';
     // A single track (a mix is one long upload), not a set, station, profile or listing
     const NOT_A_TRACK = /^(discover|stations|search|you|feed|charts|upload|settings|messages|notifications|pages|terms-of-use|tags|n)$/;
     const onTrack = () => {
@@ -55,18 +55,18 @@ export default defineContentScript({
         border: '0',
         outline: 'none',
         borderRadius: radius,
-        // filled green so it reads as ours among SoundCloud's grey controls; near-black text keeps it legible
-        background: GREEN,
-        color: '#0b0b0b',
+        // filled in Dizko acid so it reads as ours among SoundCloud's grey controls; near-black text keeps it legible
+        background: ACID,
+        color: '#0d0d0d',
         // the page's type, not the button's (SoundCloud's icon buttons inherit a fallback font)
         font: `600 14px/1 ${getComputedStyle(document.body).fontFamily}`,
         whiteSpace: 'nowrap',
         cursor: 'pointer',
         flex: 'none',
       });
-      button.addEventListener('mouseenter', () => (button.style.background = GREEN_HOVER));
-      button.addEventListener('mouseleave', () => (button.style.background = GREEN));
-      button.addEventListener('focus', () => (button.style.outline = `2px solid ${GREEN}`));
+      button.addEventListener('mouseenter', () => (button.style.background = ACID_HOVER));
+      button.addEventListener('mouseleave', () => (button.style.background = ACID));
+      button.addEventListener('focus', () => (button.style.outline = `2px solid ${ACID}`));
       button.addEventListener('blur', () => (button.style.outline = 'none'));
       button.style.outlineOffset = '2px';
       button.addEventListener('click', (e) => {
