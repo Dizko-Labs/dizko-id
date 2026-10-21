@@ -25,6 +25,14 @@ async function handle(msg: OffscreenRequest): Promise<unknown> {
       return clip(msg.seconds);
     case 'offscreen:segment':
       return segment(msg.init, msg.url);
+    case 'offscreen:pcm': {
+      // a clip the page captured from its own player: base64 16-bit mono
+      const bytes = Uint8Array.from(atob(msg.pcm), (c) => c.charCodeAt(0));
+      const ints = new Int16Array(bytes.buffer);
+      const pcm = new Float32Array(ints.length);
+      for (let i = 0; i < ints.length; i++) pcm[i] = ints[i]! / 32768;
+      return recognize(pcm, msg.rate, 1);
+    }
     case 'offscreen:stop':
       stream?.getTracks().forEach((t) => t.stop());
       await ctx?.close();
@@ -91,12 +99,12 @@ async function segment(init: string | undefined, url: string): Promise<ClipResul
   return recognize(pcm, buf.sampleRate);
 }
 
-/** Interleaved stereo float PCM -> shazamio-core signature -> Shazam's tag endpoint. */
-async function recognize(pcm: Float32Array, rate: number): Promise<ClipResult> {
+/** Float PCM (interleaved when stereo) -> shazamio-core signature -> Shazam's tag endpoint. */
+async function recognize(pcm: Float32Array, rate: number, channels = 2): Promise<ClipResult> {
   await ready;
   if (pcm.every((v) => v === 0)) return { error: 'silence' };
 
-  const sig = DecodedSignature.new(pcm, rate, 2);
+  const sig = DecodedSignature.new(pcm, rate, channels);
   const body = { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, signature: { uri: sig.uri, samplems: sig.samplems }, timestamp: Date.now(), context: {}, geolocation: {} };
   sig.free();
   const id = () => crypto.randomUUID().toUpperCase();

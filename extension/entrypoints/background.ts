@@ -1,6 +1,6 @@
 import { collapse, samplePoints, type Hit } from '@/lib/identify';
 import { judge, pick, searchQuery, splitTitle } from '@/lib/match';
-import type { ClipResult, OffscreenRequest, PanelRequest, SourceInfo, SourceRequest } from '@/lib/messages';
+import { TAB_AUDIO_NEEDED, type ClipResult, type OffscreenRequest, type PageClip, type PanelRequest, type SourceInfo, type SourceRequest } from '@/lib/messages';
 import {
   BEATPORT_CART, bandcampAddToCart, bandcampReadSearch, bandcampReadTrack, bandcampSearchUrl,
   beatportApi, beatportBuyAll, beatportPlaylistUrl, storeCheck,
@@ -400,10 +400,17 @@ async function listen(before: Job, owner: string, tabId: number | undefined, str
   await update((job) => ({ ...job, phase: job.phase === 'carting' ? 'carting' : 'identifying', listening: true, progress: from, error: undefined }), owner);
   const info = given ?? (await ask<SourceInfo>(tabId!, { type: 'source:info' }));
   await ensureOffscreen();
-  if (!info.stream) {
-    if (!streamId) throw new Error('No audio stream for this tab');
-    await offscreen({ type: 'offscreen:start', streamId });
-  }
+  // YouTube and Mixcloud: the page's own player first (no permission needed); tab capture only when the panel
+  // fell back to it for a page that will not share its player's audio
+  const tabAudio = !info.stream && !!streamId;
+  if (tabAudio) await offscreen({ type: 'offscreen:start', streamId: streamId! });
+  const take = async (seconds: number, mute: boolean): Promise<ClipResult> => {
+    if (tabAudio) return offscreen<ClipResult>({ type: 'offscreen:clip', seconds });
+    const c = await ask<PageClip>(tabId!, { type: 'source:clip', seconds, mute });
+    if (c.error === 'element-blocked') throw new Error(TAB_AUDIO_NEEDED);
+    if (c.error || !c.pcm) return { error: c.error ?? 'silence' };
+    return offscreen<ClipResult>({ type: 'offscreen:pcm', pcm: c.pcm, rate: c.rate! });
+  };
   const hits: Hit[] = resume
     ? before.rows.flatMap((r) => Array.from({ length: r.track.hits }, () => ({ at: r.track.at ?? 0, artist: r.track.artist, title: r.track.title, isrc: r.track.isrc })))
     : [];
@@ -437,7 +444,8 @@ async function listen(before: Job, owner: string, tabId: number | undefined, str
       for (let i = Math.floor(from * at.length); i < at.length && !stopListening; i++) {
         const point = at[i]!;
         await ask(tabId!, { type: 'source:seek', at: point });
-        const r = await lookup(() => offscreen<ClipResult>({ type: 'offscreen:clip', seconds: clip }));
+        // muted while it jumps through, so the DJ does not hear it skip
+        const r = await lookup(() => take(clip, true));
         if (r.error) failed = r.error;
         if (r.track) hits.push({ at: point, ...r.track });
         if (!(await publish((i + 1) / at.length))) break; // the panel moved on to another mix
@@ -448,7 +456,8 @@ async function listen(before: Job, owner: string, tabId: number | undefined, str
       const limit = info.duration ?? 4 * 3600;
       while (!stopListening && (Date.now() - started) / 1000 < limit) {
         const at = (Date.now() - started) / 1000;
-        const r = await lookup(() => offscreen<ClipResult>({ type: 'offscreen:clip', seconds: 10 }));
+        // live: the DJ is listening along, so the player keeps its sound
+        const r = await lookup(() => take(10, false));
         if (r.track) hits.push({ at, ...r.track });
         if (!(await publish(Math.min(1, at / limit)))) break;
         await nap(20_000);
@@ -462,7 +471,10 @@ async function listen(before: Job, owner: string, tabId: number | undefined, str
       await offscreen({ type: 'offscreen:stop' }).catch(() => {});
       await browser.offscreen.closeDocument().catch(() => {});
     }
-    if (tabId != null) await ask(tabId, { type: 'source:pause' }).catch(() => {});
+    if (tabId != null) {
+      await ask(tabId, { type: 'source:release' }).catch(() => {});
+      await ask(tabId, { type: 'source:pause' }).catch(() => {});
+    }
     // a stopped listen keeps its place, so Keep listening can resume from there
     const stoppedEarly = stopListening;
     const now = await getJob();

@@ -13,7 +13,7 @@ import { fileName, time, toCsv, toJson, toText } from '@/lib/export';
 import { djOf, mixKey, type Saved } from '@/lib/history';
 import { links } from '@/lib/links';
 import { norm } from '@/lib/match';
-import type { PanelRequest } from '@/lib/messages';
+import { TAB_AUDIO_NEEDED, type PanelRequest } from '@/lib/messages';
 import { profileOf, type Upload } from '@/lib/soundcloud';
 import { beatportPlaylistUrl } from '@/lib/stores';
 import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, coverage, type Job, trackKey, type Row, type Store } from '@/lib/types';
@@ -466,11 +466,12 @@ export default function App() {
   // Chrome hands over a tab's audio only after the DJ invokes the extension on that tab (its toolbar icon);
   // a click inside the panel does not count. Until then the panel asks for that click and keeps trying.
   const [needsIcon, setNeedsIcon] = useState<{ tabId: number; resume: boolean } | null>(null);
-  async function listen(resume = false) {
+  async function listen(resume = false, tabAudio = false) {
     if (!tab) return;
     try {
-      // SoundCloud is fingerprinted from its own stream; other sites need the tab's audio
-      const streamId = job?.method === 'stream' ? undefined : await browser.tabCapture.getMediaStreamId({ targetTabId: tab.id });
+      // SoundCloud is fingerprinted from its own stream, YouTube and Mixcloud from the page's player; Chrome's tab
+      // capture only when a page will not share its player's audio
+      const streamId = tabAudio ? await browser.tabCapture.getMediaStreamId({ targetTabId: tab.id }) : undefined;
       setError('');
       setNeedsIcon(null);
       await send({ type: 'panel:identify', tabId: tab.id, streamId, resume });
@@ -479,9 +480,16 @@ export default function App() {
       if (/not been invoked|activeTab/i.test(why)) {
         setError('');
         setNeedsIcon({ tabId: tab.id, resume });
+        return;
       } else setError(`Could not listen to this tab: ${why}`);
     }
   }
+  const fellBack = useRef('');
+  useEffect(() => {
+    if (!job || !sameMix || busy || job.error !== TAB_AUDIO_NEEDED || fellBack.current === job.mix.url) return;
+    fellBack.current = job.mix.url;
+    listen(!!job.progress, true);
+  }, [job?.error, job?.mix.url, sameMix, busy]);
   useEffect(() => {
     if (!needsIcon) return;
     if (tab?.id !== needsIcon.tabId || !sameMix) return setNeedsIcon(null);
@@ -689,7 +697,7 @@ export default function App() {
         {view.phase === 'review' && !view.rows.length && (
           <>
             {!view.error && <p className="text-[14px] leading-snug">No tracks were recognized in this mix.</p>}
-            <Button onClick={() => listen()} disabled={!sameMix} className="h-10 w-full text-[15px] font-semibold">Try again</Button>
+            {!needsIcon && <Button onClick={() => listen(false, view.error === TAB_AUDIO_NEEDED)} disabled={!sameMix} className="h-10 w-full text-[15px] font-semibold">Try again</Button>}
           </>
         )}
         {view.phase === 'carting' ? (
@@ -753,7 +761,7 @@ export default function App() {
             </>
           )
         )}
-        {(error || view.error) && <p className="text-[13px] text-miss">{error || view.error}</p>}
+        {(error || (view.error && view.error !== TAB_AUDIO_NEEDED)) && <p className="text-[13px] text-miss">{error || view.error}</p>}
         {needsIcon && view.phase !== 'reading' && (
           <p className="text-[14px] leading-snug">Chrome needs one click on the Dizko ID icon in your toolbar before it lets Dizko ID hear this tab. Click it and listening starts.</p>
         )}

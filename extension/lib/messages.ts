@@ -4,7 +4,20 @@ import type { Track } from './types';
 export type SourceRequest =
   | { type: 'source:info' }
   | { type: 'source:seek'; at: number }
-  | { type: 'source:pause' };
+  | { type: 'source:pause' }
+  /** `seconds` of the page player's own audio as 16 kHz mono, muting the player first when `mute` */
+  | { type: 'source:clip'; seconds: number; mute: boolean }
+  | { type: 'source:release' };
+
+/** A clip from the page's player: 16-bit PCM, base64, mono at `rate`. */
+export interface PageClip {
+  pcm?: string;
+  rate?: number;
+  error?: string;
+}
+
+/** Set as the job's error when a page will not hand over its player's audio, so the panel falls back to tab capture. */
+export const TAB_AUDIO_NEEDED = 'This page will not share its player audio; Chrome tab capture is needed.';
 
 export interface SourceInfo {
   title: string;
@@ -33,6 +46,7 @@ export type OffscreenRequest =
   | { type: 'offscreen:start'; streamId: string }
   | { type: 'offscreen:clip'; seconds: number }
   | { type: 'offscreen:segment'; init?: string; url: string }
+  | { type: 'offscreen:pcm'; pcm: string; rate: number }
   | { type: 'offscreen:stop' };
 
 export interface ClipResult {
