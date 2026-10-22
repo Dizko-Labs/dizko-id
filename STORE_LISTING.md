@@ -67,5 +67,6 @@ Leave unticked: authentication information, user activity, personally identifiab
 In `store-assets/`, all from a real identification (Juliana Huxtable, GERMAN VISA PIPELINE (DEKMANTEL MIX 288), her real Dizko dates), composed by `store-assets/compose.mjs`:
 
 - `promo-tile-440x280.png`: small promo tile (required).
-- `screenshot-1-tracks.png`, `screenshot-2-dj-dates.png`, `screenshot-3-cart.png`, `screenshot-4-saved.png`: 1280x800, upload in this order.
+- `screenshots/`: five 1280x800 shots from the v0.1.0 build, upload in their numbered order (tracks, DJ dates, cart, section, saved).
+- `store-icon-128.png`: the store icon.
 - Store icon: the 128px icon inside the zip.
