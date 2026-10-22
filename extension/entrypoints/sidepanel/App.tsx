@@ -68,10 +68,12 @@ function download(job: Job, kind: 'txt' | 'csv' | 'json') {
 
 function StoreLinks({ row }: { row: Row }) {
   const l = links(row);
+  // a store the cart run searched and did not find gets no link: it would only open an empty search
+  const has = (store: Store) => !row.missingFrom?.includes(store);
   return (
     <p className="mt-1 flex flex-wrap gap-x-3 text-[12px] font-medium">
-      <a href={l.beatport} target="_blank" rel="noreferrer" className={LINK}>Beatport</a>
-      <a href={l.bandcamp} target="_blank" rel="noreferrer" className={LINK}>Bandcamp</a>
+      {has('beatport') && <a href={l.beatport} target="_blank" rel="noreferrer" className={LINK}>Beatport</a>}
+      {has('bandcamp') && <a href={l.bandcamp} target="_blank" rel="noreferrer" className={LINK}>Bandcamp</a>}
       <a href={l.spotify} target="_blank" rel="noreferrer" className={LINK}>Spotify</a>
       <a href={l.youtube} target="_blank" rel="noreferrer" className={LINK}>YouTube</a>
     </p>
@@ -860,7 +862,16 @@ function TrackRow({ row, index, locked }: { row: Row; index: number; locked: boo
         </label>
         <TrackFacts offer={row.offer} />
         {row.status === 'version-missing' && row.alternatives?.length ? (
-          <p className="mt-0.5 text-[12px] text-toner-1">Available: {[...new Set(row.alternatives.map((a) => a.version || 'Original'))].join(', ')}</p>
+          <p className="mt-0.5 text-[12px] text-toner-1">
+            Available:{' '}
+            {/* each other version links to itself, one link per version */}
+            {[...new Map(row.alternatives.map((a) => [a.version || 'Original', a])).entries()].map(([version, a], i) => (
+              <span key={a.url}>
+                {i > 0 && ', '}
+                <a href={a.url} target="_blank" rel="noreferrer" className={LINK}>{version}</a>
+              </span>
+            ))}
+          </p>
         ) : null}
         <StoreLinks row={row} />
       </div>
