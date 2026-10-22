@@ -14,7 +14,7 @@ Give it a SoundCloud, Mixcloud or YouTube link. It identifies every track with S
 ## Install
 
 ```bash
-git clone https://github.com/ZakKrevitt/mix-to-cart ~/.claude/skills/mix-to-cart
+git clone https://github.com/Dizko-Labs/dizko-id ~/.claude/skills/mix-to-cart
 ```
 
 Then the three command-line tools it needs:
