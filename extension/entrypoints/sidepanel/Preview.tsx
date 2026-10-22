@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { Pause, Play } from 'lucide-react';
-import { previewUrl } from '@/lib/preview';
+import { previewSources } from '@/lib/preview';
 import { settings } from '@/lib/settings';
 import { trackKey, type Row } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -25,17 +25,22 @@ async function toggle(row: Row) {
   audio.pause();
   set({ key, status: 'loading' });
   const s = await settings();
-  const url = s.preview === 'off' ? undefined : await previewUrl(row, s.preview);
-  if (state.key !== key) return; // another track was pressed meanwhile
-  if (!url) return set({ key, status: 'none' });
-  audio.src = url;
-  try {
-    await audio.play();
-    if (state.key === key) set({ key, status: 'playing' });
-  } catch (e) {
-    // pressing another track (or leaving the screen) aborts this play; only a real failure means no preview
-    if (state.key === key && (e as DOMException)?.name !== 'AbortError') set({ key, status: 'none' });
+  if (s.preview === 'off') return set({ key, status: 'none' });
+  for (const source of previewSources(row, s.preview)) {
+    const url = await source().catch(() => undefined);
+    if (state.key !== key) return; // another track was pressed meanwhile
+    if (!url) continue;
+    audio.src = url;
+    try {
+      await audio.play();
+      if (state.key === key) set({ key, status: 'playing' });
+      return;
+    } catch (e) {
+      // pressing another track (or leaving the screen) aborts this play; a sample that will not load tries the next source
+      if (state.key !== key || (e as DOMException)?.name === 'AbortError') return;
+    }
   }
+  set({ key, status: 'none' });
 }
 
 /** Stop whatever is previewing, e.g. when the panel changes screen. */

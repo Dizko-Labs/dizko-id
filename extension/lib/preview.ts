@@ -6,17 +6,21 @@
 import { itunesMatches } from './itunes';
 import { trackKey, type Row } from './types';
 
-const cache = new Map<string, string | null>();
+// only found previews are kept: a miss is asked again next time, since the Beatport match or the network may have come back
+const apple = new Map<string, string>();
 
 async function applePreview(row: Row): Promise<string | undefined> {
-  return (await itunesMatches(row.track.artist, row.track.title)).find((x) => x.previewUrl)?.previewUrl;
+  const key = trackKey(row);
+  if (apple.has(key)) return apple.get(key);
+  const url = (await itunesMatches(row.track.artist, row.track.title)).find((x) => x.previewUrl)?.previewUrl;
+  if (url) apple.set(key, url);
+  return url;
 }
 
-export async function previewUrl(row: Row, first: 'beatport' | 'apple'): Promise<string | undefined> {
-  const key = `${first}|${trackKey(row)}`;
-  if (cache.has(key)) return cache.get(key) ?? undefined;
-  const beatport = row.offer?.store === 'beatport' ? row.offer.sample : undefined;
-  const url = first === 'beatport' ? beatport ?? (await applePreview(row)) : (await applePreview(row)) ?? beatport;
-  cache.set(key, url ?? null);
-  return url;
+/** Where to look for a preview, in the DJ's preferred order; the player tries the next when one has none or fails. */
+export function previewSources(row: Row, first: 'beatport' | 'apple'): (() => Promise<string | undefined>)[] {
+  // read the row as it is at press time, so a Beatport match that arrived after an earlier miss is used
+  const beatport = async () => (row.offer?.store === 'beatport' ? row.offer.sample : undefined);
+  const fromApple = () => applePreview(row);
+  return first === 'beatport' ? [beatport, fromApple] : [fromApple, beatport];
 }

@@ -74,6 +74,8 @@ function StoreLinks({ row }: { row: Row }) {
     <p className="mt-1 flex flex-wrap gap-x-3 text-[12px] font-medium">
       <a href={l.beatport} target="_blank" rel="noreferrer" className={LINK}>Beatport</a>
       <a href={l.bandcamp} target="_blank" rel="noreferrer" className={LINK}>Bandcamp</a>
+      <a href={l.spotify} target="_blank" rel="noreferrer" className={LINK}>Spotify</a>
+      <a href={l.youtube} target="_blank" rel="noreferrer" className={LINK}>YouTube</a>
     </p>
   );
 }
