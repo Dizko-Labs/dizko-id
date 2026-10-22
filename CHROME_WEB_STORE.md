@@ -8,7 +8,7 @@ Audit of the `extension` build (`extension/.output/chrome-mv3`) against Chrome W
 - [ ] **Privacy policy.** Drafted as a Dizko ID section of Dizko's existing policy (EventChat PR #849, `https://www.dizko.app/privacy-policy.html#dizko-id`); live after merge and a web production deploy. Original note: Required, at a public URL, because the extension handles user data. It must name every recipient and what each receives:
   - Shazam (`amp.shazam.com`): audio fingerprints of the mix being played.
   - PostHog (`us.i.posthog.com`): opt-in usage events, fixed control names and counts only.
-  - Dizko (`mcp.dizko.app`, `api.dizko.app`): DJ names looked up; with Link to Dizko, an OAuth token and DJ/artist names with weights.
+  - Dizko (`mcp.dizko.app`, `api.dizko.app`): DJ names looked up; with Link to Dizko, an OAuth token and DJ/artist names with weights, the DJs' genres, SoundCloud links and Dizko ids, the follow choice, and an import-only random id.
   - Beatport, Bandcamp: cart and playlist actions in the DJ's own logged-in session; the Beatport session token is read in the page and only sent to `api.beatport.com`.
   - SoundCloud, iTunes: public metadata, cover art and previews.
   - Local storage: history of up to 50 mixes, never uploaded.

@@ -31,8 +31,8 @@ Identify the tracks in a SoundCloud DJ mix the user opens, so they can add them 
 **Permission justifications:**
 
 - `sidePanel`: the extension's whole interface is a side panel beside the mix.
-- `offscreen`: an offscreen document turns short clips of the mix's audio into fingerprints (bundled WebAssembly) and plays track previews; a service worker cannot process audio.
-- `scripting`: when the user presses a cart button, it runs the extension's own packaged functions in the Beatport or Bandcamp tab to search for the ticked tracks and add them to the user's cart.
+- `offscreen`: an offscreen document decodes short clips of the mix's audio with Web Audio and turns them into fingerprints (bundled WebAssembly); a service worker has no Web Audio.
+- `scripting`: runs the extension's own packaged functions in a Beatport or Bandcamp tab. When the user presses a cart button, they search for the ticked tracks and add them to the user's cart. After a mix's tracks are found, a Beatport tab opened in the background looks each one up to show its BPM, key and length and link the exact release.
 - `storage`: keeps the user's library of mixes, settings and Dizko sign-in token on their device.
 - `unlimitedStorage`: the library (up to 50 mixes with their tracks and matches) can exceed the default quota, which would interrupt identification.
 - `identity`: signs the user in to their Dizko account with OAuth when they choose Link to Dizko.
@@ -42,7 +42,7 @@ Identify the tracks in a SoundCloud DJ mix the user opens, so they can add them 
 - `soundcloud.com`, `api-v2.soundcloud.com`, `playback.media-streaming.soundcloud.cloud`: read the mix page the user opens and its audio stream; list a DJ's other mixes.
 - `amp.shazam.com`: identify tracks from audio fingerprints.
 - `www.beatport.com`, `*.bandcamp.com`: search and add the user's ticked tracks to their own cart, in their own session.
-- `geo-samples.beatport.com`, `itunes.apple.com`, `audio-ssl.itunes.apple.com`: cover art and short track previews.
+- `itunes.apple.com`: cover art, and finding Apple's short preview of a track.
 - `mcp.dizko.app`, `api.dizko.app`: the DJ's profile and upcoming dates; the optional Dizko account link.
 - `us.i.posthog.com`: anonymous usage events, only after the user agrees.
 

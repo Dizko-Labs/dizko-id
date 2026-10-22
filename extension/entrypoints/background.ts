@@ -20,6 +20,8 @@ const NAME_YOUR_PRICE = 1;
 
 export default defineBackground(() => {
   browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
+  // the Dizko tokens and the library stay out of reach of content scripts, which never read storage
+  browser.storage.local.setAccessLevel?.({ accessLevel: 'TRUSTED_CONTEXTS' }).catch(() => {});
   recover();
   syncTaste(60 * 60 * 1000);
   backfill().catch(() => {});
@@ -377,7 +379,7 @@ async function ensureOffscreen() {
     await browser.offscreen.createDocument({
       url: 'offscreen.html',
       reasons: ['USER_MEDIA'],
-      justification: 'Listen to the mix tab to identify its tracks',
+      justification: 'Decode short clips of the mix with Web Audio and fingerprint them with bundled WebAssembly to identify its tracks',
     });
   }
 }

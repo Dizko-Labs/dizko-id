@@ -4,7 +4,6 @@
  * authorization code + PKCE through chrome.identity, and then sends a taste summary to
  * PUT /connector/v1/taste-import (scope taste:write). Only names and weights leave the browser.
  */
-import { installId } from './analytics';
 import { isPlatform } from './dizko';
 import type { Saved } from './history';
 import { norm } from './match';
@@ -13,7 +12,7 @@ import { pkce } from './oauth';
 const API = 'https://api.dizko.app';
 // the resource Dizko's OAuth binds tokens to; the same value must go to authorize and token
 const RESOURCE = 'https://mcp.dizko.app/mcp';
-const SCOPE = 'events:read taste:write';
+const SCOPE = 'taste:write';
 
 export interface Account {
   clientId?: string;
@@ -126,6 +125,18 @@ export function tasteOf(items: Saved[], follow: boolean, install: string) {
   };
 }
 
+/**
+ * This install's id for Dizko imports. Its own random value, never the analytics id, so a linked account cannot be
+ * joined to the anonymous usage events.
+ */
+async function importId(): Promise<string> {
+  const stored = (await browser.storage.local.get('dizkoImportId')).dizkoImportId as string | undefined;
+  if (stored) return stored;
+  const id = crypto.randomUUID();
+  await browser.storage.local.set({ dizkoImportId: id });
+  return id;
+}
+
 /** Send the current library's taste; replaces the previous import for this install. */
 export async function sync(items: Saved[]) {
   const token = await bearer();
@@ -134,7 +145,7 @@ export async function sync(items: Saved[]) {
   const res = await fetch(`${API}/connector/v1/taste-import`, {
     method: 'PUT',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify(tasteOf(items, !!a.follow, await installId())),
+    body: JSON.stringify(tasteOf(items, !!a.follow, await importId())),
   });
   const j = await res.json().catch(() => ({}));
   if (res.status === 401 || res.status === 403) throw new Error('Link to Dizko again');

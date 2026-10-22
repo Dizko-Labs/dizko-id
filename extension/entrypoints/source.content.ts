@@ -71,16 +71,7 @@ async function info(): Promise<SourceInfo> {
   };
 }
 
-/** YouTube plays ads in the same video element: wait them out (up to two minutes) before seeking or listening. */
-async function pastAds() {
-  for (let i = 0; i < 240 && document.querySelector('.ad-showing, .ad-interrupting'); i++) {
-    document.querySelector<HTMLElement>('.ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern')?.click();
-    await new Promise((r) => setTimeout(r, 500));
-  }
-}
-
 async function seek(at: number): Promise<{ ok: boolean }> {
-  await pastAds();
   const m = media();
   if (!m) return { ok: false };
   // seeking is only for listening by jumping through, which the DJ should not hear
@@ -133,7 +124,6 @@ function release() {
 }
 
 async function clip(seconds: number, mute: boolean): Promise<PageClip> {
-  await pastAds();
   const m = media();
   if (!m) return { error: 'No player on this page' };
   if (cap?.m !== m) {

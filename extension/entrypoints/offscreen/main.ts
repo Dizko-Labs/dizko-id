@@ -11,8 +11,9 @@ let stream: MediaStream | null = null;
 let recording: { chunks: Float32Array[][]; want: number; got: number; done: () => void } | null = null;
 const ready = initShazamio(wasmUrl);
 
-browser.runtime.onMessage.addListener((msg: OffscreenRequest, _sender, reply) => {
-  if (!msg.type?.startsWith('offscreen:')) return;
+browser.runtime.onMessage.addListener((msg: OffscreenRequest, sender, reply) => {
+  // only the extension's own background; content scripts on soundcloud.com reach runtime messages too
+  if (!msg.type?.startsWith('offscreen:') || sender.id !== browser.runtime.id || sender.tab) return;
   handle(msg).then(reply, (e) => reply({ error: String(e) }));
   return true;
 });

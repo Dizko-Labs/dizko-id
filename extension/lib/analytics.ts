@@ -46,10 +46,13 @@ export async function track(event: string, properties: Record<string, string | n
   }
 }
 
-/** Only the host of a destination, so a click says where it went without carrying the full address. */
+/**
+ * Only the site of a destination (bandcamp.com, not someartist.bandcamp.com), so a click says where it went without
+ * saying which artist or page.
+ */
 export const hostOf = (url: string) => {
   try {
-    return new URL(url).hostname.replace(/^www\./, '');
+    return new URL(url).hostname.split('.').slice(-2).join('.');
   } catch {
     return undefined;
   }
