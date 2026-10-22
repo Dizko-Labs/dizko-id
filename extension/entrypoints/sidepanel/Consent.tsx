@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { consent, setConsent, type Consent } from '@/lib/analytics';
+import { ANALYTICS_ON, consent, setConsent, type Consent } from '@/lib/analytics';
 
 /** Dizko's privacy policy, at the section on this extension. */
 export const PRIVACY_URL = 'https://www.dizko.app/privacy-policy.html#dizko-id';
@@ -12,7 +12,7 @@ export function ConsentBar() {
   useEffect(() => {
     consent().then(setAnswer);
   }, []);
-  if (answer !== undefined) return null;
+  if (!ANALYTICS_ON || answer !== undefined) return null;
   const choose = async (value: Consent) => {
     await setConsent(value);
     setAnswer(value);

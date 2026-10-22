@@ -13,6 +13,7 @@ import { isPlatform, type Artist } from '@/lib/dizko';
 import { fileName, time, toCsv, toJson, toText } from '@/lib/export';
 import { djOf, mixKey, type Saved } from '@/lib/history';
 import { links } from '@/lib/links';
+import { DIZKO_LINK } from '@/lib/dizkoAccount';
 import { parseClock } from '@/lib/identify';
 import { norm } from '@/lib/match';
 import { TAB_AUDIO_NEEDED, type PanelRequest } from '@/lib/messages';
@@ -247,7 +248,7 @@ function Library({ items, onOpen, onArtist, onAccount }: { items: Saved[]; onOpe
       </TabsContent>
       <TabsContent value="artists" className={cn("px-4 pb-6", tabMotion)}>
         {!artists.length && <p className="py-5 text-[14px] text-toner-1">The DJs behind the mixes you open collect here.</p>}
-        {artists.length > 0 && !linked && (
+        {DIZKO_LINK && artists.length > 0 && !linked && (
           <button type="button" onClick={onAccount} className="mt-3 flex w-full items-center justify-between gap-3 rounded-[0.75rem] bg-surface px-3.5 py-3 text-left text-[13px] hover:bg-toner-3/40">
             <span className="font-semibold">Add these DJs to your Dizko feed</span>
             <ChevronRight className="size-4 shrink-0 text-toner-2" aria-hidden />

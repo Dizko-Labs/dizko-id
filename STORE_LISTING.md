@@ -35,7 +35,6 @@ Identify the tracks in a SoundCloud DJ mix the user opens, so they can add them 
 - `scripting`: runs the extension's own packaged functions in a Beatport or Bandcamp tab. When the user presses a cart button, they search for the ticked tracks and add them to the user's cart. After a mix's tracks are found, a Beatport tab opened in the background looks each one up to show its BPM, key and length and link the exact release.
 - `storage`: keeps the user's library of mixes, settings and Dizko sign-in token on their device.
 - `unlimitedStorage`: the library (up to 50 mixes with their tracks and matches) can exceed the default quota, which would interrupt identification.
-- `identity`: signs the user in to their Dizko account with OAuth when they choose Link to Dizko.
 
 **Host permissions:**
 
@@ -43,18 +42,15 @@ Identify the tracks in a SoundCloud DJ mix the user opens, so they can add them 
 - `amp.shazam.com`: identify tracks from audio fingerprints.
 - `www.beatport.com`, `*.bandcamp.com`: search and add the user's ticked tracks to their own cart, in their own session.
 - `itunes.apple.com`: cover art, and finding Apple's short preview of a track.
-- `mcp.dizko.app`, `api.dizko.app`: the DJ's profile and upcoming dates; the optional Dizko account link.
-- `us.i.posthog.com`: anonymous usage events, only after the user agrees.
+- `mcp.dizko.app`: the DJ's profile and upcoming dates.
 
 **Remote code:** No, I am not using remote code. (All JavaScript and the WebAssembly fingerprinter are packaged in the extension.)
 
 **Data usage (tick these):**
 
-- Authentication information: the Dizko sign-in token, only with Link to Dizko.
-- User activity: anonymous usage events, only if the user agrees.
 - Website content: the SoundCloud mix page's title, description and audio fingerprints.
 
-Leave unticked: personally identifiable information, health, financial and payment, personal communications, location, web history.
+Leave unticked: authentication information, user activity, personally identifiable information, health, financial and payment, personal communications, location, web history.
 
 **Certifications (tick all three):** not sold to third parties; not used for purposes unrelated to the single purpose; not used to determine creditworthiness or for lending.
 

@@ -14,6 +14,9 @@ const API = 'https://api.dizko.app';
 const RESOURCE = 'https://mcp.dizko.app/mcp';
 const SCOPE = 'taste:write';
 
+/** Link to Dizko is shown once EventChat's taste import (PR #845) is deployed; until then it could only fail. */
+export const DIZKO_LINK = false;
+
 export interface Account {
   clientId?: string;
   access?: string;

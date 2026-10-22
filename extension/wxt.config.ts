@@ -10,7 +10,8 @@ export default defineConfig({
     // no tabs: host permissions already show the URL of SoundCloud, Beatport and Bandcamp tabs, the only ones read.
     // no tabCapture in the SoundCloud-only release (SoundCloud is heard from its own stream); YouTube brings it back.
     // unlimitedStorage: the saved library (50 mixes with their matches) can outgrow the 10 MB default mid-listen.
-    permissions: ['sidePanel', 'offscreen', 'scripting', 'storage', 'unlimitedStorage', 'identity'],
+    // identity, api.dizko.app and us.i.posthog.com return with Link to Dizko and usage sharing (DIZKO_LINK, ANALYTICS_ON)
+    permissions: ['sidePanel', 'offscreen', 'scripting', 'storage', 'unlimitedStorage'],
     host_permissions: [
       'https://soundcloud.com/*',
       'https://www.beatport.com/*',
@@ -24,10 +25,6 @@ export default defineConfig({
       'https://api-v2.soundcloud.com/*',
       // cover art for tracks saved without it, and finding Apple's preview of a track
       'https://itunes.apple.com/*',
-      // anonymous usage events, only after the DJ agrees
-      'https://us.i.posthog.com/*',
-      // linking to a Dizko account and importing taste
-      'https://api.dizko.app/*',
     ],
     action: { default_title: 'Dizko ID' },
     side_panel: { default_path: 'sidepanel.html' },

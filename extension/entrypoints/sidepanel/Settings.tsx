@@ -3,6 +3,8 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DEFAULTS, setSetting, type Settings as S } from '@/lib/settings';
 import { UsageSetting } from './Consent';
 import { DizkoLinkBar } from './DizkoLinkBar';
+import { ANALYTICS_ON } from '@/lib/analytics';
+import { DIZKO_LINK } from '@/lib/dizkoAccount';
 import { useStored } from './useStored';
 
 /** The DJ's settings; `ready` is false until they are read, so nothing acts on the defaults by mistake. */
@@ -54,15 +56,19 @@ export function SettingsPage({ onBack, motion }: { onBack: () => void; motion?: 
         </div>
       </section>
 
-      <section className="mt-2">
-        <h2 className="px-4 text-[12px] font-semibold text-toner-2">Dizko account</h2>
-        <DizkoLinkBar />
-      </section>
+      {DIZKO_LINK && (
+        <section className="mt-2">
+          <h2 className="px-4 text-[12px] font-semibold text-toner-2">Dizko account</h2>
+          <DizkoLinkBar />
+        </section>
+      )}
 
-      <section className="px-4 pt-4">
-        <h2 className="text-[12px] font-semibold text-toner-2">Usage</h2>
-        <div className="-mx-4"><UsageSetting /></div>
-      </section>
+      {ANALYTICS_ON && (
+        <section className="px-4 pt-4">
+          <h2 className="text-[12px] font-semibold text-toner-2">Usage</h2>
+          <div className="-mx-4"><UsageSetting /></div>
+        </section>
+      )}
 
       <section data-area="claim" className="mt-auto border-t border-toner-3 px-4 py-5 text-[13px] text-toner-1">
         <p>

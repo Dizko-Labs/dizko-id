@@ -5,6 +5,8 @@
  */
 // PostHog project API keys are public by design (they only allow sending events). Empty means analytics is off.
 const POSTHOG_KEY = '';
+/** Usage sharing is only asked about, and only offered in Settings, once there is a project to send to. */
+export const ANALYTICS_ON = !!POSTHOG_KEY;
 const POSTHOG_HOST = 'https://us.i.posthog.com';
 
 export type Consent = 'yes' | 'no';
