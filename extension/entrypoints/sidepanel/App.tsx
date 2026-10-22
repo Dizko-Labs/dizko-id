@@ -595,8 +595,9 @@ export default function App() {
   const selected = view.rows.filter((r) => r.selected);
   const unconfirmed = view.rows.filter((r) => r.track.hits < 2).length;
   const carted = view.rows.filter((r) => r.status === 'carted');
-  const forBeatport = selected.filter((r) => BEATPORT_CARTABLE.includes(r.status)).length;
-  const forBandcamp = selected.filter((r) => BANDCAMP_CARTABLE.includes(r.status)).length;
+  // what each cart button would add now: ticked, not in a cart yet, and not already missing from that store
+  const forBeatport = selected.filter((r) => BEATPORT_CARTABLE.includes(r.status) && !r.missingFrom?.includes('beatport')).length;
+  const forBandcamp = selected.filter((r) => BANDCAMP_CARTABLE.includes(r.status) && !r.missingFrom?.includes('bandcamp')).length;
   // a peeked mix is read-only: ticks and stores wait until it is the live one
   const locked = view.phase === 'carting' || readOnly;
   const current = view.rows.find((r) => r.status === 'searching');
@@ -609,19 +610,29 @@ export default function App() {
   // the DJ, when Dizko knows them (never a hosting channel such as Boiler Room)
   const dj = view.artist && !isPlatform(view.artist.name) ? view.artist : undefined;
 
-  const cartButtons = (forBeatport > 0 || forBandcamp > 0) && (
-    <div>
-      <div className="grid grid-cols-2 gap-2">
-        {(prefs.marketplace === 'bandcamp' ? (['bandcamp', 'beatport'] as const) : (['beatport', 'bandcamp'] as const)).map((store) => {
-          const count = store === 'beatport' ? forBeatport : forBandcamp;
-          const lead = store === prefs.marketplace;
+  // each store's button adds what is left for it, then opens that store's cart once nothing is left
+  const cartButtons = (forBeatport > 0 || forBandcamp > 0 || Object.keys(view.carts ?? {}).length > 0) && (
+    <div className="grid grid-cols-2 gap-2">
+      {(prefs.marketplace === 'bandcamp' ? (['bandcamp', 'beatport'] as const) : (['beatport', 'bandcamp'] as const)).map((store) => {
+        const count = store === 'beatport' ? forBeatport : forBandcamp;
+        const cart = view.carts?.[store];
+        // acid marks the next step: the preferred store while it has tracks to add, else the other
+        const preferred = prefs.marketplace === 'bandcamp' ? forBandcamp : forBeatport;
+        const lead = count > 0 && (store === prefs.marketplace || !preferred);
+        const quiet = 'border-toner-2 bg-transparent hover:bg-surface';
+        if (!count && cart) {
           return (
-            <Button key={store} variant={lead ? 'default' : 'outline'} disabled={!count} onClick={() => cartIn(store)} className={cn('h-10 text-[14px] font-semibold', !lead && 'border-toner-2 bg-transparent hover:bg-surface')}>
-              {STORE_NAME[store]} cart{count ? ` (${count})` : ''}
+            <Button key={store} asChild variant="outline" className={cn('h-10 text-[14px] font-semibold', quiet)}>
+              <a href={cart} target="_blank" rel="noreferrer">Open {STORE_NAME[store]} cart</a>
             </Button>
           );
-        })}
-      </div>
+        }
+        return (
+          <Button key={store} variant={lead ? 'default' : 'outline'} disabled={!count} onClick={() => cartIn(store)} className={cn('h-10 text-[14px] font-semibold', !lead && quiet)}>
+            {count ? `Add ${count} to ${STORE_NAME[store]}` : `Add to ${STORE_NAME[store]}`}
+          </Button>
+        );
+      })}
     </div>
   );
 
@@ -727,15 +738,6 @@ export default function App() {
         ) : (
           view.rows.length > 0 && (
             <>
-              {carted.length > 0 && (
-                <div className="flex items-center gap-3">
-                  <span className="flex gap-4 text-[13px] font-semibold">
-                    {Object.entries(view.carts ?? {}).map(([s, url]) => (
-                      <a key={s} href={url} target="_blank" rel="noreferrer" className={LINK}>Open {s === 'beatport' ? 'Beatport' : 'Bandcamp'} cart</a>
-                    ))}
-                  </span>
-                </div>
-              )}
               {!carted.length && playlistUrl && view.rows.some((r) => r.status === 'in-playlist') && (
                 <p className="text-[13px] text-toner-1">
                   In your <a href={playlistUrl} target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1">Beatport playlist</a>; its Buy All puts them in the cart.

@@ -706,7 +706,8 @@ async function cartRun(stores: Store[], owner: string) {
   if (!job) return;
   const patch = (key: string, p: Partial<Row>) => patchRow(key, p, owner);
   const cartable = stores.includes('beatport') ? BEATPORT_CARTABLE : BANDCAMP_CARTABLE;
-  const keys = job.rows.filter((r) => r.selected && cartable.includes(r.status)).map((r) => keyOf(r.track));
+  // a store that already said it does not have a track is not asked again
+  const keys = job.rows.filter((r) => r.selected && cartable.includes(r.status) && !stores.every((s) => r.missingFrom?.includes(s))).map((r) => keyOf(r.track));
   const rowFor = async (key: string) => (await getJob())!.rows.find((r) => keyOf(r.track) === key);
   const carts: Partial<Record<Store, string>> = {};
   const tried = new Map<string, Offer[]>();
