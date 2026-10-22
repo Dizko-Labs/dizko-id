@@ -22,7 +22,7 @@ export default defineBackground(() => {
   browser.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
   recover();
   syncTaste(60 * 60 * 1000);
-  backfillUploaders().then(backfillArtists).then(backfillAvatars).then(backfillArt).catch(() => {});
+  backfill().catch(() => {});
   browser.runtime.onMessage.addListener((msg: PanelRequest & { streamId?: string }, sender, reply) => {
     // The button on the SoundCloud page: open the panel on that tab (the click is the user gesture it needs);
     // the panel reads the mix and starts identifying when auto-listen is on
@@ -62,14 +62,41 @@ export default defineBackground(() => {
   });
 });
 
+/**
+ * Library backfills (uploaders, DJs, avatars, cover art) at most once a day: the worker starts again after every
+ * idle spell, and the uploader and art passes would otherwise refetch pages and iTunes for the same misses each time.
+ */
+async function backfill() {
+  const { backfilledAt = 0 } = (await browser.storage.local.get('backfilledAt')) as { backfilledAt?: number };
+  if (Date.now() - backfilledAt < 24 * 3600 * 1000) return;
+  await browser.storage.local.set({ backfilledAt: Date.now() });
+  await backfillUploaders().then(backfillArtists).then(backfillAvatars).then(backfillArt);
+}
+
 // ---- job state lives in session storage so the side panel can subscribe and a restarted worker can resume reading it
 
 async function getJob(): Promise<Job | null> {
   return ((await browser.storage.session.get('job')).job as Job | undefined) ?? null;
 }
+/**
+ * The library copy (`remember`) rewrites all saved mixes, so during a listen or cart run, which update the job many
+ * times a minute, it is saved at most every few seconds; once the run ends it is saved straight away.
+ */
+let rememberedAt = 0;
+let rememberLater: ReturnType<typeof setTimeout> | undefined;
 async function setJob(job: Job | null) {
   await browser.storage.session.set({ job });
-  if (job) await remember(job);
+  if (!job) return;
+  clearTimeout(rememberLater);
+  if (!busy(job) || Date.now() - rememberedAt > 3000) {
+    rememberedAt = Date.now();
+    await remember(job);
+  } else {
+    rememberLater = setTimeout(() => {
+      rememberedAt = Date.now();
+      getJob().then((j) => j && remember(j)).catch(() => {});
+    }, 3000);
+  }
 }
 /**
  * Listening and carting run at the same time and both edit the job, so every read-modify-write goes through one

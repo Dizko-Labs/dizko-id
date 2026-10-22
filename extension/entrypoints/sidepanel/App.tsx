@@ -50,7 +50,11 @@ function useActiveTab() {
   const [tab, setTab] = useState<{ id: number; url: string } | null>(null);
   useEffect(() => {
     const refresh = () =>
-      browser.tabs.query({ active: true, currentWindow: true }).then(([t]) => setTab(t?.id ? { id: t.id, url: t.url ?? '' } : null));
+      browser.tabs.query({ active: true, currentWindow: true }).then(([t]) => {
+        const next = t?.id ? { id: t.id, url: t.url ?? '' } : null;
+        // any tab's update calls this (the cart run's own tabs too); only a real change re-renders the panel
+        setTab((now) => (now?.id === next?.id && now?.url === next?.url ? now : next));
+      });
     refresh();
     browser.tabs.onActivated.addListener(refresh);
     browser.tabs.onUpdated.addListener(refresh);

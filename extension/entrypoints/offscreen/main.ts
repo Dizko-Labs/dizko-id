@@ -115,11 +115,13 @@ async function slot() {
 async function recognize(pcm: Float32Array, rate: number, channels = 2): Promise<ClipResult> {
   await ready;
   if (pcm.every((v) => v === 0)) return { error: 'silence' };
-  await slot();
 
+  // fingerprint first, so the request leaves the moment its slot opens
   const sig = DecodedSignature.new(pcm, rate, channels);
-  const body = { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, signature: { uri: sig.uri, samplems: sig.samplems }, timestamp: Date.now(), context: {}, geolocation: {} };
+  const signature = { uri: sig.uri, samplems: sig.samplems };
   sig.free();
+  await slot();
+  const body = { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, signature, timestamp: Date.now(), context: {}, geolocation: {} };
   const id = () => crypto.randomUUID().toUpperCase();
   const url = `https://amp.shazam.com/discovery/v5/en/US/web/-/tag/${id()}/${id()}?sync=true&webv3=true&sampling=true&connected=&shazamapiversion=v3&sharehub=true&hubv5minorversion=v5.1&hidelb=true&video=v3`;
   const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(20_000) });
