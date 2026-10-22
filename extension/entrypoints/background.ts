@@ -1,4 +1,4 @@
-import { collapse, samplePoints, type Hit } from '@/lib/identify';
+import { collapse, Governor, hitKey, ListenPlan, samplePoints, type Hit, type Probe } from '@/lib/identify';
 import { judge, pick, searchQuery, splitTitle } from '@/lib/match';
 import { TAB_AUDIO_NEEDED, type ClipResult, type OffscreenRequest, type PageClip, type PanelRequest, type SourceInfo, type SourceRequest } from '@/lib/messages';
 import {
@@ -354,16 +354,17 @@ async function ensureOffscreen() {
   }
 }
 
-const RATE_LIMITED = 'Shazam is turning away lookups for now (too many in a short time). Try again in an hour.';
+const RATE_LIMITED = 'Shazam has paused lookups from your network for a while. Keep listening in about an hour.';
 
 /**
  * One Shazam lookup. A 429 means slow down, so wait and retry the same clip a few times, doubling the wait,
  * before giving up on the whole run with a message the DJ can act on.
  */
-async function lookup(get: () => Promise<ClipResult>): Promise<ClipResult> {
+async function lookup(get: () => Promise<ClipResult>, onLimited?: () => void): Promise<ClipResult> {
   for (let wait = 20_000; ; wait *= 2) {
     const r = await get();
     if (r.error !== 'shazam 429') return r;
+    onLimited?.();
     if (wait > 80_000 || stopListening) throw new Error(RATE_LIMITED);
     await nap(wait);
     if (stopListening) return {};
@@ -415,7 +416,7 @@ async function listen(before: Job, owner: string, tabId: number | undefined, str
     ? before.rows.flatMap((r) => Array.from({ length: r.track.hits }, () => ({ at: r.track.at ?? 0, artist: r.track.artist, title: r.track.title, isrc: r.track.isrc })))
     : [];
   let failed = '';
-  const publish = (progress: number) =>
+  const publish = (progress: number, probes?: Probe[]) =>
     update((job) => {
       const prior = new Map(job.rows.map((r) => [keyOf(r.track), r]));
       const rows = collapse(hits).map((t) => {
@@ -424,21 +425,42 @@ async function listen(before: Job, owner: string, tabId: number | undefined, str
         // keep cart results and the DJ's tick or untick; only a track's second hit ticks it automatically
         return { ...was, track: t, selected: was.track.hits < 2 && t.hits >= 2 ? true : was.selected };
       });
-      return { ...job, rows, progress };
+      return { ...job, rows, progress, ...(probes && { probes }) };
     }, owner);
 
+  // only a listen that ran to the end is complete; a stop or an error (Shazam's limit) keeps its place
+  let completed = false;
   try {
     if (info.stream && info.duration) {
-      const { at } = samplePoints(info.duration);
-      for (let i = Math.floor(from * at.length); i < at.length && !stopListening; i++) {
-        const point = at[i]!;
-        const seg = info.stream.segments.find((s) => s.start <= point && s.start + s.dur > point);
-        if (!seg) continue;
-        const r = await lookup(() => offscreen<ClipResult>({ type: 'offscreen:segment', init: info.stream!.init, url: seg.url }));
+      // SoundCloud: any point of the stream can be fetched, so listen where the plan says and a few at a time
+      const stream = info.stream;
+      const seed: Probe[] = !resume ? [] : before.probes ?? before.rows.map((r) => [r.track.at ?? 0, hitKey(r.track)]);
+      const plan = new ListenPlan(info.duration, seed);
+      const governor = new Governor();
+      const running = new Set<Promise<void>>();
+      let fatal: unknown;
+      let moved = false;
+      const probe = async (point: number) => {
+        const seg = stream.segments.find((s) => s.start <= point && s.start + s.dur > point);
+        const r = seg ? await lookup(() => offscreen<ClipResult>({ type: 'offscreen:segment', init: stream.init, url: seg.url }), () => governor.limited()) : {};
         if (r.error) failed = r.error;
-        if (r.track) hits.push({ at: seg.start, ...r.track });
-        if (!(await publish((i + 1) / at.length))) break; // the panel moved on to another mix
+        else governor.answered();
+        if (r.track) hits.push({ at: seg!.start, ...r.track });
+        plan.record(point, r.track ? hitKey(r.track) : null);
+        if (!(await publish(plan.progress(), plan.probes()))) moved = true; // the panel moved on to another mix
+      };
+      while (!stopListening && !moved && fatal === undefined) {
+        for (let t; running.size < governor.limit && (t = plan.next()) !== undefined; ) {
+          const task: Promise<void> = probe(t)
+            .catch((e) => void (fatal ??= e))
+            .finally(() => running.delete(task));
+          running.add(task);
+        }
+        if (!running.size) break;
+        await Promise.race(running);
       }
+      await Promise.all(running);
+      if (fatal !== undefined) throw fatal;
     } else if (info.seekable && info.duration) {
       const { at, clip } = samplePoints(info.duration);
       for (let i = Math.floor(from * at.length); i < at.length && !stopListening; i++) {
@@ -465,6 +487,7 @@ async function listen(before: Job, owner: string, tabId: number | undefined, str
     }
     // Every clip erroring is a broken run, not a mix with no known tracks
     if (!hits.length && failed && failed !== 'silence') throw new Error(`Could not identify any clips (${failed}).`);
+    completed = !stopListening;
   } finally {
     // the offscreen document is shared: a listen for the next mix may already be using it
     if (listening.size <= 1) {
@@ -475,12 +498,11 @@ async function listen(before: Job, owner: string, tabId: number | undefined, str
       await ask(tabId, { type: 'source:release' }).catch(() => {});
       await ask(tabId, { type: 'source:pause' }).catch(() => {});
     }
-    // a stopped listen keeps its place, so Keep listening can resume from there
     const stoppedEarly = stopListening;
     const now = await getJob();
     const finished = now && mixKey(now.mix.url) === owner ? now.rows : [];
     track('identify_end', { method: info.stream ? 'stream' : info.seekable ? 'seek' : 'live', tracks: finished.length, confirmed: finished.filter((r) => r.track.hits >= 2).length, stopped: stoppedEarly, resumed: resume });
-    await update((job) => ({ ...job, phase: job.phase === 'identifying' ? 'review' : job.phase, listening: false, progress: stoppedEarly ? job.progress : 1 }), owner);
+    await update((job) => ({ ...job, phase: job.phase === 'identifying' ? 'review' : job.phase, listening: false, progress: completed ? 1 : job.progress }), owner);
     enrich().catch(() => {});
     syncTaste();
   }

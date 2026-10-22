@@ -9,12 +9,16 @@ export interface Hit {
   art?: string;
 }
 
+/** One distinct track, however Shazam spaced or punctuated it. */
+export const hitKey = (h: { artist: string; title: string }) => norm(h.artist + h.title).replace(/\s/g, '');
+
 /** Keep the first appearance of each distinct track, in play order, counting how often it was heard. */
 export function collapse(hits: Hit[]): Track[] {
   const out: Track[] = [];
   const seen = new Map<string, Track>();
-  for (const h of hits) {
-    const key = norm(h.artist + h.title).replace(/\s/g, '');
+  // lookups run out of order, so play order comes from the times
+  for (const h of [...hits].sort((a, b) => a.at - b.at)) {
+    const key = hitKey(h);
     const prev = seen.get(key);
     if (prev) {
       prev.hits += 1;
@@ -32,10 +36,131 @@ export function collapse(hits: Hit[]): Track[] {
 }
 
 /** Sample points through the mix. Longer mixes are sampled more sparsely so a 2 hour set stays near 30 minutes. */
-export function samplePoints(duration: number): { at: number[]; clip: number } {
+export function samplePoints(duration: number): { at: number[]; clip: number; every: number } {
   const every = duration > 5400 ? 60 : duration > 2700 ? 45 : 30;
   const clip = 10;
   const at: number[] = [];
   for (let t = 5; t + clip < duration; t += every) at.push(t);
-  return { at, clip };
+  return { at, clip, every };
+}
+
+/** What one listen point heard: a track's hitKey, or null for nothing known (or a failed lookup). */
+export type Probe = [at: number, heard: string | null];
+
+/**
+ * Where to listen next in a mix, so the fewest Shazam lookups find every track. A mix changes track rarely: first
+ * a coarse pass gives the outline, then only the gaps whose two ends heard different things (or nothing) are split,
+ * down to the old fixed spacing. A gap with the same track at both ends is that track throughout. Last, a track
+ * heard only once gets one more listen beside it, since a single hit is what marks a find as unconfirmed.
+ */
+export class ListenPlan {
+  readonly fine: number;
+  private readonly heard = new Map<number, string | null>();
+  private readonly pending = new Set<number>();
+  private readonly coarse: number[] = [];
+  private readonly rechecked = new Set<string>();
+  private readonly first: number;
+  private readonly last: number;
+
+  constructor(readonly duration: number, seed: Probe[] = []) {
+    this.fine = samplePoints(duration).every;
+    // a power-of-two multiple of the fine spacing, so halving a gap lands on it exactly
+    const step = this.fine * 4;
+    this.first = 5;
+    this.last = Math.max(this.first, duration - 15);
+    for (let t = this.first; t < this.last; t += step) this.coarse.push(t);
+    this.coarse.push(this.last);
+    for (const [at, k] of seed) this.heard.set(at, k);
+  }
+
+  /** The next point to listen at, or undefined when nothing can be chosen until a pending lookup answers. */
+  next(): number | undefined {
+    const t = this.pick();
+    if (t !== undefined) this.pending.add(t);
+    return t;
+  }
+
+  record(at: number, heard: string | null) {
+    this.pending.delete(at);
+    this.heard.set(at, heard);
+  }
+
+  /** Nothing left to listen to and nothing waiting on an answer. */
+  get done() {
+    return !this.pending.size && this.pick() === undefined;
+  }
+
+  /** Share of the mix settled: covered by a gap that needs no more listening. */
+  progress(): number {
+    const pts = this.points();
+    let settled = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const [a, b] = [pts[i - 1]!, pts[i]!];
+      if (!this.pending.has(a) && !this.pending.has(b) && !this.open(a, b)) settled += b - a;
+    }
+    return Math.min(0.99, settled / Math.max(1, this.last - this.first));
+  }
+
+  probes(): Probe[] {
+    return [...this.heard];
+  }
+
+  private points() {
+    return [...new Set([...this.heard.keys(), ...this.pending])].sort((a, b) => a - b);
+  }
+
+  private open(a: number, b: number) {
+    if (b - a <= this.fine || this.pending.has(a) || this.pending.has(b)) return false;
+    const ka = this.heard.get(a);
+    return ka == null || ka !== this.heard.get(b);
+  }
+
+  private pick(): number | undefined {
+    const near = (t: number) => this.heard.has(t) || this.pending.has(t);
+    while (this.coarse.length) {
+      const t = this.coarse.shift()!;
+      if (!near(t)) return t;
+    }
+    // split the widest unsettled gap first, so the outline sharpens evenly
+    const pts = this.points();
+    let best: [number, number] | undefined;
+    for (let i = 1; i < pts.length; i++) {
+      const [a, b] = [pts[i - 1]!, pts[i]!];
+      if (this.open(a, b) && (!best || b - a > best[1] - best[0])) best = [a, b];
+    }
+    if (best) return Math.round((best[0] + best[1]) / 2);
+    if (this.pending.size) return undefined; // the second chance waits for every split to answer
+    const counts = new Map<string, number>();
+    for (const k of this.heard.values()) if (k) counts.set(k, (counts.get(k) ?? 0) + 1);
+    for (const [at, k] of this.heard) {
+      if (!k || counts.get(k)! > 1 || this.rechecked.has(k)) continue;
+      this.rechecked.add(k);
+      const half = Math.round(this.fine / 2);
+      const t = at + half <= this.last ? at + half : at - half;
+      if (t >= this.first && !near(t)) return t;
+    }
+    return undefined;
+  }
+}
+
+/**
+ * How many lookups run at once. Starts at a few; a 429 from Shazam drops it to one, and a run of answers without one
+ * lets it climb back, so a listen settles just under Shazam's limit instead of stalling on long back-offs.
+ */
+export class Governor {
+  limit: number;
+  private calm = 0;
+  constructor(private readonly max = 3) {
+    this.limit = max;
+  }
+  limited() {
+    this.limit = 1;
+    this.calm = 0;
+  }
+  answered() {
+    if (++this.calm >= 8 && this.limit < this.max) {
+      this.limit++;
+      this.calm = 0;
+    }
+  }
 }

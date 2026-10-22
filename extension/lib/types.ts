@@ -73,6 +73,8 @@ export interface Job {
   phase: 'reading' | 'identifying' | 'review' | 'carting' | 'done';
   /** 0..1 progress through the audio while identifying */
   progress?: number;
+  /** what each listen point heard, so Keep listening carries on where the plan stopped (SoundCloud streams) */
+  probes?: [number, string | null][];
   /** the description held a written tracklist, so no listening was needed */
   tracklistFound?: boolean;
   /** how identification will get audio: SoundCloud's own stream, seeking the page's player, or listening live */

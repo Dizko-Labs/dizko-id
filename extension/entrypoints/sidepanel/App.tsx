@@ -27,8 +27,6 @@ const cartIn = (store: Store) => send({ type: 'panel:cart', stores: [store] });
 
 const LINK = 'underline decoration-toner-3 underline-offset-2 hover:decoration-ink';
 
-const sourceOf = (url: string) =>
-  /youtube\.com/.test(url) ? 'YouTube' : /soundcloud\.com/.test(url) ? 'SoundCloud' : /mixcloud\.com/.test(url) ? 'Mixcloud' : 'Mix';
 
 function when(t: number) {
   const days = Math.floor((new Date().setHours(0, 0, 0, 0) - new Date(t).setHours(0, 0, 0, 0)) / 86_400_000);
@@ -81,12 +79,12 @@ function StoreLinks({ row }: { row: Row }) {
 }
 
 /** The DJ behind the mix, from Dizko: what they play, where they are based, and where they play next. */
-function ArtistBlock({ artist, onName, hideName, claim }: { artist: Artist; onName?: () => void; hideName?: boolean; claim?: boolean }) {
+function ArtistBlock({ artist, onName, hideName, claim, bare }: { artist: Artist; onName?: () => void; hideName?: boolean; claim?: boolean; bare?: boolean }) {
   const [allDates, setAllDates] = useState(false);
   const shown = allDates ? artist.events : artist.events.slice(0, 3);
   const about = [artist.genres.map(titleCase).join(', '), artist.cities.join(', ')].filter(Boolean).join('  ·  ');
   return (
-    <section data-area="dizko" className="border-b border-toner-3 px-4 py-3 text-[13px]">
+    <section data-area="dizko" className={cn('text-[13px]', bare ? 'mt-1' : 'border-b border-toner-3 px-4 py-3')}>
       {!hideName && onName && (
         <button type="button" onClick={onName} className="text-left text-[17px] font-semibold tracking-[-0.02em] hover:underline">{artist.name}</button>
       )}
@@ -606,6 +604,8 @@ export default function App() {
 
   // a SoundCloud mix opened from the library plays in the panel
   const embedded = (fromLibrary || readOnly) && /soundcloud\.com/.test(view.mix.url);
+  // the DJ, when Dizko knows them (never a hosting channel such as Boiler Room)
+  const dj = view.artist && !isPlatform(view.artist.name) ? view.artist : undefined;
 
   const cartButtons = (forBeatport > 0 || forBandcamp > 0) && (
     <div>
@@ -630,13 +630,19 @@ export default function App() {
           <ChevronLeft className="size-6" strokeWidth={2.25} aria-hidden />
           Library
         </button>
-        <h1 className="mt-2 line-clamp-3 text-[26px] leading-[1.05] font-semibold tracking-[-0.03em]">{view.mix.title}</h1>
-        {/* the SoundCloud player below already links the mix and shows its length; the tick count shows the tracks */}
-        {!embedded && <p className="mt-2 flex flex-wrap gap-x-3.5 text-[13px] font-semibold">
-          <a href={view.mix.url} target="_blank" rel="noreferrer" className="underline decoration-1 underline-offset-2">{sourceOf(view.mix.url)}</a>
-          {view.mix.duration ? <span>{time(view.mix.duration)}</span> : null}
-          {view.rows.length > 0 && <span>{view.rows.length} {view.rows.length === 1 ? "track" : "tracks"}</span>}
-        </p>}
+        {/* the DJ leads, with where they play next; the mix follows, its title linking to it */}
+        {dj ? (
+          <>
+            <h1 className="mt-2 text-[26px] leading-[1.05] font-semibold tracking-[-0.03em]">
+              <button type="button" onClick={() => setArtistKey(norm(dj.name))} className="text-left hover:underline">{dj.name}</button>
+            </h1>
+            <ArtistBlock artist={dj} hideName bare />
+          </>
+        ) : (
+          <h1 className="mt-2 line-clamp-3 text-[26px] leading-[1.05] font-semibold tracking-[-0.03em]">
+            <a href={view.mix.url} target="_blank" rel="noreferrer" className="hover:underline">{view.mix.title}</a>
+          </h1>
+        )}
       </header>
 
       {busy && onMixPage && !sameMix && tab && (
@@ -650,9 +656,12 @@ export default function App() {
         </button>
       )}
 
-      {embedded && <div className="border-b border-toner-3 px-4 pb-3"><Player url={view.mix.url} /></div>}
-
-      {view.artist && !isPlatform(view.artist.name) && <ArtistBlock artist={view.artist} onName={() => setArtistKey(norm(view.artist!.name))} />}
+      {(dj || embedded) && (
+        <section data-area="mix" className="border-b border-toner-3 px-4 py-3">
+          {dj && <a href={view.mix.url} target="_blank" rel="noreferrer" className="line-clamp-3 text-[17px] leading-snug font-semibold tracking-[-0.02em] hover:underline">{view.mix.title}</a>}
+          {embedded && <Player url={view.mix.url} />}
+        </section>
+      )}
 
       <section data-area="cart" className="space-y-2.5 border-b border-toner-3 px-4 py-3">
         {readOnly && job && (
