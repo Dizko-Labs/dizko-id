@@ -59,6 +59,20 @@ describe('ListenPlan', () => {
     expect(lookups).toBeLessThanOrEqual(old + 2);
   });
 
+  it('tries a broken lookup once more, then counts it as nothing', () => {
+    const plan = new ListenPlan(600);
+    const first = plan.next()!;
+    plan.fail(first);
+    const seen: number[] = [];
+    for (let t; (t = plan.next()) !== undefined; ) {
+      seen.push(t);
+      if (t === first) plan.fail(t);
+      else plan.record(t, 'a');
+    }
+    expect(seen.filter((t) => t === first)).toHaveLength(1);
+    expect(plan.done).toBe(true);
+  });
+
   it('carries on from saved probes without repeating them', () => {
     const plan = new ListenPlan(1800);
     const first = plan.next()!;

@@ -99,10 +99,23 @@ async function segment(init: string | undefined, url: string): Promise<ClipResul
   return recognize(pcm, buf.sampleRate);
 }
 
+/**
+ * Requests to Shazam leave at most one per SPACING, however many lookups run at once and however many mixes are
+ * listening: this document is shared by all of them. Fetching and decoding still overlap; only the request waits.
+ */
+const SPACING = 1500;
+let nextSlot = 0;
+async function slot() {
+  const at = Math.max(Date.now(), nextSlot);
+  nextSlot = at + SPACING;
+  if (at > Date.now()) await new Promise((r) => setTimeout(r, at - Date.now()));
+}
+
 /** Float PCM (interleaved when stereo) -> shazamio-core signature -> Shazam's tag endpoint. */
 async function recognize(pcm: Float32Array, rate: number, channels = 2): Promise<ClipResult> {
   await ready;
   if (pcm.every((v) => v === 0)) return { error: 'silence' };
+  await slot();
 
   const sig = DecodedSignature.new(pcm, rate, channels);
   const body = { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone, signature: { uri: sig.uri, samplems: sig.samplems }, timestamp: Date.now(), context: {}, geolocation: {} };

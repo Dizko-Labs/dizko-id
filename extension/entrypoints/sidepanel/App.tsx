@@ -398,12 +398,12 @@ function TracklistMenu({ job, onRescan }: { job: Job; onRescan?: () => void }) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="h-9 gap-1 self-start border-toner-2 bg-transparent text-[13px] font-semibold hover:bg-surface">
-          Export tracklist
-          <ChevronDown className="size-4" aria-hidden />
+        <Button variant="ghost" size="sm" className="h-8 gap-0.5 px-2 text-[13px]">
+          Export
+          <ChevronDown className="size-3.5" aria-hidden />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="min-w-52">
+      <DropdownMenuContent align="end" className="min-w-52">
         <DropdownMenuItem onSelect={() => download(job, 'txt')}>Text, with links</DropdownMenuItem>
         <DropdownMenuItem onSelect={() => download(job, 'csv')}>Spreadsheet (CSV)</DropdownMenuItem>
         <DropdownMenuItem onSelect={() => download(job, 'json')}>JSON</DropdownMenuItem>
@@ -663,7 +663,7 @@ export default function App() {
         </section>
       )}
 
-      <section data-area="cart" className="space-y-2.5 border-b border-toner-3 px-4 py-3">
+      <section data-area="cart" className="space-y-2.5 border-b border-toner-3 px-4 py-3 empty:hidden">
         {readOnly && job && (
           <div className="space-y-1.5 text-[13px]">
             <p className="leading-snug text-toner-1">
@@ -757,10 +757,6 @@ export default function App() {
                 </div>
               )}
               {!readOnly && cartButtons}
-              <TracklistMenu
-                job={view}
-                onRescan={sameMix && !busy ? () => send({ type: 'panel:reset' }).then(() => tab && send({ type: 'panel:read', tabId: tab.id })) : undefined}
-              />
             </>
           )
         )}
@@ -773,11 +769,17 @@ export default function App() {
       {view.rows.length > 0 && (
         <div className="flex items-center justify-between border-b border-toner-3 px-4 py-1.5 text-[13px]">
           <span className="text-toner-2">{selected.length} of {view.rows.length} ticked</span>
-          {selected.length === view.rows.length ? (
-            <Button variant="ghost" size="sm" disabled={locked} onClick={() => send({ type: 'panel:select', all: false })} className="-mr-2 h-8 px-2 text-[13px]">Untick all</Button>
-          ) : (
-            <Button variant="ghost" size="sm" disabled={locked} onClick={() => send({ type: 'panel:select', all: true })} className="-mr-2 h-8 px-2 text-[13px]">Tick all</Button>
-          )}
+          <span className="-mr-2 flex items-center">
+            <TracklistMenu
+              job={view}
+              onRescan={sameMix && !busy ? () => send({ type: 'panel:reset' }).then(() => tab && send({ type: 'panel:read', tabId: tab.id })) : undefined}
+            />
+            {selected.length === view.rows.length ? (
+              <Button variant="ghost" size="sm" disabled={locked} onClick={() => send({ type: 'panel:select', all: false })} className="h-8 px-2 text-[13px]">Untick all</Button>
+            ) : (
+              <Button variant="ghost" size="sm" disabled={locked} onClick={() => send({ type: 'panel:select', all: true })} className="h-8 px-2 text-[13px]">Tick all</Button>
+            )}
+          </span>
         </div>
       )}
 

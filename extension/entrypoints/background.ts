@@ -357,17 +357,30 @@ async function ensureOffscreen() {
 const RATE_LIMITED = 'Shazam has paused lookups from your network for a while. Keep listening in about an hour.';
 
 /**
- * One Shazam lookup. A 429 means slow down, so wait and retry the same clip a few times, doubling the wait,
- * before giving up on the whole run with a message the DJ can act on.
+ * Shazam's limit is per network, so one cool-down covers every lookup in every listen: after a 429 they all wait,
+ * then try again, doubling the wait each time. A 429 for a request sent before the last cool-down began is the
+ * same burst and does not count again. After the third, the run gives up with a message the DJ can act on.
  */
+let coolUntil = 0;
+let coolSince = 0;
+let strikes = 0;
+
 async function lookup(get: () => Promise<ClipResult>, onLimited?: () => void): Promise<ClipResult> {
-  for (let wait = 20_000; ; wait *= 2) {
-    const r = await get();
-    if (r.error !== 'shazam 429') return r;
-    onLimited?.();
-    if (wait > 80_000 || stopListening) throw new Error(RATE_LIMITED);
-    await nap(wait);
+  for (;;) {
+    if (Date.now() < coolUntil) await nap(coolUntil - Date.now());
     if (stopListening) return {};
+    const sent = Date.now();
+    const r = await get();
+    if (r.error !== 'shazam 429') {
+      if (!r.error) strikes = 0;
+      return r;
+    }
+    onLimited?.();
+    if (sent >= coolSince) {
+      if (++strikes > 3) throw new Error(RATE_LIMITED);
+      coolSince = Date.now();
+      coolUntil = coolSince + 20_000 * 2 ** (strikes - 1);
+    }
   }
 }
 
@@ -440,12 +453,22 @@ async function listen(before: Job, owner: string, tabId: number | undefined, str
       const running = new Set<Promise<void>>();
       let fatal: unknown;
       let moved = false;
+      // two points in one 10 second segment are the same audio: one lookup, and it counts as one hit
+      const bySegment = new Map<number, Promise<ClipResult>>();
       const probe = async (point: number) => {
         const seg = stream.segments.find((s) => s.start <= point && s.start + s.dur > point);
-        const r = seg ? await lookup(() => offscreen<ClipResult>({ type: 'offscreen:segment', init: stream.init, url: seg.url }), () => governor.limited()) : {};
-        if (r.error) failed = r.error;
-        else governor.answered();
-        if (r.track) hits.push({ at: seg!.start, ...r.track });
+        if (!seg) return plan.record(point, null);
+        const known = bySegment.get(seg.start);
+        const pending = known ?? lookup(() => offscreen<ClipResult>({ type: 'offscreen:segment', init: stream.init, url: seg.url }), () => governor.limited());
+        if (!known) bySegment.set(seg.start, pending);
+        const r = await pending;
+        if (r.error && r.error !== 'silence') {
+          failed = r.error;
+          bySegment.delete(seg.start);
+          return plan.fail(point);
+        }
+        if (!known) governor.answered();
+        if (r.track && !known) hits.push({ at: seg.start, ...r.track });
         plan.record(point, r.track ? hitKey(r.track) : null);
         if (!(await publish(plan.progress(), plan.probes()))) moved = true; // the panel moved on to another mix
       };
@@ -574,9 +597,10 @@ async function tryBandcamp(worker: number, track: Track): Promise<{ status: Row[
     if (!page || !judge(track, page.offer).ok) continue;
     if (!page.buyable) return { status: 'album-only', offer: page.offer };
     const price = page.setPrice ?? Math.max(page.minimum, page.minimum > 0 ? page.minimum : NAME_YOUR_PRICE);
-    const offer = { ...page.offer, price: { ...page.offer.price!, value: price, display: `${price.toFixed(2)} ${page.offer.price!.currency}` } };
     const r = await run(worker, bandcampAddToCart, price, page.offer.title);
-    return { status: r === 'carted' ? 'carted' : 'failed', offer };
+    const paid = r?.paid ?? price;
+    const offer = { ...page.offer, price: { ...page.offer.price!, value: paid, display: `${paid.toFixed(2)} ${page.offer.price!.currency}` } };
+    return { status: r?.result === 'carted' ? 'carted' : 'failed', offer };
   }
   return { status: alternatives.length ? 'version-missing' : 'not-found', alternatives };
 }

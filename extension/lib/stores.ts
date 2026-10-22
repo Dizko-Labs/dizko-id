@@ -111,31 +111,54 @@ export function bandcampReadTrack(): {
   };
 }
 
-/** Open "Buy Digital Track", enter the price, press "Add to cart", and confirm the side cart lists it. */
-export async function bandcampAddToCart(price: number, title: string): Promise<'carted' | 'failed'> {
+/**
+ * Open "Buy Digital Track", enter the price, press "Add to cart", and confirm the side cart lists it. The page data's
+ * minimum can be lower than the one the dialog enforces, so the dialog's own "(2 or more)" wins, and a "minimum
+ * price is" refusal is read and entered once more. Returns the amount entered.
+ */
+export async function bandcampAddToCart(price: number, title: string): Promise<{ result: 'carted' | 'failed'; paid: number }> {
   const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+  const amount = (text: string | undefined) => {
+    const n = Number(text?.replace(/[^\d.,]/g, '').replace(',', '.'));
+    return Number.isFinite(n) && n > 0 ? n : undefined;
+  };
+  const visible = (selector: string) => [...document.querySelectorAll<HTMLElement>(selector)].filter((b) => b.offsetParent);
+  let paid = price;
   const buy = [...document.querySelectorAll<HTMLElement>('button, a')].find((b) => /^\s*buy digital track\s*$/i.test(b.textContent || ''));
-  if (!buy) return 'failed';
+  if (!buy) return { result: 'failed', paid };
   buy.click();
   let input: HTMLInputElement | null = null;
   for (let i = 0; i < 20 && !input; i++) {
     await sleep(200);
     input = document.querySelector<HTMLInputElement>('#userPrice, input[name="userPrice"]');
   }
-  if (input) {
+  const enter = (value: number) => {
+    if (!input) return;
     input.focus();
-    input.value = price.toFixed(2);
+    input.value = value.toFixed(2);
     input.dispatchEvent(new Event('input', { bubbles: true }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
-  }
-  const add = [...document.querySelectorAll<HTMLElement>('button, a')].find((b) => /^\s*add to cart\s*$/i.test(b.textContent || '') && b.offsetParent);
-  if (!add) return 'failed';
+  };
+  const dialog = input?.closest('[role="dialog"], .ui-dialog, form')?.textContent ?? '';
+  paid = Math.max(paid, amount(dialog.match(/\(([^()]*?)\s+or more\)/i)?.[1]) ?? 0);
+  enter(paid);
+  const add = visible('button, a').find((b) => /^\s*add to cart\s*$/i.test(b.textContent || ''));
+  if (!add) return { result: 'failed', paid };
   add.click();
   const want = title.toLowerCase().slice(0, 20);
+  let raised = false;
   for (let i = 0; i < 30; i++) {
     await sleep(250);
     const cart = document.querySelector('#sidecart, .sidecart, [class*="cart"]');
-    if (cart && cart.textContent?.toLowerCase().includes(want)) return 'carted';
+    if (cart && cart.textContent?.toLowerCase().includes(want)) return { result: 'carted', paid };
+    const refusal = document.body.innerText.match(/minimum price is\s*([^\n]+)/i)?.[1];
+    const minimum = amount(refusal?.match(/[\d.,]+/)?.[0]);
+    if (!raised && minimum && minimum > paid) {
+      raised = true;
+      paid = minimum;
+      enter(paid);
+      add.click();
+    }
   }
-  return 'failed';
+  return { result: 'failed', paid };
 }

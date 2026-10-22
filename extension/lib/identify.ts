@@ -59,6 +59,7 @@ export class ListenPlan {
   private readonly pending = new Set<number>();
   private readonly coarse: number[] = [];
   private readonly rechecked = new Set<string>();
+  private readonly retried = new Set<number>();
   private readonly first: number;
   private readonly last: number;
 
@@ -83,6 +84,17 @@ export class ListenPlan {
   record(at: number, heard: string | null) {
     this.pending.delete(at);
     this.heard.set(at, heard);
+  }
+
+  /** A lookup that broke (network, decoding, a Shazam error): try that point once more later, then count it as nothing. */
+  fail(at: number) {
+    this.pending.delete(at);
+    if (this.retried.has(at)) {
+      this.heard.set(at, null);
+      return;
+    }
+    this.retried.add(at);
+    this.coarse.push(at);
   }
 
   /** Nothing left to listen to and nothing waiting on an answer. */
