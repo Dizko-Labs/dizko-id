@@ -63,8 +63,8 @@ Leave unticked: personally identifiable information, health, financial and payme
 ## Test instructions for the reviewer
 
 1. Open https://soundcloud.com/julianahuxtable/its-red-hot-sticks-sustain-yr and click the Dizko ID toolbar icon (or the green Dizko ID button beside Share on the page).
-2. The side panel opens and starts identifying the mix; tracks appear within a minute or two.
-3. Tick tracks and press Beatport cart or Bandcamp cart. This needs the reviewer's own Beatport or Bandcamp login; nothing is purchased, the extension only adds to the cart.
+2. The side panel opens on the mix. Press Whole mix; tracks appear within a minute or two.
+3. Tick tracks and press Add to Beatport or Add to Bandcamp. This needs the reviewer's own Beatport or Bandcamp login; nothing is purchased, the extension only adds to the cart.
 
 ## Images
 
