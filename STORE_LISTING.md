@@ -33,7 +33,7 @@ Identify the tracks in a SoundCloud DJ mix the user opens, so they can add them 
 - `sidePanel`: the extension's whole interface is a side panel beside the mix.
 - `offscreen`: an offscreen document decodes short clips of the mix's audio with Web Audio and turns them into fingerprints (bundled WebAssembly); a service worker has no Web Audio.
 - `scripting`: runs the extension's own packaged functions in a Beatport or Bandcamp tab. When the user presses a cart button, they search for the ticked tracks and add them to the user's cart. After a mix's tracks are found, a Beatport tab opened in the background looks each one up to show its BPM, key and length and link the exact release.
-- `storage`: keeps the user's library of mixes, settings and Dizko sign-in token on their device.
+- `storage`: keeps the user's library of mixes and their settings on their device.
 - `unlimitedStorage`: the library (up to 50 mixes with their tracks and matches) can exceed the default quota, which would interrupt identification.
 
 **Host permissions:**
