@@ -23,7 +23,7 @@ import sys
 import unicodedata
 from pathlib import Path
 
-MIX_CACHE = Path.home() / ".cache/mix-to-cart"
+MIX_CACHE = Path.home() / ".cache/dizko-id"
 _FFMPEG = shutil.which("ffmpeg") or "ffmpeg"
 _FFPROBE = shutil.which("ffprobe") or "ffprobe"
 INSTALL = "macOS: brew install ffmpeg yt-dlp | Debian/Ubuntu: sudo apt install ffmpeg yt-dlp | Windows: winget install Gyan.FFmpeg yt-dlp.yt-dlp"

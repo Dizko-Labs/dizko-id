@@ -1,4 +1,4 @@
-# Dizko ID (repo: mix-to-cart)
+# Dizko ID
 
 Read this first. It is the handoff for the next session: what exists, how it works, what was decided, how the owner likes to work, and what is left. Keep it current when you change something that a future session would need to know.
 
@@ -6,8 +6,8 @@ Read this first. It is the handoff for the next session: what exists, how it wor
 
 Two things live here:
 
-- **Dizko ID**, a Chrome MV3 extension in `extension/` (WXT 0.21, React 19, Tailwind v4, shadcn components). It was called Mix to Cart until 2026-10-21; the repo and branch names were kept. A DJ opens a mix on SoundCloud, YouTube or Mixcloud, the side panel finds every track, shows the DJ's Dizko profile and dates, and fills Beatport/Bandcamp carts or playlists. It never checks out.
-- **The original Claude skill** (`SKILL.md`, `scripts/trackid.py`), on `main`, symlinked into `~/.claude/skills/mix-to-cart`. Identifies a mix with Shazam and carts it through Claude in Chrome.
+- **Dizko ID**, a Chrome MV3 extension in `extension/` (WXT 0.21, React 19, Tailwind v4, shadcn components). It was called Mix to Cart until 2026-10-21; on 2026-10-22 everything was renamed Dizko ID: the GitHub repo is Dizko-Labs/dizko-id, the local folder `~/code/Dizko-Labs/Dizko ID` (quote the space), the package and store zip `dizko-id`, and the Claude skill `dizko-id`. Branch names are unchanged. A DJ opens a mix on SoundCloud, YouTube or Mixcloud, the side panel finds every track, shows the DJ's Dizko profile and dates, and fills Beatport/Bandcamp carts or playlists. It never checks out.
+- **The original Claude skill** (`SKILL.md`, `scripts/trackid.py`), on `main`, symlinked into `~/.claude/skills/dizko-id`. Identifies a mix with Shazam and carts it through Claude in Chrome.
 
 Branch state (2026-10-21): all extension work is on `extension` (pushed, not merged to `main`, no PR opened yet). Ask before merging to `main`.
 
@@ -59,7 +59,7 @@ SoundCloud only (2026-10-21, owner's call). YouTube and Mixcloud listening works
 
 ## Open work
 
-Status 2026-10-21 (end of session): v0.1.0, SoundCloud only, being packaged for the Chrome Web Store. Checklist: `CHROME_WEB_STORE.md`; paste-ready listing and privacy-tab answers: `STORE_LISTING.md`; zip: `cd extension && npm run zip` (`.output/mix-to-cart-0.1.0-chrome.zip`, 827 KB).
+Status 2026-10-21 (end of session): v0.1.0, SoundCloud only, being packaged for the Chrome Web Store. Checklist: `CHROME_WEB_STORE.md`; paste-ready listing and privacy-tab answers: `STORE_LISTING.md`; zip: `cd extension && npm run zip` (`.output/dizko-id-0.1.0-chrome.zip`, 827 KB).
 
 1. Privacy policy: Dizko ID section added to Dizko's existing policy, EventChat PR #849 (branch `docs/privacy-dizko-id`, `https://www.dizko.app/privacy-policy.html#dizko-id`). Its `scripts/ci.sh --report` was running at session end. Owner approved: merge once green (owner merges if the permission check refuses Claude), then `npm run deploy:production` in EventChat `web/` from a clean master checkout. The extension already links it (Settings and the consent prompt).
 2. Owner: register the Chrome Web Store developer account (fee, 2-Step Verification), upload the zip without publishing; then copy the public key (Package tab) into `manifest.key` in `wxt.config.ts` so unpacked and store builds share an id (Link to Dizko's OAuth redirect depends on it), rebuild, re-upload.

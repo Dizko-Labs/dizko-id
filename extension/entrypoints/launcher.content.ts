@@ -8,7 +8,7 @@ export default defineContentScript({
   matches: ['https://soundcloud.com/*'],
   allFrames: true,
   main() {
-    const MARK = 'data-mix-to-cart';
+    const MARK = 'data-dizko-id';
     // Reloading the extension leaves this script's buttons in open tabs, cut off from the new extension. Each run
     // stamps its own buttons, replaces anyone else's, and turns its own into a reload prompt once it is cut off.
     const RUN = crypto.randomUUID();

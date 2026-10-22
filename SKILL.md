@@ -1,9 +1,9 @@
 ---
-name: mix-to-cart
+name: dizko-id
 description: Identify the tracks in a DJ mix (SoundCloud, Mixcloud or YouTube link, or a local audio file) and add each one to the user's Beatport cart, falling back to Bandcamp, so they can buy the whole set in one checkout. Use when the user shares a mix link and wants to buy, cart, or shop for its tracks.
 ---
 
-# Mix to cart
+# Dizko ID
 
 Turn a mix into a filled shopping cart. Two stages:
 
