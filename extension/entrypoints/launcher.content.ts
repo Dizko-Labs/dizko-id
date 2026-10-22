@@ -116,9 +116,9 @@ export default defineContentScript({
       row.appendChild(button);
     };
 
-    /** Listings (profiles, streams): a button on each single track, which opens that track and starts there. */
+    /** Listings (profiles, streams, search results): a button on each single track, which opens that track and starts there. */
     const placeInList = () => {
-      for (const item of document.querySelectorAll<HTMLElement>('.soundList__item')) {
+      for (const item of document.querySelectorAll<HTMLElement>('.soundList__item, .searchList__item')) {
         // single tracks only: albums, sets and playlists are many uploads, not one mix
         const link = item.querySelector<HTMLAnchorElement>('a.soundTitle__title');
         if (item.querySelector('.sound.playlist') || /\/sets\//.test(link?.getAttribute('href') ?? '')) continue;

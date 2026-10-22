@@ -3,6 +3,8 @@ import type { Track } from './types';
 /** background -> content script on the mix page */
 export type SourceRequest =
   | { type: 'source:info' }
+  /** what SoundCloud's player bar has loaded, on any page (search, a profile, the feed) */
+  | { type: 'source:playing' }
   | { type: 'source:seek'; at: number }
   | { type: 'source:pause' }
   /** `seconds` of the page player's own audio as 16 kHz mono, muting the player first when `mute` */
@@ -64,7 +66,8 @@ export type PanelRequest =
   | { type: 'panel:dizko-link'; follow: boolean }
   | { type: 'panel:dizko-sync' }
   | { type: 'panel:dizko-unlink' }
-  | { type: 'panel:identify'; tabId: number; resume?: boolean }
+  /** listen to the mix in a tab, or (SoundCloud) by its URL with no tab; `range` is the stretch to hear, in seconds */
+  | { type: 'panel:identify'; tabId?: number; url?: string; resume?: boolean; range?: [number, number] }
   | { type: 'panel:switch'; tabId: number }
   | { type: 'panel:toggle'; index: number }
   | { type: 'panel:select'; all: boolean }

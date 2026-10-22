@@ -5,6 +5,7 @@ import { SettingsPage, useSettings } from './Settings';
 import { useStored } from './useStored';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Input } from '@/components/ui/input';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -12,6 +13,7 @@ import { isPlatform, type Artist } from '@/lib/dizko';
 import { fileName, time, toCsv, toJson, toText } from '@/lib/export';
 import { djOf, mixKey, type Saved } from '@/lib/history';
 import { links } from '@/lib/links';
+import { parseClock } from '@/lib/identify';
 import { norm } from '@/lib/match';
 import { TAB_AUDIO_NEEDED, type PanelRequest } from '@/lib/messages';
 import { profileOf, type Upload } from '@/lib/soundcloud';
@@ -20,7 +22,13 @@ import { BANDCAMP_CARTABLE, BEATPORT_CARTABLE, coverage, type Job, trackKey, typ
 import { cn } from '@/lib/utils';
 
 // SoundCloud only for the first release; YouTube (www\.youtube\.com\/watch) and Mixcloud come back in an update
-const MIX_SITES = /^https:\/\/soundcloud\.com\/[^/]+\/[^/]+/;
+const NOT_A_DJ = /^(discover|stations|search|you|feed|charts|upload|settings|messages|notifications|pages|terms-of-use|tags|n|people)$/;
+const NOT_A_TRACK = /^(tracks|sets|albums|popular-tracks|reposts|likes|following|followers|comments|spotlight)$/;
+/** A SoundCloud track page (soundcloud.com/dj/track), not a profile tab or a section of the site. */
+const isMixPage = (url: string) => {
+  const m = url.match(/^https:\/\/soundcloud\.com\/([^/?#]+)\/([^/?#]+)/);
+  return !!m && !NOT_A_DJ.test(m[1]!) && !NOT_A_TRACK.test(m[2]!);
+};
 
 const send = (msg: PanelRequest & { streamId?: string }) => browser.runtime.sendMessage(msg);
 const cartIn = (store: Store) => send({ type: 'panel:cart', stores: [store] });
@@ -420,6 +428,53 @@ function TracklistMenu({ job, onRescan }: { job: Job; onRescan?: () => void }) {
   );
 }
 
+/**
+ * Before listening: the whole mix, or only a stretch of it (a track near the end need not cost a full listen).
+ * Times read as 45:00, 1:05:00, or plain minutes.
+ */
+function ListenChoice({ duration, disabled, onStart }: { duration?: number; disabled: boolean; onStart: (range?: [number, number]) => void }) {
+  const [section, setSection] = useState(false);
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const start = parseClock(from || '0');
+  const end = to ? parseClock(to) : duration;
+  const valid = start != null && end != null && start < end && (!duration || end <= duration + 1);
+  const field = 'h-10 rounded-[0.75rem] border-toner-2 bg-transparent text-[15px] text-ink tabular-nums';
+  if (!section) {
+    return (
+      <div className="grid grid-cols-2 gap-2">
+        <Button disabled={disabled} onClick={() => onStart()} className="h-10 text-[14px] font-semibold">Whole mix</Button>
+        <Button variant="outline" disabled={disabled} onClick={() => setSection(true)} className="h-10 border-toner-2 bg-transparent text-[14px] font-semibold hover:bg-surface">A section</Button>
+      </div>
+    );
+  }
+  return (
+    <form
+      className="space-y-2"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (valid) onStart([start!, end!]);
+      }}
+    >
+      <div className="grid grid-cols-2 gap-2">
+        <label className="space-y-1 text-[12px] font-semibold text-toner-1">
+          From
+          <Input autoFocus inputMode="numeric" placeholder="0:00" value={from} onChange={(e) => setFrom(e.target.value)} className={field} />
+        </label>
+        <label className="space-y-1 text-[12px] font-semibold text-toner-1">
+          To
+          <Input inputMode="numeric" placeholder={duration ? time(duration) : '1:00:00'} value={to} onChange={(e) => setTo(e.target.value)} className={field} />
+        </label>
+      </div>
+      {(from || to) && !valid && <p className="text-[12px] text-miss">Use times inside the mix, like 45:00 or 1:05:00.</p>}
+      <div className="grid grid-cols-2 gap-2">
+        <Button type="submit" disabled={disabled || !valid} className="h-10 text-[14px] font-semibold">Listen to this part</Button>
+        <Button type="button" variant="outline" disabled={disabled} onClick={() => onStart()} className="h-10 border-toner-2 bg-transparent text-[14px] font-semibold hover:bg-surface">Whole mix</Button>
+      </div>
+    </form>
+  );
+}
+
 // ---- the panel
 
 export default function App() {
@@ -441,10 +496,12 @@ export default function App() {
     window.addEventListener('dizko-settings', show);
     return () => window.removeEventListener('dizko-settings', show);
   }, []);
-  const onMixPage = !!tab && MIX_SITES.test(tab.url);
+  const onMixPage = !!tab && isMixPage(tab.url);
   const sameMix = !!job && !!tab && mixKey(job.mix.url) === mixKey(tab.url);
   const fromLibrary = !!job && !!opened && !sameMix && mixKey(job.mix.url) === mixKey(opened);
   const busy = job?.phase === 'identifying' || job?.phase === 'carting' || !!job?.listening;
+  // the live mix can be listened to from its tab, or by URL when SoundCloud read it without one
+  const canListen = !!job && !busy && (sameMix || /^https:\/\/soundcloud\.com\//.test(job.mix.url));
 
   // Read the page as soon as the panel opens on a mix that is not already loaded
   useEffect(() => {
@@ -454,14 +511,25 @@ export default function App() {
     if (onMixPage) setOpened(null);
     if (tab && onMixPage && !sameMix && !busy) {
       send({ type: 'panel:read', tabId: tab.id }).then((r) => setError(r?.error ?? ''));
+    } else if (tab && !onMixPage && !busy && /^https:\/\/soundcloud\.com\//.test(tab.url)) {
+      // search, a profile, the feed: the mix the DJ is listening to is the one in SoundCloud's player
+      browser.tabs.sendMessage(tab.id, { type: 'source:playing' }).then((p: { url?: string; playing: boolean } | undefined) => {
+        if (p?.playing && p.url && isMixPage(p.url) && (!job || mixKey(job.mix.url) !== mixKey(p.url))) scan(p.url);
+      }).catch(() => {});
     }
   }, [tab?.id, tab?.url]);
 
   // Chrome hands over a tab's audio only after the DJ invokes the extension on that tab (its toolbar icon);
   // a click inside the panel does not count. Until then the panel asks for that click and keeps trying.
   const [needsIcon, setNeedsIcon] = useState<{ tabId: number; resume: boolean } | null>(null);
-  async function listen(resume = false, tabAudio = false) {
-    if (!tab) return;
+  async function listen(resume = false, tabAudio = false, range?: [number, number]) {
+    if (!job) return;
+    // a mix read by URL (Scan mix, or what the player was playing) is heard from its own stream
+    if (!sameMix || !tab) {
+      setError('');
+      const r = await send({ type: 'panel:identify', url: job.mix.url, resume, range });
+      return setError(r?.error ?? '');
+    }
     try {
       // SoundCloud is fingerprinted from its own stream, YouTube and Mixcloud from the page's player; Chrome's tab
       // capture only when a page will not share its player's audio
@@ -470,7 +538,7 @@ export default function App() {
       const streamId = tabAudio ? await browser.tabCapture.getMediaStreamId({ targetTabId: tab.id }) : undefined;
       setError('');
       setNeedsIcon(null);
-      await send({ type: 'panel:identify', tabId: tab.id, streamId, resume });
+      await send({ type: 'panel:identify', tabId: tab.id, streamId, resume, range });
     } catch (e) {
       const why = String(e).replace(/^Error: /, '');
       if (/not been invoked|activeTab/i.test(why)) {
@@ -498,15 +566,6 @@ export default function App() {
     }, 1500);
     return () => clearInterval(timer);
   }, [needsIcon, tab?.id, sameMix]);
-
-  // A mix with no written tracklist starts identifying as soon as the panel has read it, once per mix; the
-  // button below only comes back if that listen could not start
-  const started = useRef(new Set<string>());
-  useEffect(() => {
-    if (!prefs.ready || !prefs.autoListen || !job || !sameMix || busy || job.phase !== 'reading' || job.rows.length || started.current.has(mixKey(job.mix.url))) return;
-    started.current.add(mixKey(job.mix.url));
-    listen();
-  }, [job?.mix.url, job?.phase, sameMix, prefs.ready, prefs.autoListen]);
 
   /** Scan a mix from an artist page without opening it: the panel moves to it while it is read and heard. */
   async function scan(url: string) {
@@ -688,22 +747,23 @@ export default function App() {
         {view.phase === 'reading' && !view.rows.length && (
           <>
             <p className="text-[14px] leading-snug">
-              {needsIcon ? 'Click the Dizko ID icon in your toolbar to start listening.' : error ? 'Listening could not start.' : prefs.autoListen ? 'No tracklist in the description, so it listens to the mix.' : 'No tracklist in the description. Dizko ID can listen to the mix to find the tracks.'}
+              {needsIcon ? 'Click the Dizko ID icon in your toolbar to start listening.' : error ? 'Listening could not start.' : 'No tracklist in the description.'}
               {needsIcon ? '' : view.method === 'seek' ? ' This tab stays quiet while it jumps through.' : view.method === 'live' ? ' Press play and leave it running.' : ''}
             </p>
-            {!needsIcon && (error || !prefs.autoListen) && <Button onClick={() => listen()} disabled={!sameMix || readOnly} className="h-10 w-full text-[15px] font-semibold">{error ? 'Try again' : 'Identify tracks'}</Button>}
+            {!needsIcon && <ListenChoice duration={view.mix.duration} disabled={!canListen || readOnly} onStart={(range) => listen(false, false, range)} />}
           </>
         )}
         {(view.phase === 'identifying' || (view.phase === 'carting' && view.listening)) && (
           <div className="space-y-1.5">
             <div className="flex items-baseline justify-between">
-              <span className="text-[14px] font-semibold">Listening</span>
-              <span className="flex items-baseline gap-3">
-                <button type="button" onClick={() => send({ type: 'panel:stop-listening' })} className="text-[12px] text-toner-2 hover:text-ink hover:underline">Stop</button>
-                <span className="text-[18px] font-semibold tabular-nums">{progress}%</span>
+              <span className="text-[14px] font-semibold">
+                {view.cooling ? 'Waiting for Shazam' : 'Listening'}
+                {view.range && <span className="font-normal text-toner-1">{`  ${time(view.range[0])} to ${time(view.range[1])}`}</span>}
               </span>
+              <span className="text-[18px] font-semibold tabular-nums">{progress}%</span>
             </div>
             <Progress value={progress} className="h-1.5 bg-toner-3 [&>*]:bg-fill" />
+            <Button variant="outline" size="sm" onClick={() => send({ type: 'panel:stop-listening' })} className="mt-1 h-8 border-toner-2 bg-transparent px-4 text-[13px] font-semibold hover:bg-surface">Stop listening</Button>
             {view.following && playlistUrl && (
               <p className="text-[13px] text-toner-1">
                 New finds go straight into your <a href={playlistUrl} target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1">Beatport playlist</a>.
@@ -749,7 +809,7 @@ export default function App() {
                   <div className="flex items-baseline justify-between">
                     <span className="text-[14px] font-semibold">Listening paused</span>
                     <span className="flex items-baseline gap-3">
-                      {sameMix ? (
+                      {canListen && !readOnly ? (
                         <button type="button" onClick={() => listen(true)} className="text-[13px] font-semibold underline decoration-1 underline-offset-2">Keep listening</button>
                       ) : (
                         <a href={view.mix.url} target="_blank" rel="noreferrer" className="text-[13px] font-semibold underline decoration-1 underline-offset-2">Open the mix to finish</a>

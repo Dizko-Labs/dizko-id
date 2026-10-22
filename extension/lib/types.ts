@@ -80,6 +80,10 @@ export interface Job {
   /** how identification will get audio: SoundCloud's own stream, seeking the page's player, or listening live */
   method?: 'stream' | 'seek' | 'live';
   waitingFor?: 'beatport-login' | 'store-check';
+  /** the stretch of the mix the DJ asked to hear, in seconds; the whole mix when absent */
+  range?: [number, number];
+  /** the listen is waiting out a Shazam cool-down (a 429) before its next lookup */
+  cooling?: boolean;
   /** still identifying in the background; true alongside a cart run started mid-listen */
   listening?: boolean;
   /** new finds go straight into the mix's Beatport playlist while listening continues */

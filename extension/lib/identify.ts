@@ -63,15 +63,21 @@ export class ListenPlan {
   private readonly first: number;
   private readonly last: number;
 
-  constructor(readonly duration: number, seed: Probe[] = []) {
-    this.fine = samplePoints(duration).every;
+  private readonly outline: number;
+
+  /** `range` limits the listen to a stretch of the mix, in seconds, when the DJ only wants part of it. */
+  constructor(readonly duration: number, seed: Probe[] = [], range?: [number, number]) {
+    const [from, to] = range ?? [0, duration];
+    // the spacing follows the stretch being heard, so a short section is listened to as closely as a short mix
+    this.fine = samplePoints(to - from).every;
     // a power-of-two multiple of the fine spacing, so halving a gap lands on it exactly
     const step = this.fine * 4;
-    this.first = 5;
-    this.last = Math.max(this.first, duration - 15);
+    this.first = Math.max(5, from);
+    this.last = Math.max(this.first, Math.min(to, duration - 15));
     for (let t = this.first; t < this.last; t += step) this.coarse.push(t);
     this.coarse.push(this.last);
-    for (const [at, k] of seed) this.heard.set(at, k);
+    this.outline = this.coarse.length;
+    for (const [at, k] of seed) if (at >= this.first && at <= this.last) this.heard.set(at, k);
   }
 
   /** The next point to listen at, or undefined when nothing can be chosen until a pending lookup answers. */
@@ -102,15 +108,23 @@ export class ListenPlan {
     return !this.pending.size && this.pick() === undefined;
   }
 
-  /** Share of the mix settled: covered by a gap that needs no more listening. */
+  /**
+   * How far along the listen is: the outline pass counts for the first 40%, so finds show movement straight away,
+   * and the rest is the share of the stretch settled (covered by a gap that needs no more listening).
+   */
   progress(): number {
+    const outlined = 1 - this.coarse.filter((t) => !this.retried.has(t)).length / Math.max(1, this.outline);
+    return Math.min(0.99, 0.4 * outlined + 0.6 * this.settled());
+  }
+
+  private settled(): number {
     const pts = this.points();
     let settled = 0;
     for (let i = 1; i < pts.length; i++) {
       const [a, b] = [pts[i - 1]!, pts[i]!];
       if (!this.pending.has(a) && !this.pending.has(b) && !this.open(a, b)) settled += b - a;
     }
-    return Math.min(0.99, settled / Math.max(1, this.last - this.first));
+    return settled / Math.max(1, this.last - this.first);
   }
 
   probes(): Probe[] {
@@ -175,4 +189,13 @@ export class Governor {
       this.calm = 0;
     }
   }
+}
+
+/** "1:05:30", "45:00", "45" (minutes) -> seconds; undefined when it cannot be read. */
+export function parseClock(text: string): number | undefined {
+  const parts = text.trim().split(':');
+  if (!text.trim() || parts.length > 3 || parts.some((p) => !/^\d+$/.test(p))) return undefined;
+  const n = parts.map(Number);
+  if (n.length === 1) return n[0]! * 60;
+  return n.reduce((t, v) => t * 60 + v, 0);
 }

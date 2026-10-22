@@ -216,10 +216,14 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
     }
     case 'panel:switch':
       return switchTo(msg.tabId);
-    case 'panel:identify':
+    case 'panel:identify': {
       stopListening = false;
-      identify(msg.tabId, msg.streamId, msg.resume).catch(() => {});
+      // a mix read by URL (Scan mix, or what the player was playing) is heard from its own stream, with no tab
+      const info = msg.url ? await soundcloudInfo(msg.url).catch(() => undefined) : undefined;
+      if (msg.url && !info?.stream) return { error: 'SoundCloud would not hand over this mix\'s audio. Open it to listen.' };
+      identify(msg.tabId, msg.streamId, msg.resume, info, msg.range).catch(() => {});
       return { ok: true };
+    }
     case 'panel:toggle':
       await update((job) => ({ ...job, rows: job.rows.map((r, i) => (i === msg.index ? { ...r, selected: !r.selected } : r)) }));
       return { ok: true };
@@ -297,11 +301,8 @@ async function scan(url: string) {
   if (now && busy(now)) await settle();
   const info = await soundcloudInfo(url);
   const job = await readInfo(info);
-  if (job.phase === 'reading' && !job.rows.length) {
-    if (!info.stream) return { error: 'SoundCloud would not hand over this mix\'s audio. Open it to listen.' };
-    stopListening = false;
-    identify(undefined, undefined, false, info).catch(() => {});
-  }
+  // listening waits for the DJ to choose the whole mix or a section
+  if (job.phase === 'reading' && !job.rows.length && !info.stream) return { error: 'SoundCloud would not hand over this mix\'s audio. Open it to listen.' };
   return { ok: true, url: job.mix.url };
 }
 
@@ -365,9 +366,14 @@ let coolUntil = 0;
 let coolSince = 0;
 let strikes = 0;
 
-async function lookup(get: () => Promise<ClipResult>, onLimited?: () => void): Promise<ClipResult> {
+async function lookup(get: () => Promise<ClipResult>, onLimited?: () => void, onCooling?: (on: boolean) => unknown): Promise<ClipResult> {
   for (;;) {
-    if (Date.now() < coolUntil) await nap(coolUntil - Date.now());
+    if (Date.now() < coolUntil) {
+      // the panel says why nothing is moving, rather than sitting at a silent percentage
+      await onCooling?.(true);
+      await nap(coolUntil - Date.now());
+      await onCooling?.(false);
+    }
     if (stopListening) return {};
     const sent = Date.now();
     const r = await get();
@@ -388,7 +394,7 @@ async function lookup(get: () => Promise<ClipResult>, onLimited?: () => void): P
  * Listen to a mix. `tabId` is the mix's tab; a SoundCloud mix read by URL (`given`) needs none, since its own
  * stream is fingerprinted directly.
  */
-async function identify(tabId: number | undefined, streamId?: string, resume = false, given?: SourceInfo) {
+async function identify(tabId: number | undefined, streamId?: string, resume = false, given?: SourceInfo, range?: [number, number]) {
   // a mix read by URL is claimed before any await, so nothing slips in between the scan and the listen
   const claimed = given && mixKey(given.url);
   if (claimed && listening.has(claimed)) return;
@@ -399,7 +405,7 @@ async function identify(tabId: number | undefined, streamId?: string, resume = f
   if (owner !== claimed && listening.has(owner)) return;
   listening.add(owner);
   try {
-    await listen(before, owner, tabId, streamId, resume, given);
+    await listen(before, owner, tabId, streamId, resume, given, range);
   } catch (e) {
     // the error belongs to this mix, even if the panel has moved to another since
     await update((job) => ({ ...job, phase: job.phase === 'identifying' ? 'review' : job.phase, listening: false, error: message(e) }), owner);
@@ -408,10 +414,12 @@ async function identify(tabId: number | undefined, streamId?: string, resume = f
   }
 }
 
-async function listen(before: Job, owner: string, tabId: number | undefined, streamId: string | undefined, resume: boolean, given?: SourceInfo) {
+async function listen(before: Job, owner: string, tabId: number | undefined, streamId: string | undefined, resume: boolean, given?: SourceInfo, asked?: [number, number]) {
+  // a resumed listen keeps the stretch it was asked for; a new one takes the DJ's choice (the whole mix when none)
+  const range = resume ? before.range : asked;
   // Keep listening picks up at the point it stopped, with what it had already heard
   const from = resume ? coverage(before) ?? 0 : 0;
-  await update((job) => ({ ...job, phase: job.phase === 'carting' ? 'carting' : 'identifying', listening: true, progress: from, error: undefined }), owner);
+  await update((job) => ({ ...job, phase: job.phase === 'carting' ? 'carting' : 'identifying', listening: true, progress: from, range, error: undefined }), owner);
   const info = given ?? (await ask<SourceInfo>(tabId!, { type: 'source:info' }));
   await ensureOffscreen();
   // YouTube and Mixcloud: the page's own player first (no permission needed); tab capture only when the panel
@@ -425,6 +433,7 @@ async function listen(before: Job, owner: string, tabId: number | undefined, str
     if (c.error || !c.pcm) return { error: c.error ?? 'silence' };
     return offscreen<ClipResult>({ type: 'offscreen:pcm', pcm: c.pcm, rate: c.rate! });
   };
+  const cooling = (on: boolean) => update((job) => ({ ...job, cooling: on || undefined }), owner);
   const hits: Hit[] = resume
     ? before.rows.flatMap((r) => Array.from({ length: r.track.hits }, () => ({ at: r.track.at ?? 0, artist: r.track.artist, title: r.track.title, isrc: r.track.isrc })))
     : [];
@@ -448,7 +457,7 @@ async function listen(before: Job, owner: string, tabId: number | undefined, str
       // SoundCloud: any point of the stream can be fetched, so listen where the plan says and a few at a time
       const stream = info.stream;
       const seed: Probe[] = !resume ? [] : before.probes ?? before.rows.map((r) => [r.track.at ?? 0, hitKey(r.track)]);
-      const plan = new ListenPlan(info.duration, seed);
+      const plan = new ListenPlan(info.duration, seed, range);
       const governor = new Governor();
       const running = new Set<Promise<void>>();
       let fatal: unknown;
@@ -459,7 +468,7 @@ async function listen(before: Job, owner: string, tabId: number | undefined, str
         const seg = stream.segments.find((s) => s.start <= point && s.start + s.dur > point);
         if (!seg) return plan.record(point, null);
         const known = bySegment.get(seg.start);
-        const pending = known ?? lookup(() => offscreen<ClipResult>({ type: 'offscreen:segment', init: stream.init, url: seg.url }), () => governor.limited());
+        const pending = known ?? lookup(() => offscreen<ClipResult>({ type: 'offscreen:segment', init: stream.init, url: seg.url }), () => governor.limited(), cooling);
         if (!known) bySegment.set(seg.start, pending);
         const r = await pending;
         if (r.error && r.error !== 'silence') {
@@ -485,12 +494,13 @@ async function listen(before: Job, owner: string, tabId: number | undefined, str
       await Promise.all(running);
       if (fatal !== undefined) throw fatal;
     } else if (info.seekable && info.duration) {
-      const { at, clip } = samplePoints(info.duration);
+      const { clip } = samplePoints(info.duration);
+      const at = samplePoints(info.duration).at.filter((t) => !range || (t >= range[0] && t <= range[1]));
       for (let i = Math.floor(from * at.length); i < at.length && !stopListening; i++) {
         const point = at[i]!;
         await ask(tabId!, { type: 'source:seek', at: point });
         // muted while it jumps through, so the DJ does not hear it skip
-        const r = await lookup(() => take(clip, true));
+        const r = await lookup(() => take(clip, true), undefined, cooling);
         if (r.error) failed = r.error;
         if (r.track) hits.push({ at: point, ...r.track });
         if (!(await publish((i + 1) / at.length))) break; // the panel moved on to another mix
@@ -502,7 +512,7 @@ async function listen(before: Job, owner: string, tabId: number | undefined, str
       while (!stopListening && (Date.now() - started) / 1000 < limit) {
         const at = (Date.now() - started) / 1000;
         // live: the DJ is listening along, so the player keeps its sound
-        const r = await lookup(() => take(10, false));
+        const r = await lookup(() => take(10, false), undefined, cooling);
         if (r.track) hits.push({ at, ...r.track });
         if (!(await publish(Math.min(1, at / limit)))) break;
         await nap(20_000);
@@ -525,7 +535,7 @@ async function listen(before: Job, owner: string, tabId: number | undefined, str
     const now = await getJob();
     const finished = now && mixKey(now.mix.url) === owner ? now.rows : [];
     track('identify_end', { method: info.stream ? 'stream' : info.seekable ? 'seek' : 'live', tracks: finished.length, confirmed: finished.filter((r) => r.track.hits >= 2).length, stopped: stoppedEarly, resumed: resume });
-    await update((job) => ({ ...job, phase: job.phase === 'identifying' ? 'review' : job.phase, listening: false, progress: completed ? 1 : job.progress }), owner);
+    await update((job) => ({ ...job, phase: job.phase === 'identifying' ? 'review' : job.phase, listening: false, cooling: undefined, progress: completed ? 1 : job.progress }), owner);
     enrich().catch(() => {});
     syncTaste();
   }

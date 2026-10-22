@@ -1,5 +1,4 @@
 import { ChevronLeft } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { DEFAULTS, setSetting, type Settings as S } from '@/lib/settings';
 import { UsageSetting } from './Consent';
@@ -52,13 +51,6 @@ export function SettingsPage({ onBack, motion }: { onBack: () => void; motion?: 
           <Choice label="Marketplace" field="marketplace" value={s.marketplace} options={[{ value: 'beatport', label: 'Beatport' }, { value: 'bandcamp', label: 'Bandcamp' }]} />
           <Choice label="Track previews" field="preview" value={s.preview} options={[{ value: 'beatport', label: 'Beatport' }, { value: 'apple', label: 'Apple' }, { value: 'off', label: 'Off' }]} />
           <Choice label="Appearance" field="theme" value={s.theme} options={[{ value: 'system', label: 'System' }, { value: 'dark', label: 'Dark' }, { value: 'light', label: 'Light' }]} />
-          <label className="flex items-center justify-between gap-4 py-3.5">
-            <span>
-              <span className="block text-[14px] font-semibold">Start listening by itself</span>
-              <span className="mt-0.5 block text-[12px] leading-snug text-toner-2">When a mix has no tracklist</span>
-            </span>
-            <Switch checked={s.autoListen} onCheckedChange={(v) => setSetting('autoListen', v)} className="data-[state=checked]:bg-acid data-[state=unchecked]:bg-toner-3" />
-          </label>
         </div>
       </section>
 

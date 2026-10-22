@@ -185,10 +185,35 @@ async function clip(seconds: number, mute: boolean): Promise<PageClip> {
   return { pcm: btoa(bin), rate: RATE };
 }
 
+/**
+ * The track in SoundCloud's player bar and whether it is playing. The bar can sit in this page or in the
+ * same-origin soundcloud.com/n/ frame the newer pages render into.
+ */
+function playing(): { url?: string; playing: boolean } {
+  const docs = [document, ...[...document.querySelectorAll('iframe')].map((f) => {
+    try {
+      return f.contentDocument;
+    } catch {
+      return null;
+    }
+  })].filter((d): d is Document => !!d);
+  for (const d of docs) {
+    const link = d.querySelector<HTMLAnchorElement>('a.playbackSoundBadge__titleLink');
+    const href = link?.getAttribute('href');
+    if (!href) continue;
+    const url = new URL(href, 'https://soundcloud.com');
+    // the player links "in=" the list it was started from; the mix is the path alone
+    return { url: url.origin + url.pathname, playing: !!d.querySelector('.playControls__play.playing') };
+  }
+  return { playing: false };
+}
+
 async function handle(msg: SourceRequest): Promise<unknown> {
   switch (msg.type) {
     case 'source:info':
       return info();
+    case 'source:playing':
+      return playing();
     case 'source:seek':
       return seek(msg.at);
     case 'source:pause':

@@ -7,11 +7,9 @@ export interface Settings {
   /** where a track's preview comes from first; the other is the fallback */
   preview: 'beatport' | 'apple' | 'off';
   theme: 'system' | 'dark' | 'light';
-  /** start identifying as soon as a mix without a tracklist is read */
-  autoListen: boolean;
 }
 
-export const DEFAULTS: Settings = { marketplace: 'beatport', preview: 'beatport', theme: 'system', autoListen: true };
+export const DEFAULTS: Settings = { marketplace: 'beatport', preview: 'beatport', theme: 'system' };
 
 export async function settings(): Promise<Settings> {
   return { ...DEFAULTS, ...((await browser.storage.local.get('settings')).settings as Partial<Settings> | undefined) };
