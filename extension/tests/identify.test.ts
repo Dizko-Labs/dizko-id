@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { collapse, Governor, ListenPlan, samplePoints } from '../lib/identify';
+import { collapse, Governor, ListenPlan, parseClock, samplePoints } from '../lib/identify';
 
 describe('collapse', () => {
   it('counts repeat hits and drops a credit Shazam repeated', () => {
@@ -89,5 +89,42 @@ describe('Governor', () => {
     expect(g.limit).toBe(1);
     for (let i = 0; i < 8; i++) g.answered();
     expect(g.limit).toBe(2);
+  });
+});
+
+describe('ListenPlan sections and stops', () => {
+  it('only listens inside a section', () => {
+    const plan = new ListenPlan(3600, [], [2400, 3000]);
+    const seen: number[] = [];
+    for (let t; (t = plan.next()) !== undefined; ) {
+      seen.push(t);
+      plan.record(t, t < 2700 ? 'a' : 'b');
+    }
+    expect(seen.every((t) => t >= 2400 && t <= 3000)).toBe(true);
+    expect(plan.done).toBe(true);
+  });
+
+  it('leaves a stopped point unheard, so a resume listens there', () => {
+    const plan = new ListenPlan(1800);
+    const first = plan.next()!;
+    plan.cancel(first);
+    expect(plan.probes().some(([at]) => at === first)).toBe(false);
+    expect(new ListenPlan(1800, plan.probes()).next()).toBe(first);
+  });
+
+  it('moves progress as soon as the outline pass finds something', () => {
+    const plan = new ListenPlan(3600);
+    for (let i = 0; i < 6; i++) plan.record(plan.next()!, `t${i}`);
+    expect(plan.progress()).toBeGreaterThan(0.05);
+  });
+});
+
+describe('parseClock', () => {
+  it('reads hours, minutes and plain minutes', () => {
+    expect(parseClock('1:05:30')).toBe(3930);
+    expect(parseClock('45:00')).toBe(2700);
+    expect(parseClock('45')).toBe(2700);
+    expect(parseClock('4x')).toBeUndefined();
+    expect(parseClock('')).toBeUndefined();
   });
 });

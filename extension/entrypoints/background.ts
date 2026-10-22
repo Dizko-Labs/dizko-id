@@ -179,7 +179,7 @@ async function settle() {
   }
   const left = await getJob();
   // A stuck job is saved as it stands so the new mix can start
-  if (left && busy(left)) await replace({ ...left, phase: 'review', listening: false, following: false, waitingFor: undefined });
+  if (left && busy(left)) await replace({ ...left, phase: 'review', listening: false, cooling: undefined, following: false, waitingFor: undefined });
   stopListening = stopCarting = stopFollowing = false;
 }
 
@@ -191,7 +191,7 @@ async function recover() {
   const error = job.phase === 'carting'
     ? 'Adding to your cart stopped part way. Press the cart button again to finish.'
     : 'Listening stopped part way. These are the tracks found before it did.';
-  await replace({ ...job, rows, phase: job.phase === 'carting' ? 'done' : 'review', listening: false, following: false, waitingFor: undefined, error });
+  await replace({ ...job, rows, phase: job.phase === 'carting' ? 'done' : 'review', listening: false, cooling: undefined, following: false, waitingFor: undefined, error });
 }
 
 async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknown> {
@@ -211,7 +211,7 @@ async function handle(msg: PanelRequest & { streamId?: string }): Promise<unknow
       if (scanning.has(key) || listening.has(key)) return { ok: true, url: msg.url };
       scanning.add(key);
       try {
-        return await scan(msg.url);
+        return await scan(msg.url, msg.auto);
       } finally {
         scanning.delete(key);
       }
@@ -316,7 +316,7 @@ async function read(tabId: number) {
 }
 
 /** Scan mix from an artist page: read a SoundCloud mix by URL and listen to its stream without opening it. */
-async function scan(url: string) {
+async function scan(url: string, auto = false) {
   track('scan_from_artist_page');
   if (!/^https:\/\/soundcloud\.com\//.test(url)) {
     // only SoundCloud can be read and heard without its page; anything else opens, and the panel takes over
@@ -327,7 +327,11 @@ async function scan(url: string) {
   const now = await getJob();
   // the same mix already running (a second press): leave it be
   if (now && busy(now) && mixKey(now.mix.url) === mixKey(url)) return { ok: true, url: now.mix.url };
-  if (now && busy(now)) await settle();
+  if (now && busy(now)) {
+    // found in the player by itself, not pressed: never cut off another mix that is running
+    if (auto) return { ok: false };
+    await settle();
+  }
   const info = await soundcloudInfo(url);
   const job = await readInfo(info);
   // listening waits for the DJ to choose the whole mix or a section
@@ -403,7 +407,7 @@ async function lookup(get: () => Promise<ClipResult>, onLimited?: () => void, on
       await nap(coolUntil - Date.now());
       await onCooling?.(false);
     }
-    if (stopListening) return {};
+    if (stopListening) return { error: 'stopped' };
     const sent = Date.now();
     const r = await get();
     if (r.error !== 'shazam 429') {
@@ -428,7 +432,11 @@ async function identify(tabId: number | undefined, streamId?: string, resume = f
   const claimed = given && mixKey(given.url);
   if (claimed && listening.has(claimed)) return;
   if (claimed) listening.add(claimed);
-  const before = (await getJob())!;
+  const before = await getJob();
+  if (!before) {
+    if (claimed) listening.delete(claimed);
+    return;
+  }
   const owner = mixKey(before.mix.url);
   if (claimed && claimed !== owner) listening.delete(claimed);
   if (owner !== claimed && listening.has(owner)) return;
@@ -445,10 +453,15 @@ async function identify(tabId: number | undefined, streamId?: string, resume = f
 
 async function listen(before: Job, owner: string, tabId: number | undefined, streamId: string | undefined, resume: boolean, given?: SourceInfo, asked?: [number, number]) {
   // a resumed listen keeps the stretch it was asked for; a new one takes the DJ's choice (the whole mix when none)
-  const range = resume ? before.range : asked;
+  const wanted = resume ? asked ?? before.range : asked;
+  // a range that spans the mix is the whole mix
+  const span = before.mix.duration;
+  const range = wanted && !(wanted[0] <= 5 && span && wanted[1] >= span - 15) ? wanted : undefined;
+  // a new listen after Shazam's cool-down has passed starts with a clean slate of strikes
+  if (Date.now() >= coolUntil) strikes = 0;
   // Keep listening picks up at the point it stopped, with what it had already heard
   const from = resume ? coverage(before) ?? 0 : 0;
-  await update((job) => ({ ...job, phase: job.phase === 'carting' ? 'carting' : 'identifying', listening: true, progress: from, range, error: undefined }), owner);
+  await update((job) => ({ ...job, phase: job.phase === 'carting' ? 'carting' : 'identifying', listening: true, cooling: undefined, progress: from, range, error: undefined }), owner);
   const info = given ?? (await ask<SourceInfo>(tabId!, { type: 'source:info' }));
   await ensureOffscreen();
   // YouTube and Mixcloud: the page's own player first (no permission needed); tab capture only when the panel
@@ -467,6 +480,8 @@ async function listen(before: Job, owner: string, tabId: number | undefined, str
     ? before.rows.flatMap((r) => Array.from({ length: r.track.hits }, () => ({ at: r.track.at ?? 0, artist: r.track.artist, title: r.track.title, isrc: r.track.isrc })))
     : [];
   let failed = '';
+  // any lookup that answered (match or not): a passing failure does not make the run an error
+  let answered = false;
   const publish = (progress: number, probes?: Probe[]) =>
     update((job) => {
       const prior = new Map(job.rows.map((r) => [keyOf(r.track), r]));
@@ -500,6 +515,11 @@ async function listen(before: Job, owner: string, tabId: number | undefined, str
         const pending = known ?? lookup(() => offscreen<ClipResult>({ type: 'offscreen:segment', init: stream.init, url: seg.url }), () => governor.limited(), cooling);
         if (!known) bySegment.set(seg.start, pending);
         const r = await pending;
+        if (r.error === 'stopped') {
+          bySegment.delete(seg.start);
+          return plan.cancel(point);
+        }
+        if (!r.error) answered = true;
         if (r.error && r.error !== 'silence') {
           failed = r.error;
           bySegment.delete(seg.start);
@@ -530,6 +550,8 @@ async function listen(before: Job, owner: string, tabId: number | undefined, str
         await ask(tabId!, { type: 'source:seek', at: point });
         // muted while it jumps through, so the DJ does not hear it skip
         const r = await lookup(() => take(clip, true), undefined, cooling);
+        if (r.error === 'stopped') break; // this point stays unheard, so Keep listening starts from it
+        if (!r.error) answered = true;
         if (r.error) failed = r.error;
         if (r.track) hits.push({ at: point, ...r.track });
         if (!(await publish((i + 1) / at.length))) break; // the panel moved on to another mix
@@ -542,13 +564,14 @@ async function listen(before: Job, owner: string, tabId: number | undefined, str
         const at = (Date.now() - started) / 1000;
         // live: the DJ is listening along, so the player keeps its sound
         const r = await lookup(() => take(10, false), undefined, cooling);
+        if (r.error === 'stopped') break;
         if (r.track) hits.push({ at, ...r.track });
         if (!(await publish(Math.min(1, at / limit)))) break;
         await nap(20_000);
       }
     }
     // Every clip erroring is a broken run, not a mix with no known tracks
-    if (!hits.length && failed && failed !== 'silence') throw new Error(`Could not identify any clips (${failed}).`);
+    if (!hits.length && !answered && failed && failed !== 'silence') throw new Error(`Could not identify any clips (${failed}).`);
     completed = !stopListening;
   } finally {
     // the offscreen document is shared: a listen for the next mix may already be using it

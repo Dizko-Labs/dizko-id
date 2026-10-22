@@ -35,6 +35,7 @@ export async function remember(job: Job) {
     phase: job.phase === 'done' ? 'done' : 'review',
     waitingFor: undefined,
     listening: undefined,
+    cooling: undefined,
     following: undefined,
     error: undefined,
     rows: job.rows.map((r) => (r.status === 'searching' ? { ...r, status: 'queued' } : r)),

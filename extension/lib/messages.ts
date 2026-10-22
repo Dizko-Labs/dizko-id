@@ -62,7 +62,8 @@ export type PanelRequest =
   | { type: 'panel:open'; url: string }
   | { type: 'panel:forget'; url: string }
   | { type: 'panel:profile-mixes'; url: string }
-  | { type: 'panel:scan'; url: string }
+  /** `auto`: the panel found it in the player by itself, so it must not cut off another mix that is running */
+  | { type: 'panel:scan'; url: string; auto?: boolean }
   | { type: 'panel:dizko-link'; follow: boolean }
   | { type: 'panel:dizko-sync' }
   | { type: 'panel:dizko-unlink' }

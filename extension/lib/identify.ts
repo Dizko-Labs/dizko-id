@@ -92,6 +92,11 @@ export class ListenPlan {
     this.heard.set(at, heard);
   }
 
+  /** A lookup stopped before it was heard (Stop, a switch): the point stays unheard, for Keep listening. */
+  cancel(at: number) {
+    this.pending.delete(at);
+  }
+
   /** A lookup that broke (network, decoding, a Shazam error): try that point once more later, then count it as nothing. */
   fail(at: number) {
     this.pending.delete(at);

@@ -518,7 +518,7 @@ export default function App() {
     } else if (tab && !onMixPage && !busy && /^https:\/\/soundcloud\.com\//.test(tab.url)) {
       // search, a profile, the feed: the mix the DJ is listening to is the one in SoundCloud's player
       browser.tabs.sendMessage(tab.id, { type: 'source:playing' }).then((p: { url?: string; playing: boolean } | undefined) => {
-        if (p?.playing && p.url && isMixPage(p.url) && (!job || mixKey(job.mix.url) !== mixKey(p.url))) scan(p.url);
+        if (p?.playing && p.url && isMixPage(p.url) && (!job || mixKey(job.mix.url) !== mixKey(p.url))) scan(p.url, true);
       }).catch(() => {});
     }
   }, [tab?.id, tab?.url]);
@@ -572,9 +572,9 @@ export default function App() {
   }, [needsIcon, tab?.id, sameMix]);
 
   /** Scan a mix from an artist page without opening it: the panel moves to it while it is read and heard. */
-  async function scan(url: string) {
+  async function scan(url: string, auto = false) {
     setError('');
-    const r = await send({ type: 'panel:scan', url });
+    const r = await send({ type: 'panel:scan', url, auto });
     if (r?.error) return setError(r.error);
     if (r?.url) {
       setArtistKey(null);
@@ -777,8 +777,15 @@ export default function App() {
         )}
         {view.phase === 'review' && !view.rows.length && (
           <>
-            {!view.error && <p className="text-[14px] leading-snug">No tracks were recognized in this mix.</p>}
-            {!needsIcon && <Button onClick={() => listen(false, view.error === TAB_AUDIO_NEEDED)} disabled={!sameMix} className="h-10 w-full text-[15px] font-semibold">Try again</Button>}
+            {/* stopped before the first find: carry on from where it stopped rather than start over */}
+            {(view.progress ?? 1) < 0.98 && view.probes?.length ? (
+              <Button onClick={() => listen(true)} disabled={!canListen || readOnly} className="h-10 w-full text-[15px] font-semibold">Keep listening</Button>
+            ) : (
+              <>
+                {!view.error && <p className="text-[14px] leading-snug">No tracks were recognized in this mix.</p>}
+                {!needsIcon && <Button onClick={() => listen(false, view.error === TAB_AUDIO_NEEDED)} disabled={!canListen || readOnly} className="h-10 w-full text-[15px] font-semibold">Try again</Button>}
+              </>
+            )}
           </>
         )}
         {view.phase === 'carting' ? (
@@ -805,6 +812,13 @@ export default function App() {
               {!carted.length && playlistUrl && view.rows.some((r) => r.status === 'in-playlist') && (
                 <p className="text-[13px] text-toner-1">
                   In your <a href={playlistUrl} target="_blank" rel="noreferrer" className="font-semibold text-ink underline decoration-1">Beatport playlist</a>; its Buy All puts them in the cart.
+                </p>
+              )}
+              {view.phase === 'review' && view.method === 'stream' && view.range && (view.progress ?? 0) >= 0.98 && view.mix.duration && canListen && !readOnly && (
+                // a section was heard: the rest can follow, keeping everything found so far
+                <p className="flex items-baseline justify-between text-[13px]">
+                  <span className="text-toner-1">{`Heard ${time(view.range[0])} to ${time(view.range[1])}`}</span>
+                  <button type="button" onClick={() => listen(true, false, [0, view.mix.duration!])} className="font-semibold underline decoration-1 underline-offset-2">Listen to the whole mix</button>
                 </p>
               )}
               {view.phase === 'review' && (view.method === 'stream' || view.method === 'seek') && paused != null && paused < (view.progress != null ? 0.98 : 0.85) && (
