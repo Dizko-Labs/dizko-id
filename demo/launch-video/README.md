@@ -4,16 +4,16 @@ A programmable product animation of Dizko ID, built with
 [HyperFrames](https://github.com/heygen-com/hyperframes) (HTML + GSAP, rendered to MP4).
 
 It is a product animation, not a screen recording:
-- **Sample data only.** The artist, events, mix, tracks and counts in `config.js` are fictional.
-- **Nothing runs live.** There is no identification, no store call, no cart and no payment.
-- **The extension's own interface.** The side panel is rebuilt from screenshots of Dizko ID: its header, artist block, "Waiting for Shazam" progress, Stop listening, Add N to Beatport / Bandcamp, "N of M ticked", Export, Tick all, the track rows with play buttons and store links, and "Plus N unconfirmed". The film ends on the add-to-cart click, before any store page or checkout.
-- **The mix page is a stand-in.** It is an unbranded SoundCloud-style page.
+- **Real mix, real panel states.** The film runs on Maara @ The Lot Radio 06-28-2026. Maara's appearances come from Dizko's data. The two track rows, "5 of 16 ticked", "Open Beatport cart", "Add 3 to Bandcamp", "Version not on Beatport", "In cart" and the green Bandcamp-cart highlight are all copied from the extension's own panel.
+- **Shazam listening is sped up,** and the video says so on screen.
+- **Nothing runs live.** There is no identification, no store call and no cart change; the film ends before any store page.
+- **The SoundCloud page is a screenshot** kept in `assets/private/`, which is git-ignored because the photo belongs to The Lot Radio. To render, put `soundcloud-page.png` (1342×830 crop of the page) and `dizko-button.png` (the in-page Dizko ID button) there, or point `page.image` / `page.button` in `config.js` at your own.
 
 Nothing outside `demo/` changes; the extension and the skill are untouched.
 
 ## Edit
 
-Everything you would change lives in **`config.js`**: the captions (text, accent word, timing, placement), the disclaimer, the mix, the artist block, the listening percentages, the confirmed and unconfirmed tracks, the track that arrives on screen, which track is previewed, which is ticked, which add button is pressed, every beat's start time, and the end card.
+Everything you would change lives in **`config.js`**: the captions (text, accent word, timing, placement), the on-screen note, the page screenshot, the artist and their dates, the mix, the counts, the track rows and their after-Beatport states, the Library counts, which track is previewed, every beat's start time, and the end card.
 
 `index.html` builds the panes from that file. Change it only to change the look or the camera.
 

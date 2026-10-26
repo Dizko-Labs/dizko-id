@@ -1,80 +1,90 @@
-// Dizko ID launch film: every caption, sample row and timing lives here.
+// Dizko ID launch film: every caption, data row and timing lives here.
 //
-// Everything below is SAMPLE DATA for a product animation. The artist, events,
-// mix, tracks and counts are fictional; nothing is identified live, no store is
-// called and no cart is touched.
+// The mix, artist, dates and track rows are real (Maara @ The Lot Radio, the
+// artist's appearances from Dizko, two rows from the extension's own panel).
+// Shazam listening is shown sped up. The SoundCloud page is a screenshot kept in
+// assets/private/ (git-ignored: the photo belongs to The Lot Radio).
 //
 // Edit, then re-render:  npm run render
 // (`npm run sync` rewrites the film length in index.html from `end.at + end.hold`.)
 
 window.DIZKO_DEMO = {
   // On-screen captions. `at` / `until` are seconds into the film; `accent` is the
-  // one word drawn in Dizko acid; "\n" breaks the line; `place: "side"` sits it in the empty space left
-  // of the panel instead of the bottom edge.
+  // one word drawn in Dizko acid; "\n" breaks the line; `place: "side"` sits it in
+  // the space left of the panel instead of the bottom edge.
   captions: [
-    { text: "find tracks in a mix", accent: "tracks", at: 0.6, until: 7.6 },
-    { text: "preview the matches", accent: "preview", at: 8.0, until: 11.5, place: "side" },
-    { text: "add selected tracks\nto your cart", accent: "cart", at: 11.8, until: 17.6, place: "side" },
+    { text: "find tracks in a mix", accent: "tracks", at: 0.6, until: 8.4 },
+    { text: "see where\nthey play next", accent: "play", at: 9.2, until: 12.4, place: "side" },
+    { text: "preview\nthe matches", accent: "preview", at: 12.8, until: 15.4, place: "side" },
+    { text: "add selected tracks\nto your cart", accent: "cart", at: 15.6, until: 20.8, place: "side" },
+    { text: "keep every find\nin your library", accent: "library", at: 21.2, until: 25.0, place: "side" },
   ],
 
   // Shown for the whole film, and again on the end card.
-  disclaimer: "Sample data. Not a live identification.",
+  disclaimer: "Shazam listening sped up for this video.",
 
-  // The mix page behind the extension (an unbranded SoundCloud-style page).
-  mix: {
-    url: "soundcloud.com/demo-selector/sample-mix-014",
-    uploader: "Demo Selector",
-    title: "Sample Mix 014 at Demo Festival",
-    length: "1:58:20",
-    lengthSeconds: 7100,
-    startAt: 3020, // where the mix is when the film opens, in seconds
-    genre: "House",
+  page: {
+    url: "soundcloud.com/thelotradio/maara-the-lot-radio-06-28-2026",
+    image: "assets/private/soundcloud-page.png", // 1342 x 830 screenshot crop
+    button: "assets/private/dizko-button.png", // the in-page Dizko ID button
+    buttonBox: { x: 659, y: 479, w: 129, h: 56 }, // its place in the screenshot, px
   },
 
-  // Dizko ID side panel: the artist block (from Dizko's event data).
+  // Dizko's artist block (real data from Dizko; `dizko: true` dates link to a
+  // Dizko event page and are underlined, as in the extension).
   artist: {
-    name: "Demo Selector",
-    meta: "House, Electro · Berlin, Lisbon",
+    name: "Maara",
+    meta: "Techno, House, Trance · Berlin, Amsterdam, Montreal",
     dates: [
-      { date: "Fri, Nov 13", title: "SAMPLE NIGHT 014", where: "Berlin, Sample Club" },
-      { date: "Sat, Nov 21", title: "Demo Festival Closing Party", where: "Lisbon, Sample Warehouse" },
+      { date: "Fri, Oct 30", title: "A week-end with Jen Cardini", where: "Lyon, Le Sucre" },
+      { date: "Sat, Oct 31", title: "Cuddles Halloween", where: "Berlin, ÆDEN", dizko: true },
+      { date: "Thu, Nov 5", title: "Isulia Festival 2026", where: "Bordeaux, Base Sous-Marine de Bordeaux" },
+      { date: "Fri, Nov 20", title: "RSO: YEAR FIVE w/ Function, Stef Mendesidis, Tasha b2b Deetron", where: "Berlin, RSO.BERLIN", dizko: true },
+      { date: "Fri, Nov 20", title: "common room presents: Maara - Ultra Villain [live]", where: "London, Ormside Projects", dizko: true },
     ],
-    moreDates: 4,
+    shownDates: 3, // the rest sit behind "N more dates"
   },
 
-  // The listening state, as the panel shows it while Shazam works.
-  listening: { label: "Waiting for Shazam", percent: [41, 42, 43] },
+  mix: { title: "Maara @ The Lot Radio 06-28-2026" },
 
-  // Confirmed tracks (heard in 2+ clips) start ticked; unconfirmed start unticked.
-  // `at` is the position in the mix.
+  // Listening: "Waiting for Shazam" fills to 100%, then the block folds away.
+  listening: { label: "Waiting for Shazam" },
+  ticked: 5,
+  total: 16,
+
+  // The two rows shown, as the panel shows them. `atPercent` is when each one
+  // lands during the sped-up listen.
   tracks: [
-    { at: "6:00", artist: "Kessler Vale", title: "Night Ferry", confident: true },
-    { at: "21:30", artist: "Oro Lune", title: "Salt Lines (Dub Mix)", confident: true },
-    { at: "44:00", artist: "Juno Faraday", title: "Ninth Street", confident: true },
-    { at: "12:00", artist: "Teo Banerji", title: "Pressure Glass", confident: false },
-    { at: "33:00", artist: "Pale Kites", title: "Tilt (Ravel Rework)", confident: false },
+    {
+      at: "9:20", artist: "666", title: "Amokk (X-Tended Mix)", atPercent: 22,
+      afterBeatport: { status: "Version not on Beatport", available: ["X-Tended 666 Mix", "X-tended 666 Mix", "Xtended 666 Mix", "Video Version"] },
+      bandcampHighlight: true, // green title: in your Bandcamp cart
+    },
+    { at: "16:30", artist: "WOST", title: "Primal Motion", atPercent: 38, afterBeatport: { status: "In cart" } },
   ],
-  // Identified while we watch: arrives as unconfirmed (heard once).
-  arriving: { at: "49:30", artist: "Marla Quist", title: "Undertow", confident: false },
-
   storeLinks: ["Beatport", "Bandcamp", "Spotify", "YouTube"],
+  bandcampAfter: 3, // "Add 3 to Bandcamp" once Beatport has its tracks
 
-  // What the cursor does. Indexes count from 0 within each group.
-  previewTrack: 2, // confirmed track whose play button is pressed
-  tickUnconfirmed: 0, // unconfirmed track the cursor ticks
-  addTo: "Beatport", // which add button is pressed
+  // Library > Tracks.
+  library: { artists: 1, mixes: 1, tracks: 2 }, // set to what is shown
+
+  previewTrack: 0, // which row's play button is pressed
 
   // Scene timings, in seconds.
   timing: {
-    cursorToExtension: 1.6, // cursor heads for the toolbar icon
-    openPanel: 2.5, // click; the side panel slides in
-    toPanel: 3.3, // camera pushes onto the panel
-    toList: 5.8, // panel scrolls to the tracklist
-    trackArrives: 7.0,
-    preview: 8.3, // cursor heads for the play button (click ~0.8 s later)
-    tick: 12.0, // cursor heads for the checkbox
-    toButtons: 13.4, // panel scrolls back to the add buttons
-    addClick: 15.6,
+    cursorToButton: 1.3, // cursor heads for the in-page Dizko ID button
+    openPanel: 2.4, // click; Chrome's side panel slides in
+    toPanel: 3.0,
+    listenStart: 3.6,
+    listenEnd: 8.2,
+    toDates: 9.0,
+    moreDates: 10.3, // click "2 more dates"
+    toRows: 12.5,
+    preview: 13.7, // click play
+    addBeatport: 16.6, // click "Add 5 to Beatport"
+    addBandcamp: 19.3, // click "Add 3 to Bandcamp"
+    toLibrary: 20.9, // camera returns to the top
+    libraryClick: 21.9, // click "< Library"
   },
-  end: { at: 17.8, hold: 4.8, cta: "github.com/Dizko-Labs/dizko-id" },
+  end: { at: 25.4, hold: 4.2, cta: "Dizko ID for Chrome" },
 };
