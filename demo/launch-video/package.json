@@ -1,0 +1,12 @@
+{
+  "name": "dizko-id-launch-video",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sync": "node sync-duration.mjs",
+    "dev": "node sync-duration.mjs && npx --yes hyperframes@0.8.202 preview",
+    "check": "node sync-duration.mjs && npx --yes hyperframes@0.8.202 check",
+    "snapshot": "node sync-duration.mjs && npx --yes hyperframes@0.8.202 snapshot --review",
+    "render": "node sync-duration.mjs && npx --yes hyperframes@0.8.202 render --quality delivery -o renders/dizko-id-launch-1920x1080.mp4"
+  }
+}
