@@ -437,6 +437,18 @@ function TracklistMenu({ job, onRescan }: { job: Job; onRescan?: () => void }) {
  * Before listening: the whole mix, or only a stretch of it (a track near the end need not cost a full listen).
  * Times read as 45:00, 1:05:00, or plain minutes.
  */
+// A Shazam cool-down is not shown: the word keeps turning and the progress bar holding is enough.
+const LISTEN_WORDS = ['Listening', 'Searching', 'Seeking', 'Digging', 'Scanning', 'Matching'];
+
+function ListenWord() {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    const t = setInterval(() => setI((n) => (n + 1) % LISTEN_WORDS.length), 2400);
+    return () => clearInterval(t);
+  }, []);
+  return <>{LISTEN_WORDS[i]}</>;
+}
+
 function ListenChoice({ duration, disabled, onStart }: { duration?: number; disabled: boolean; onStart: (range?: [number, number]) => void }) {
   const [section, setSection] = useState(false);
   const [from, setFrom] = useState('');
@@ -762,7 +774,7 @@ export default function App() {
           <div className="space-y-1.5">
             <div className="flex items-baseline justify-between">
               <span className="text-[14px] font-semibold">
-                {view.cooling ? 'Waiting for Shazam' : 'Listening'}
+                <ListenWord />
                 {view.range && <span className="font-normal text-toner-1">{`  ${time(view.range[0])} to ${time(view.range[1])}`}</span>}
               </span>
               <span className="text-[18px] font-semibold tabular-nums">{progress}%</span>
