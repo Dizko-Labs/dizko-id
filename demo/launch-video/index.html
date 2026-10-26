@@ -93,7 +93,7 @@
       /* library */
       .tab { position: absolute; top: 18px; font: 500 17px var(--ui); color: var(--muted); }
       .tab.on { color: var(--text); }
-      .tab.on::after { content: ""; position: absolute; left: 0; right: 0; top: 33px; height: 3px; background: var(--text); }
+      .uline { position: absolute; left: 0; right: 0; top: 33px; height: 3px; background: var(--text); }
       .lrow { position: absolute; left: 18px; right: 18px; height: 112px; }
       .tile { position: absolute; left: 0; top: 14px; width: 52px; height: 52px; border-radius: 6px; background: #1c1c1a; }
       .lrow .play { left: 12px; top: 74px; }
@@ -122,8 +122,8 @@
     </style>
   </head>
   <body>
-    <div id="root" data-composition-id="main" data-start="0" data-duration="29.6" data-width="1920" data-height="1080">
-      <div id="stage" class="clip" data-start="0" data-duration="29.6" data-track-index="0" data-layout-allow-overflow data-layout-allow-overlap>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="30" data-width="1920" data-height="1080">
+      <div id="stage" class="clip" data-start="0" data-duration="30" data-track-index="0" data-layout-allow-overflow data-layout-allow-overlap>
         <div id="cam">
           <div id="browser">
             <div class="toolbar">
@@ -262,17 +262,33 @@
         // ---------- library ----------
         const lib = $("#lib");
         const L = C.library;
-        put(lib, `Artists ${L.artists}`, PAD, 0, "tab", "top:18px");
-        put(lib, `Mixes ${L.mixes}`, PAD + 112, 0, "tab", "top:18px");
-        put(lib, `Tracks ${L.tracks}`, PAD + 214, 0, "tab on", "top:18px");
+        const TAB_X = [PAD, PAD + 112, PAD + 214];
+        const tabs = [`Artists ${L.artists.length}`, `Mixes ${L.mixes}`, `Tracks ${L.tracks}`].map((label, i) => put(lib, `${label}<div class="uline" style="opacity:${i === 2 ? 1 : 0}"></div>`, TAB_X[i], 18, "tab" + (i === 2 ? " on" : "")));
         hr(lib, 58);
-        C.tracks.forEach((t, i) => {
-          const y = 58 + i * 112;
-          lib.insertAdjacentHTML("beforeend", `<div class="lrow" style="top:${y}px"><div class="tile"></div>
+        const libTracks = grp(lib, 58), libArtists = grp(lib, 58);
+        libArtists.style.opacity = 0;
+        const trackRows = [...C.tracks.map((t) => ({ ...t, from: C.mix.title })), ...L.earlierTracks.rows.map((t) => ({ ...t, from: L.earlierTracks.mix }))];
+        trackRows.forEach((t, i) => {
+          const y = i * 112;
+          libTracks.insertAdjacentHTML("beforeend", `<div class="lrow" style="top:${y}px"><div class="tile"></div>
             <div class="play"><div class="tri"></div></div>
             <div class="l-art">${esc(t.artist)}</div><div class="l-tt">${esc(t.title)}</div>
-            <div class="l-from">From ${esc(C.mix.title)}</div><div class="links">${linksHtml(C.storeLinks)}</div></div>`);
-          hr(lib, y + 112, true);
+            <div class="l-from">From ${esc(t.from)}</div><div class="links">${linksHtml(C.storeLinks)}</div></div>`);
+          hr(libTracks, y + 112, true);
+        });
+        let ay = 0;
+        L.artists.forEach((a) => {
+          put(libArtists, esc(a.name), PAD, ay + 18, "t-art", "font-size:22px");
+          put(libArtists, esc(a.meta), PAD, ay + 52, "t-meta");
+          a.dates.forEach((d, i) => {
+            const y = ay + 86 + i * DATE_H;
+            put(libArtists, esc(d.date), PAD, y, "t-date");
+            put(libArtists, esc(d.title), PAD + 110, y, "t-ev" + (d.dizko ? " link" : ""), `max-width:${PANEL_W - PAD * 2 - 110}px`);
+            put(libArtists, esc(d.where), PAD + 110, y + 21, "t-where", `max-width:${PANEL_W - PAD * 2 - 110}px`);
+          });
+          put(libArtists, `${a.more} more dates ${chev("#9b9b96")}`, PAD, ay + 86 + a.dates.length * DATE_H + 4, "t-more");
+          ay += 86 + a.dates.length * DATE_H + 44;
+          hr(libArtists, ay, true);
         });
 
         // ---------- timeline ----------
@@ -407,7 +423,19 @@
         click(T.libraryClick);
         tl.to("#pc", { opacity: 0, duration: 0.15 }, T.libraryClick + 0.05);
         tl.to("#lib", { opacity: 1, duration: 0.2 }, T.libraryClick + 0.15);
-        tl.to(cur, { x: "+=220", y: "+=300", duration: 0.7, ease: "power2.out" }, T.libraryClick + 0.4);
+        tl.to(cur, { opacity: 0, duration: 0.3 }, T.libraryClick + 0.5);
+        // the Artists tab: every DJ in the library, with their next dates
+        const ART = { x: PANEL_X + TAB_X[0] + 34, y: W(18) + 11 };
+        tl.set(cur, { x: ART.x + 200, y: ART.y + 240 }, T.artistsTab - 0.95);
+        tl.to(cur, { opacity: 1, duration: 0.15 }, T.artistsTab - 0.9);
+        goto(ART.x, ART.y, T.artistsTab - 0.9, 0.8);
+        click(T.artistsTab);
+        tl.to(tabs[2], { color: "#9b9b96", duration: 0.15 }, T.artistsTab + 0.05);
+        tl.to(tabs[0], { color: "#f2f2ef", duration: 0.15 }, T.artistsTab + 0.05);
+        tl.to(".uline", { opacity: (i) => (i === 0 ? 1 : 0), duration: 0.15 }, T.artistsTab + 0.05);
+        tl.to(libTracks, { opacity: 0, duration: 0.15 }, T.artistsTab + 0.05);
+        tl.to(libArtists, { opacity: 1, duration: 0.2 }, T.artistsTab + 0.15);
+        tl.to(cur, { opacity: 0, duration: 0.3 }, T.artistsTab + 0.5);
 
         // ---------- captions ----------
         C.captions.forEach((c) => {

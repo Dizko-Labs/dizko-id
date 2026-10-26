@@ -17,7 +17,8 @@ window.DIZKO_DEMO = {
     { text: "see where\nthey play next", accent: "play", at: 9.2, until: 12.4, place: "side" },
     { text: "preview\nthe matches", accent: "preview", at: 12.8, until: 15.4, place: "side" },
     { text: "add selected tracks\nto your cart", accent: "cart", at: 15.6, until: 20.8, place: "side" },
-    { text: "keep every find\nin your library", accent: "library", at: 21.2, until: 25.0, place: "side" },
+    { text: "keep every find\nin your library", accent: "library", at: 21.2, until: 23.9, place: "side" },
+    { text: "and every DJ's\nnext dates", accent: "dates", at: 24.2, until: 27.2, place: "side" },
   ],
 
   // Shown for the whole film, and again on the end card.
@@ -65,8 +66,40 @@ window.DIZKO_DEMO = {
   storeLinks: ["Beatport", "Bandcamp", "Spotify", "YouTube"],
   bandcampAfter: 3, // "Add 3 to Bandcamp" once Beatport has its tracks
 
-  // Library > Tracks.
-  library: { artists: 1, mixes: 1, tracks: 2 }, // set to what is shown
+  // Library. Tracks: this mix's rows first, then rows already in the library
+  // (from the Waking Life mix, as in the extension's Library screenshot).
+  // Artists: the DJs whose mixes are in the library, with their next dates
+  // from Dizko. The Artists tab layout reuses the panel's artist block.
+  library: {
+    mixes: 2,
+    tracks: 11,
+    earlierTracks: {
+      mix: "Waking Life 2025 Saturday sunrise at Floresta",
+      rows: [
+        { artist: "LA Synthesis", title: "Reich (Original Mix)" },
+        { artist: "Tentakel", title: "Impulse" },
+        { artist: "P.W.O.G.", title: "Maenad (Alter Ego Remix)" },
+        { artist: "D.I.N.", title: "Fantastic Planet" },
+        { artist: "Odessi", title: "Beautiful Malika (King of Spin Dub)" },
+      ],
+    },
+    artists: [
+      {
+        name: "Maara", meta: "Techno, House, Trance · Berlin, Amsterdam, Montreal", more: 3,
+        dates: [
+          { date: "Fri, Oct 30", title: "A week-end with Jen Cardini", where: "Lyon, Le Sucre" },
+          { date: "Sat, Oct 31", title: "Cuddles Halloween", where: "Berlin, ÆDEN", dizko: true },
+        ],
+      },
+      {
+        name: "Jane Fitz", meta: "Techno, House, Electro · London, Berlin, Amsterdam", more: 10,
+        dates: [
+          { date: "Fri, Oct 30", title: "SOUND METAPHORS FESTIVAL PART 2", where: "Berlin, Berghain | Panorama Bar | Säule", dizko: true },
+          { date: "Sat, Oct 31", title: "Anarchyintheclub: Halloween with Jane Fitz, Brasi, Carlo Amadori", where: "Rome, Borgo Della Mistica" },
+        ],
+      },
+    ],
+  },
 
   previewTrack: 0, // which row's play button is pressed
 
@@ -84,7 +117,8 @@ window.DIZKO_DEMO = {
     addBeatport: 16.6, // click "Add 5 to Beatport"
     addBandcamp: 19.3, // click "Add 3 to Bandcamp"
     toLibrary: 20.9, // camera returns to the top
-    libraryClick: 21.9, // click "< Library"
+    libraryClick: 21.9, // click "< Library" (opens on Tracks)
+    artistsTab: 24.2, // click the Artists tab
   },
-  end: { at: 25.4, hold: 4.2, cta: "Dizko ID for Chrome" },
+  end: { at: 27.4, hold: 2.6, cta: "Dizko ID for Chrome" },
 };
