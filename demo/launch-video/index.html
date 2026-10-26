@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="en" data-resolution="landscape">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <script src="config.js"></script>
+    <style>
+      /* Dizko ID panel tokens, taken from the extension's own screens. */
+      :root {
+        --ground: #d9d9d3;
+        --panel: #0e0e0e;
+        --panel-line: #2a2a2a;
+        --text: #f2f2ef;
+        --muted: #9b9b96;
+        --acid: #c4f236;
+        --ui: "Inter", "Helvetica Neue", Arial, sans-serif;
+      }
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--ground); }
+      #root { position: relative; width: 1920px; height: 1080px; overflow: hidden; font-family: var(--ui); color: var(--text); }
+      #stage { position: absolute; inset: 0; background: var(--ground); }
+      #cam { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; }
+
+      /* ---------- browser (dark Chrome, as in the reference) ---------- */
+      #browser { position: absolute; left: 40px; top: 30px; width: 1840px; height: 1020px; background: #121212; border-radius: 12px; overflow: hidden;
+                 box-shadow: 0 18px 40px rgba(13,13,13,.22), 0 2px 6px rgba(13,13,13,.12); }
+      .toolbar { position: absolute; left: 0; top: 0; right: 0; height: 56px; background: #2b2b2b; }
+      .dots { position: absolute; left: 20px; top: 21px; display: flex; gap: 8px; }
+      .dots i { width: 14px; height: 14px; border-radius: 50%; display: block; }
+      .addr { position: absolute; left: 104px; width: 1240px; top: 11px; height: 34px; border-radius: 17px; background: #1c1c1c;
+              font: 400 16px/34px var(--ui); color: #d8d8d4; padding-left: 18px; white-space: nowrap; }
+      #page { position: absolute; left: 0; top: 56px; width: 1300px; height: 794px; }
+      #page img { width: 100%; height: 100%; display: block; }
+      #pbtn { position: absolute; }
+      #pbtn img { width: 100%; height: 100%; display: block; }
+
+      /* Chrome side panel frame */
+      #side { position: absolute; top: 56px; right: 0; width: 540px; bottom: 0; background: #1f1f1f; }
+      .side-head { position: absolute; left: 0; right: 0; top: 0; height: 46px; font: 500 17px/46px var(--ui); color: #c9c9c5; padding-left: 44px; }
+      .side-head .fav { position: absolute; left: 14px; top: 13px; width: 20px; height: 20px; background: #f2f2ef; border-radius: 3px; }
+      .side-head .fav img { position: absolute; left: 2px; top: 4px; width: 16px; }
+      .side-head svg { position: absolute; top: 13px; width: 20px; height: 20px; }
+      #panel { position: absolute; left: 6px; right: 6px; top: 46px; bottom: 0; background: var(--panel); border: 1px solid var(--panel-line); border-bottom: 0;
+               border-radius: 12px 12px 0 0; overflow: hidden; }
+      .p-head { position: absolute; left: 0; right: 0; top: 0; height: 52px; border-bottom: 1px solid var(--panel-line); background: var(--panel); z-index: 2; }
+      .p-head img { position: absolute; left: 16px; top: 14px; width: 30px; filter: invert(1); }
+      .p-head .nm { position: absolute; left: 54px; top: 13px; font: 600 18.5px/26px var(--ui); letter-spacing: -0.01em; }
+      .p-head .gear { position: absolute; right: 16px; top: 14px; width: 24px; height: 24px; }
+      #pbody { position: absolute; left: 0; right: 0; top: 52px; bottom: 0; overflow: hidden; }
+      #pc, #lib { position: absolute; left: 0; right: 0; top: 0; height: 1400px; }
+      .grp { position: absolute; left: 0; right: 0; top: 0; }
+      .pa { position: absolute; white-space: nowrap; }
+      .hr { position: absolute; left: 0; right: 0; height: 1px; background: var(--panel-line); }
+      .hr.in { left: 18px; right: 18px; }
+      .t-lib { font: 500 16px var(--ui); }
+      .t-art { font: 700 25px var(--ui); letter-spacing: -0.02em; }
+      .t-meta { font: 400 14px var(--ui); color: var(--muted); }
+      .t-date { font: 600 14px var(--ui); }
+      .t-ev { font: 600 14px var(--ui); overflow: hidden; text-overflow: ellipsis; }
+      .t-ev.link { text-decoration: underline; text-underline-offset: 3px; }
+      .t-where { font: 400 14px var(--ui); color: var(--muted); overflow: hidden; text-overflow: ellipsis; }
+      .t-more { font: 600 13px var(--ui); color: var(--muted); }
+      .t-mix { font: 600 17px var(--ui); letter-spacing: -0.01em; }
+      .t-wait { font: 500 15px var(--ui); }
+      .t-pct { font: 600 18px var(--ui); }
+      .bar { position: absolute; left: 18px; right: 18px; height: 6px; border-radius: 3px; background: #2e2e2c; overflow: hidden; }
+      .bar i { position: absolute; left: 0; top: 0; bottom: 0; width: 100%; background: var(--acid); transform-origin: 0 0; }
+      .pill { position: absolute; border-radius: 999px; text-align: center; font: 600 15px var(--ui); white-space: nowrap; }
+      .pill .lbl { position: absolute; inset: 0; border-radius: 999px; border: 1px solid #bdbdb8; color: var(--text); }
+      .pill .lbl.pri { background: var(--acid); color: #0e0e0e; border-color: var(--acid); }
+      .t-tick { font: 400 14px var(--ui); color: var(--muted); }
+      .t-act { font: 500 14px var(--ui); }
+      .trk { position: absolute; left: 18px; right: 18px; }
+      .cb { position: absolute; left: 0; top: 14px; width: 17px; height: 17px; border-radius: 3px; background: var(--acid); }
+      .cb svg { position: absolute; left: 2.5px; top: 2.5px; width: 12px; height: 12px; }
+      .r-time { position: absolute; left: 30px; top: 12px; font: 500 13px var(--ui); color: var(--muted); }
+      .r-art { position: absolute; left: 88px; top: 12px; font: 600 13px var(--ui); color: var(--muted); }
+      .r-st { position: absolute; right: 0; top: 12px; font: 600 13px var(--ui); color: var(--muted); }
+      .r-st.in { color: var(--text); }
+      .r-tt { position: absolute; left: 88px; top: 30px; font: 600 18.5px/24px var(--ui); letter-spacing: -0.01em; padding: 0 2px; margin-left: -2px; }
+      .r-tt .hl { position: absolute; inset: 0; background: var(--acid); opacity: 0; }
+      .r-tt .tx { position: relative; }
+      .r-tt .tx.dark { position: absolute; left: 2px; top: 0; color: #0e0e0e; opacity: 0; }
+      .play { position: absolute; left: 38px; top: 38px; width: 28px; height: 28px; border-radius: 50%; border: 1.5px solid #5f5f5b; }
+      .play .tri { position: absolute; left: 10px; top: 7.5px; width: 0; height: 0; border-left: 10px solid #f2f2ef; border-top: 6px solid transparent; border-bottom: 6px solid transparent; }
+      .play .ps { position: absolute; top: 8.5px; width: 3px; height: 10px; background: #f2f2ef; opacity: 0; }
+      .avail { position: absolute; left: 88px; right: 0; top: 62px; font: 400 13px/20px var(--ui); color: var(--muted); white-space: normal; opacity: 0; }
+      .avail span { text-decoration: underline; text-underline-offset: 3px; }
+      .links { position: absolute; left: 88px; display: flex; gap: 12px; font: 500 12.5px var(--ui); color: #e8e8e4; }
+      .links span { text-decoration: underline; text-underline-offset: 3px; text-decoration-color: #8a8a86; }
+
+      /* library */
+      .tab { position: absolute; top: 18px; font: 500 17px var(--ui); color: var(--muted); }
+      .tab.on { color: var(--text); }
+      .uline { position: absolute; left: 0; right: 0; top: 33px; height: 3px; background: var(--text); }
+      .lrow { position: absolute; left: 18px; right: 18px; height: 112px; }
+      .tile { position: absolute; left: 0; top: 14px; width: 52px; height: 52px; border-radius: 6px; background: #1c1c1a; }
+      .lrow .play { left: 12px; top: 74px; }
+      .l-art { position: absolute; left: 66px; top: 12px; font: 500 13.5px var(--ui); color: var(--muted); }
+      .l-tt { position: absolute; left: 66px; top: 30px; font: 600 18.5px var(--ui); letter-spacing: -0.01em; }
+      .l-from { position: absolute; left: 66px; top: 56px; font: 400 13.5px var(--ui); color: var(--muted); white-space: nowrap; }
+      .lrow .links { left: 66px; top: 80px; }
+
+      /* ---------- cursor ---------- */
+      #cursor { position: absolute; left: 0; top: 0; width: 26px; height: 34px; opacity: 0; z-index: 20; }
+
+      /* ---------- overlays (not moved by the camera) ---------- */
+      .cap { position: absolute; left: 72px; bottom: 72px; padding: 13px 24px 15px; background: var(--panel); color: var(--text);
+             border-radius: 10px; font: 600 52px/1.1 var(--ui); letter-spacing: -0.025em; opacity: 0; z-index: 30; white-space: nowrap; }
+      .cap.side { bottom: auto; top: 420px; }
+      .cap .w { display: inline-block; }
+      .cap .acc { color: var(--acid); }
+      #disc { position: absolute; left: 72px; bottom: 22px; font: 500 19px var(--ui); color: #b9b9b0; background: var(--panel); padding: 5px 12px 6px; border-radius: 6px; z-index: 30; }
+      #endcard { position: absolute; inset: 0; z-index: 40; background: var(--panel); opacity: 0; }
+      #lockup { position: absolute; left: 0; right: 0; top: 432px; display: flex; justify-content: center; align-items: center; gap: 30px; }
+      #mark { width: 170px; height: 132px; }
+      #mark img { width: 100%; height: 100%; display: block; filter: invert(1); }
+      #word { font: 600 112px/1 var(--ui); letter-spacing: -0.03em; color: var(--text); }
+      #cta { position: absolute; left: 0; right: 0; top: 640px; text-align: center; font: 500 30px var(--ui); color: var(--text); opacity: 0; }
+      #enddisc { position: absolute; left: 0; right: 0; top: 694px; text-align: center; font: 500 22px var(--ui); color: var(--muted); opacity: 0; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="main" data-start="0" data-duration="30" data-width="1920" data-height="1080">
+      <div id="stage" class="clip" data-start="0" data-duration="30" data-track-index="0" data-layout-allow-overflow data-layout-allow-overlap>
+        <div id="cam">
+          <div id="browser">
+            <div class="toolbar">
+              <div class="dots"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+              <div class="addr" id="addr"></div>
+            </div>
+            <div id="page"><img id="page-img" alt="" /><div id="pbtn"><img id="pbtn-img" alt="" /></div></div>
+            <div id="side">
+              <div class="side-head">
+                <div class="fav"><img src="assets/brand/dizko-mark-only.svg" alt="" /></div>Dizko ID
+                <svg viewBox="0 0 24 24" style="right:52px" fill="none" stroke="#9b9b96" stroke-width="1.7" stroke-linecap="round"><path d="M9 4h6l-1 6 3 3H7l3-3zM12 13v7M4 4l16 16" /></svg>
+                <svg viewBox="0 0 24 24" style="right:16px" fill="none" stroke="#9b9b96" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+              </div>
+              <div id="panel">
+                <div class="p-head">
+                  <img src="assets/brand/dizko-mark-only.svg" alt="" />
+                  <div class="nm">Dizko ID</div>
+                  <svg class="gear" viewBox="0 0 24 24" fill="none" stroke="#9b9b96" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="12" r="3" />
+                    <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+                  </svg>
+                </div>
+                <div id="pbody"><div id="pc"></div><div id="lib" style="opacity: 0"></div></div>
+              </div>
+            </div>
+          </div>
+          <svg id="cursor" viewBox="0 0 26 34" aria-hidden="true">
+            <path d="M2.5 2 L2.5 26 L8.5 20.5 L12.6 30.6 L17.2 28.7 L13 18.8 L21.3 18.8 Z" fill="#0d0d0d" stroke="#fff" stroke-width="2" stroke-linejoin="round" />
+          </svg>
+        </div>
+        <div id="caps"></div>
+        <div id="disc"></div>
+        <div id="endcard">
+          <div id="lockup">
+            <div id="mark"><img src="assets/brand/dizko-mark-only.svg" alt="" /></div>
+            <div id="word">Dizko ID</div>
+          </div>
+          <div id="cta"></div>
+          <div id="enddisc"></div>
+        </div>
+      </div>
+    </div>
+    <script>
+      (function () {
+        const C = window.DIZKO_DEMO;
+        const T = C.timing;
+        const $ = (s) => document.querySelector(s);
+        const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]);
+
+        // ---------- world geometry (px before the camera; constants, never measured) ----------
+        const BROWSER = { x: 40, y: 30, w: 1840, h: 1020 };
+        const TOP = BROWSER.y + 56; // top of the page / side panel
+        const SIDE_X = BROWSER.x + BROWSER.w - 540;
+        const PANEL_X = SIDE_X + 6; // inner Dizko ID panel
+        const PANEL_W = 528;
+        const BODY_Y = TOP + 46 + 52; // top of the panel's scrolling body
+        const PAD = 18;
+        const PAGE_SCALE = 1300 / 1342;
+
+        // ---------- page ----------
+        $("#addr").textContent = C.page.url;
+        $("#page-img").src = C.page.image;
+        $("#pbtn-img").src = C.page.button;
+        const B = C.page.buttonBox;
+        Object.assign($("#pbtn").style, { left: B.x * PAGE_SCALE + "px", top: B.y * PAGE_SCALE + "px", width: B.w * PAGE_SCALE + "px", height: B.h * PAGE_SCALE + "px" });
+
+        // ---------- panel: artist, mix, listening, buttons, rows ----------
+        const pc = $("#pc");
+        const put = (parent, html, x, y, cls, extra = "") => { parent.insertAdjacentHTML("beforeend", `<div class="pa ${cls}" style="left:${x}px;top:${y}px;${extra}">${html}</div>`); return parent.lastElementChild; };
+        const hr = (parent, y, inset) => parent.insertAdjacentHTML("beforeend", `<div class="hr${inset ? " in" : ""}" style="top:${y}px"></div>`);
+        const grp = (parent, y) => { parent.insertAdjacentHTML("beforeend", `<div class="grp" style="top:${y}px"></div>`); return parent.lastElementChild; };
+        const chev = (c) => `<svg width="12" height="8" viewBox="0 0 12 8" style="margin-left:6px;vertical-align:1px"><path d="M1 1.5 L6 6.5 L11 1.5" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round"/></svg>`;
+        const A = C.artist;
+
+        const LIB_LINK = put(pc, `<svg width="11" height="18" viewBox="0 0 11 18" style="vertical-align:-3px;margin-right:16px"><path d="M9 2 L2 9 L9 16" fill="none" stroke="#f2f2ef" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>Library`, PAD, 18, "t-lib");
+        put(pc, esc(A.name), PAD, 58, "t-art");
+        put(pc, esc(A.meta), PAD, 98, "t-meta");
+        const DATE_Y = 134, DATE_H = 54;
+        const extraDates = [];
+        A.dates.forEach((d, i) => {
+          const y = DATE_Y + i * DATE_H;
+          const els = [
+            put(pc, esc(d.date), PAD, y, "t-date"),
+            put(pc, esc(d.title), PAD + 110, y, "t-ev" + (d.dizko ? " link" : ""), `max-width:${PANEL_W - PAD * 2 - 110}px`),
+            put(pc, esc(d.where), PAD + 110, y + 21, "t-where", `max-width:${PANEL_W - PAD * 2 - 110}px`),
+          ];
+          if (i >= A.shownDates) extraDates.push(...els);
+        });
+        const hidden = A.dates.length - A.shownDates;
+        const yMore = DATE_Y + A.shownDates * DATE_H + 4;
+        const more = put(pc, `${hidden} more dates ${chev("#9b9b96")}`, PAD, yMore, "t-more");
+        const EXPAND = hidden * DATE_H;
+
+        // everything under the dates moves down when they expand
+        const below = grp(pc, yMore + 32);
+        hr(below, 0);
+        put(below, esc(C.mix.title), PAD, 16, "t-mix");
+        hr(below, 56);
+        const prog = grp(below, 56);
+        put(prog, esc(C.listening.label), PAD, 18, "t-wait");
+        const pct = put(prog, "0%", 0, 15, "t-pct", "right:18px;left:auto");
+        prog.insertAdjacentHTML("beforeend", `<div class="bar" style="top:48px"><i id="barfill"></i></div>`);
+        put(prog, `<div class="lbl" style="line-height:30px;font-size:14px">Stop listening</div>`, PAD, 68, "pill", "width:120px;height:32px");
+        const PROG_H = 112;
+        const lower = grp(below, 56 + PROG_H); // folds up by PROG_H when listening ends
+        const BTN_W = (PANEL_W - PAD * 2 - 10) / 2, BTN_H = 44, BTN_Y = 16;
+        const btnL = put(lower, `<div class="lbl pri" id="bl-a" style="line-height:42px"></div><div class="lbl" id="bl-b" style="line-height:42px;opacity:0"></div>`, PAD, BTN_Y, "pill", `width:${BTN_W}px;height:${BTN_H}px`);
+        const btnR = put(lower, `<div class="lbl" id="br-a" style="line-height:42px"></div><div class="lbl pri" id="br-b" style="line-height:42px;opacity:0"></div>`, PAD + BTN_W + 10, BTN_Y, "pill", `width:${BTN_W}px;height:${BTN_H}px`);
+        hr(lower, 76);
+        const tickTxt = put(lower, "", PAD, 92, "t-tick");
+        put(lower, `Export ${chev("#f2f2ef")}<span style="margin-left:26px">Tick all</span>`, 0, 92, "t-act", "right:18px;left:auto");
+        hr(lower, 126);
+
+        const CHECK = `<svg viewBox="0 0 12 12"><path d="M2 6.3 L4.9 9 L10 3" fill="none" stroke="#0e0e0e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+        const linksHtml = (list) => list.map((s) => `<span data-store="${esc(s)}">${esc(s)}</span>`).join("");
+        const ROW_H = 94;
+        const GROW = 56; // a "Version not on Beatport" row gains the Available line
+        let ry = 126;
+        const rows = C.tracks.map((t) => {
+          const g = grp(lower, ry);
+          g.innerHTML = `<div class="trk" style="height:${ROW_H}px">
+              <div class="cb">${CHECK}</div>
+              <div class="r-time">${esc(t.at)}</div><div class="r-art">${esc(t.artist)}</div>
+              <div class="r-st${t.afterBeatport.status === "In cart" ? " in" : ""}" style="opacity:0">${esc(t.afterBeatport.status)}</div>
+              <div class="r-tt"><div class="hl"></div><span class="tx">${esc(t.title)}</span><span class="tx dark">${esc(t.title)}</span></div>
+              <div class="play"><div class="tri"></div><div class="ps" style="left:8.5px"></div><div class="ps" style="left:14px"></div></div>
+              ${t.afterBeatport.available ? `<div class="avail">Available: ${t.afterBeatport.available.map((a) => `<span>${esc(a)}</span>`).join(", ")}</div>` : ""}
+              <div class="links" style="top:64px">${linksHtml(C.storeLinks)}</div>
+              ${t.afterBeatport.available ? `<div class="links after" style="top:${64 + GROW - 12}px;opacity:0">${linksHtml(C.storeLinks.filter((s) => s !== "Beatport"))}</div>` : ""}
+            </div>`;
+          g.insertAdjacentHTML("beforeend", `<div class="hr in" style="top:${ROW_H}px"></div>`);
+          ry += ROW_H;
+          return { t, g, el: g.firstElementChild, top: ry - ROW_H };
+        });
+
+        // ---------- library ----------
+        const lib = $("#lib");
+        const L = C.library;
+        const TAB_X = [PAD, PAD + 112, PAD + 214];
+        const tabs = [`Artists ${L.artists.length}`, `Mixes ${L.mixes}`, `Tracks ${L.tracks}`].map((label, i) => put(lib, `${label}<div class="uline" style="opacity:${i === 2 ? 1 : 0}"></div>`, TAB_X[i], 18, "tab" + (i === 2 ? " on" : "")));
+        hr(lib, 58);
+        const libTracks = grp(lib, 58), libArtists = grp(lib, 58);
+        libArtists.style.opacity = 0;
+        const trackRows = [...C.tracks.map((t) => ({ ...t, from: C.mix.title })), ...L.earlierTracks.rows.map((t) => ({ ...t, from: L.earlierTracks.mix }))];
+        trackRows.forEach((t, i) => {
+          const y = i * 112;
+          libTracks.insertAdjacentHTML("beforeend", `<div class="lrow" style="top:${y}px"><div class="tile"></div>
+            <div class="play"><div class="tri"></div></div>
+            <div class="l-art">${esc(t.artist)}</div><div class="l-tt">${esc(t.title)}</div>
+            <div class="l-from">From ${esc(t.from)}</div><div class="links">${linksHtml(C.storeLinks)}</div></div>`);
+          hr(libTracks, y + 112, true);
+        });
+        let ay = 0;
+        L.artists.forEach((a) => {
+          put(libArtists, esc(a.name), PAD, ay + 18, "t-art", "font-size:22px");
+          put(libArtists, esc(a.meta), PAD, ay + 52, "t-meta");
+          a.dates.forEach((d, i) => {
+            const y = ay + 86 + i * DATE_H;
+            put(libArtists, esc(d.date), PAD, y, "t-date");
+            put(libArtists, esc(d.title), PAD + 110, y, "t-ev" + (d.dizko ? " link" : ""), `max-width:${PANEL_W - PAD * 2 - 110}px`);
+            put(libArtists, esc(d.where), PAD + 110, y + 21, "t-where", `max-width:${PANEL_W - PAD * 2 - 110}px`);
+          });
+          put(libArtists, `${a.more} more dates ${chev("#9b9b96")}`, PAD, ay + 86 + a.dates.length * DATE_H + 4, "t-more");
+          ay += 86 + a.dates.length * DATE_H + 44;
+          hr(libArtists, ay, true);
+        });
+
+        // ---------- timeline ----------
+        const tl = gsap.timeline({ paused: true });
+        const cam = $("#cam");
+        const S = 1.75;
+        const VIS = 1080 / S;
+        const camX = PANEL_X + PANEL_W - 910 / S; // panel's right edge at frame x 1870
+        const view = (cx, cy, s) => ({ x: 960 - cx * s, y: 540 - cy * s, scale: s });
+        const fromTop = (worldTop) => view(camX, worldTop + VIS / 2, S);
+        const fromBottom = (worldBottom) => view(camX, worldBottom - VIS / 2, S);
+        const W = (contentY) => BODY_Y + contentY; // panel content y -> world y
+        const BELOW0 = yMore + 32;
+        const row2End = (expanded, folded, grown) => W(BELOW0 + (expanded ? EXPAND : 0) + 56 + (folded ? 0 : PROG_H) + 126 + rows.length * ROW_H + (grown ? GROW : 0));
+        const V = {
+          wide: view(960, 540, 1.0),
+          open: view(1010, 530, 1.05),
+          listen: fromBottom(row2End(false, false, false)),
+          top: fromTop(TOP),
+          rows: fromBottom(BROWSER.y + BROWSER.h),
+          head: view(PANEL_X + 100, TOP + 46 + 26, 4.2),
+        };
+        gsap.set(cam, V.wide);
+        const move = (to, at, d = 0.75, ease = "power2.inOut") => tl.to(cam, { ...to, duration: d, ease }, at);
+
+        const cur = $("#cursor");
+        gsap.set(cur, { x: 1100, y: 820, transformOrigin: "2px 2px" });
+        const click = (at) => tl.to(cur, { scale: 0.85, duration: 0.07, ease: "power2.in" }, at).to(cur, { scale: 1, duration: 0.12, ease: "power2.out" }, at + 0.07);
+        const goto = (x, y, at, d = 0.75) => tl.to(cur, { x: x - 2, y: y - 2, duration: d, ease: "power3.out" }, at);
+        const press = (el, at) => tl.to(el, { scale: 0.96, duration: 0.07, ease: "power2.in" }, at).to(el, { scale: 1, duration: 0.14, ease: "power2.out" }, at + 0.07);
+
+        // 1: the mix page; open Dizko ID from its in-page button
+        gsap.set("#side", { x: 540 });
+        move(V.open, 0.2, 2.0, "power1.inOut");
+        const PB = { x: BROWSER.x + (B.x + B.w / 2) * PAGE_SCALE, y: TOP + (B.y + B.h / 2) * PAGE_SCALE };
+        tl.to(cur, { opacity: 1, duration: 0.15 }, T.cursorToButton);
+        goto(PB.x, PB.y, T.cursorToButton, 0.9);
+        click(T.openPanel);
+        press("#pbtn", T.openPanel);
+        tl.to("#side", { x: 0, duration: 0.5, ease: "expo.out" }, T.openPanel + 0.1);
+        tl.to(cur, { opacity: 0, duration: 0.2 }, T.toPanel);
+        move(V.listen, T.toPanel, 0.8);
+        tl.to("#page", { opacity: 0.55, duration: 0.6 }, T.toPanel);
+
+        // 2: listening fills (sped up); rows land; counts climb
+        const counts = (p) => ({ n: Math.max(1, Math.round((p / 100) * C.ticked)), m: Math.max(2, Math.round((p / 100) * C.total)) });
+        const setCounts = (p, at) => {
+          const { n, m } = counts(p);
+          tl.set(tickTxt, { textContent: `${n} of ${m} ticked` }, at);
+          tl.set("#bl-a", { textContent: `Add ${n} to Beatport` }, at);
+          tl.set("#br-a", { textContent: `Add ${n} to Bandcamp` }, at);
+        };
+        const P0 = C.tracks[0].atPercent;
+        gsap.set("#barfill", { scaleX: P0 / 100 });
+        pct.textContent = `${P0}%`;
+        setCounts(P0, 0);
+        rows.forEach((r, i) => { if (i > 0) gsap.set(r.g, { opacity: 0 }); });
+        const LS = T.listenStart, LE = T.listenEnd;
+        tl.to("#barfill", { scaleX: 1, duration: LE - LS, ease: "none" }, LS);
+        for (let p = P0 + 2; p <= 100; p += 2) {
+          const at = LS + ((p - P0) / (100 - P0)) * (LE - LS);
+          tl.set(pct, { textContent: `${p}%` }, at);
+          if (p % 6 === 0 || p === 100) setCounts(p, at);
+        }
+        rows.forEach((r, i) => {
+          if (i === 0) return;
+          const at = LS + ((r.t.atPercent - P0) / (100 - P0)) * (LE - LS);
+          tl.fromTo(r.g, { opacity: 0 }, { opacity: 1, duration: 0.3, immediateRender: false }, at);
+        });
+        // listening ends: the block folds away
+        tl.to(prog, { opacity: 0, duration: 0.25 }, LE + 0.2);
+        tl.to(lower, { y: -PROG_H, duration: 0.5, ease: "power3.inOut" }, LE + 0.3);
+
+        // 3: the artist's appearances
+        move(V.top, T.toDates, 0.8);
+        const MORE = { x: PANEL_X + PAD + 46, y: W(yMore) + 9 };
+        tl.set(cur, { x: MORE.x + 160, y: MORE.y + 160 }, T.toDates + 0.4);
+        tl.to(cur, { opacity: 1, duration: 0.15 }, T.toDates + 0.45);
+        goto(MORE.x, MORE.y, T.toDates + 0.45, 0.8);
+        click(T.moreDates);
+        tl.to(more, { opacity: 0, duration: 0.12 }, T.moreDates + 0.05);
+        tl.to(below, { y: EXPAND, duration: 0.45, ease: "power3.out" }, T.moreDates + 0.05);
+        gsap.set(extraDates, { opacity: 0 });
+        tl.to(extraDates, { opacity: 1, duration: 0.3, stagger: 0.04 }, T.moreDates + 0.2);
+        tl.to(cur, { x: "+=150", y: "+=60", duration: 0.6, ease: "power2.out" }, T.moreDates + 0.4);
+
+        // 4: preview a match
+        move(V.rows, T.toRows, 0.8);
+        const prev = rows[C.previewTrack];
+        const rowTop = (r, grown) => W(BELOW0 + EXPAND + 56 + r.top) + (grown && r !== rows[0] ? GROW : 0);
+        const PLAY = { x: PANEL_X + PAD + 38 + 14, y: rowTop(prev, false) + 38 + 14 };
+        goto(PLAY.x, PLAY.y, T.preview - 0.85, 0.8);
+        click(T.preview);
+        tl.set(prev.el.querySelector(".tri"), { opacity: 0 }, T.preview + 0.05);
+        tl.set(prev.el.querySelectorAll(".ps"), { opacity: 1 }, T.preview + 0.05);
+        tl.to(cur, { x: "+=260", y: "-=16", duration: 0.6, ease: "power2.out" }, T.preview + 0.35);
+
+        // 5: add to Beatport, then the rest to Bandcamp
+        const btnY = W(BELOW0 + EXPAND + 56 + BTN_Y) + BTN_H / 2;
+        const LBTN = { x: PANEL_X + PAD + BTN_W / 2 + 20, y: btnY };
+        const RBTN = { x: PANEL_X + PAD + BTN_W + 10 + BTN_W / 2 + 20, y: btnY };
+        goto(LBTN.x, LBTN.y, T.addBeatport - 0.9, 0.85);
+        click(T.addBeatport);
+        press(btnL, T.addBeatport);
+        const AB = T.addBeatport + 0.2;
+        tl.set("#bl-b", { textContent: "Open Beatport cart" }, 0);
+        tl.set("#br-b", { textContent: `Add ${C.bandcampAfter} to Bandcamp` }, 0);
+        tl.to(["#bl-a", "#br-a"], { opacity: 0, duration: 0.2 }, AB);
+        tl.to(["#bl-b", "#br-b"], { opacity: 1, duration: 0.2 }, AB);
+        rows.forEach((r, i) => {
+          tl.to(r.el.querySelector(".r-st"), { opacity: 1, duration: 0.25 }, AB + 0.1 + i * 0.12);
+          if (r.t.afterBeatport.available) {
+            tl.to(r.el.querySelector(".avail"), { opacity: 1, duration: 0.25 }, AB + 0.25);
+            tl.to(r.el.querySelector(".links"), { opacity: 0, duration: 0.15 }, AB + 0.1);
+            tl.to(r.el.querySelector(".links.after"), { opacity: 1, duration: 0.25 }, AB + 0.3);
+            tl.to(r.g.querySelector(".hr"), { y: GROW, duration: 0.4, ease: "power3.out" }, AB + 0.1);
+            rows.slice(i + 1).forEach((n) => tl.to(n.g, { y: GROW, duration: 0.4, ease: "power3.out" }, AB + 0.1));
+          }
+        });
+        goto(RBTN.x, RBTN.y, T.addBandcamp - 0.85, 0.8);
+        click(T.addBandcamp);
+        press(btnR, T.addBandcamp);
+        rows.filter((r) => r.t.bandcampHighlight).forEach((r) => {
+          tl.to(r.el.querySelector(".hl"), { opacity: 1, duration: 0.2 }, T.addBandcamp + 0.25);
+          tl.to(r.el.querySelector(".tx.dark"), { opacity: 1, duration: 0.2 }, T.addBandcamp + 0.25);
+        });
+
+        // 6: the library
+        move(V.top, T.toLibrary, 0.8);
+        const LIBP = { x: PANEL_X + PAD + 40, y: W(18) + 10 };
+        goto(LIBP.x, LIBP.y, T.toLibrary + 0.1, 0.8);
+        click(T.libraryClick);
+        tl.to("#pc", { opacity: 0, duration: 0.15 }, T.libraryClick + 0.05);
+        tl.to("#lib", { opacity: 1, duration: 0.2 }, T.libraryClick + 0.15);
+        tl.to(cur, { opacity: 0, duration: 0.3 }, T.libraryClick + 0.5);
+        // the Artists tab: every DJ in the library, with their next dates
+        const ART = { x: PANEL_X + TAB_X[0] + 34, y: W(18) + 11 };
+        tl.set(cur, { x: ART.x + 200, y: ART.y + 240 }, T.artistsTab - 0.95);
+        tl.to(cur, { opacity: 1, duration: 0.15 }, T.artistsTab - 0.9);
+        goto(ART.x, ART.y, T.artistsTab - 0.9, 0.8);
+        click(T.artistsTab);
+        tl.to(tabs[2], { color: "#9b9b96", duration: 0.15 }, T.artistsTab + 0.05);
+        tl.to(tabs[0], { color: "#f2f2ef", duration: 0.15 }, T.artistsTab + 0.05);
+        tl.to(".uline", { opacity: (i) => (i === 0 ? 1 : 0), duration: 0.15 }, T.artistsTab + 0.05);
+        tl.to(libTracks, { opacity: 0, duration: 0.15 }, T.artistsTab + 0.05);
+        tl.to(libArtists, { opacity: 1, duration: 0.2 }, T.artistsTab + 0.15);
+        tl.to(cur, { opacity: 0, duration: 0.3 }, T.artistsTab + 0.5);
+
+        // ---------- captions ----------
+        C.captions.forEach((c) => {
+          const e = document.createElement("div");
+          e.className = "cap" + (c.place === "side" ? " side" : "");
+          e.innerHTML = c.text.split("\n").map((line) => line.split(" ").map((w) => `<span class="w${w === c.accent ? " acc" : ""}">${esc(w)}</span>`).join(" ")).join("<br>");
+          $("#caps").appendChild(e);
+          tl.set(e, { opacity: 1 }, c.at);
+          tl.fromTo(e.querySelectorAll(".w"), { opacity: 0, filter: "blur(6px)" }, { opacity: 1, filter: "blur(0px)", duration: 0.14, stagger: 0.067, ease: "power2.out", immediateRender: false }, c.at);
+          tl.to(e, { opacity: 0, filter: "blur(6px)", duration: 0.2, ease: "power2.in" }, c.until - 0.2);
+        });
+        $("#disc").textContent = C.disclaimer;
+
+        // ---------- end card: push into the panel's own lockup ----------
+        const E = C.end;
+        $("#cta").textContent = E.cta;
+        $("#enddisc").textContent = C.disclaimer;
+        tl.to(cur, { opacity: 0, duration: 0.2 }, E.at - 0.7);
+        move(V.head, E.at - 0.7, 0.75, "power3.in");
+        tl.to("#disc", { opacity: 0, duration: 0.2 }, E.at - 0.4);
+        tl.to("#endcard", { opacity: 1, duration: 0.3, ease: "power2.out" }, E.at);
+        tl.fromTo("#lockup", { scale: 1.12 }, { scale: 1, duration: 0.6, ease: "expo.out", immediateRender: false }, E.at);
+        tl.to("#cta", { opacity: 1, duration: 0.3 }, E.at + 0.7);
+        tl.to("#enddisc", { opacity: 1, duration: 0.3 }, E.at + 0.85);
+        tl.set({}, {}, E.at + E.hold);
+
+        window.__timelines = window.__timelines || {};
+        window.__timelines["main"] = tl;
+      })();
+    </script>
+  </body>
+</html>
