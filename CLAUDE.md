@@ -59,7 +59,7 @@ SoundCloud only (2026-10-21, owner's call). YouTube and Mixcloud listening works
 
 ## Open work
 
-Submitted 2026-10-22: v0.1.0 is in Chrome Web Store review under the Dizko Labs publisher (zak@dizko.app), item id `cgbljjfheappcaekegpegkdfhapabgii`, with the store icon, promo tile and five screenshots from `store-assets/`. Privacy policy live (EventChat #849 merged and deployed). Updates: bump `version` in `extension/package.json`, `npm run zip`, upload on the Package tab; each version is reviewed again. Pin `manifest.key` from the dashboard's Package tab before turning Link to Dizko on.
+Submitted 2026-10-22: v0.1.0 is in Chrome Web Store review under the Dizko Labs publisher (zak@dizko.app), item id `cgbljjfheappcaekegpegkdfhapabgii`, with the store icon, promo tile and five screenshots from `store-assets/`. Privacy policy live (EventChat #849 merged and deployed). v0.1.1 (2026-10-27, the turning listening label) zipped for upload by the owner. Updates: bump `version` in `extension/package.json`, `npm run zip`, upload on the Package tab; each version is reviewed again. Pin `manifest.key` from the dashboard's Package tab before turning Link to Dizko on.
 
 Status 2026-10-21 (end of session): v0.1.0, SoundCloud only, being packaged for the Chrome Web Store. Checklist: `CHROME_WEB_STORE.md`; paste-ready listing and privacy-tab answers: `STORE_LISTING.md`; zip: `cd extension && npm run zip` (`.output/dizko-id-0.1.0-chrome.zip`, 827 KB).
 
